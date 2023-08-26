@@ -1,14 +1,12 @@
 KestrelSettings:
-  Port:
-    - 5000
-  UnixSocketPath:
-    - "/tmp/danmu.sock"
+  Host: 127.0.0.1
+  Port: 5000
+  UnixSocketPath: "/tmp/danmu.sock"
 WithOrigins:
   - "*"
 LiveWithOrigins:
   - http://localhost
   - http://localhost:4000
-  - https://doc.video.xwhite.studio
 AdminWithOrigins:
   - http://localhost:5000
 DanmuSql:
@@ -20,7 +18,7 @@ DanmuSql:
   DataBase: danmaku
   PoolSize: 16
 Admin:
-  User: MonoLogueChi
+  User: tamers
   Password: "000000"
   MaxAge: 60
 BiliBiliSetting:
