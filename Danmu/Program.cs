@@ -52,9 +52,20 @@ namespace Danmu
 #endif
                                 if (ks.Port != 0)
                                 {
-                                    var host = string.IsNullOrEmpty(ks.Host) ? IPAddress.Any.ToString() : ks.Host;
-                                    var port = ks.Port;
-                                    options.Listen(host, port);
+                                    IPAddress host;
+                                    if (string.IsNullOrEmpty(ks.Host) || ks.Host == "0.0.0.0")
+                                    {
+                                        host = IPAddress.Any;
+                                    }
+                                    else
+                                    {
+                                        if (!IPAddress.TryParse(ks.Host, out host))
+                                        {
+                                            Console.WriteLine("Invalid host IP address: " + ks.Host);
+                                            return;
+                                        }
+                                    }
+                                    options.Listen(host, ks.Port);
                                 }
                             }).UseStartup<Startup>();
                         });
