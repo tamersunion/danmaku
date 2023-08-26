@@ -2,14 +2,14 @@
 import Layout from '@/layout'
 
 const router = {
-    path: '/danmaku',
+    path: '/danmu',
     component: Layout,
     meta: { title: '弹幕管理', auth: ['SuperAdmin', 'Admin'] },
     children: [
         {
             path: 'index',
-            name: 'danmakuList',
-            component: () => import('@/views/danmaku'),
+            name: 'danmuList',
+            component: () => import('@/views/danmu'),
             meta: { title: '弹幕列表', icon: 'list' }
         }
     ]

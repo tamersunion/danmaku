@@ -1,34 +1,34 @@
 using System.Threading.Tasks;
-using Danmaku.Controllers.Base;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.WebResult;
-using Danmaku.Utils.Dao;
+using Danmu.Controllers.Base;
+using Danmu.Model.DataTable;
+using Danmu.Model.WebResult;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmaku.Controllers.Admin
+namespace Danmu.Controllers.Admin
 {
-    [Route("/api/admin/danmakulist")]
-    public class DanmakuListController : AdminBaseController
+    [Route("/api/admin/danmulist")]
+    public class DanmuListController : AdminBaseController
     {
-        public DanmakuListController(DanmakuDao danmakuDao, VideoDao videoDao) : base(danmakuDao, videoDao) { }
+        public DanmuListController(DanmuDao danmuDao, VideoDao videoDao) : base(danmuDao, videoDao) { }
 
         /// <summary>
         ///     获取弹幕
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        public async Task<DanmakuListWebResult<DanmakuTable>> GetDanmakuList(string vid = null, int page = 1, int size = 30,
+        public async Task<DanmuListWebResult<DanmuTable>> GetDanmuList(string vid = null, int page = 1, int size = 30,
                                                                        bool descending = true)
         {
             var total = string.IsNullOrEmpty(vid)
-                    ? DanmakuDao.GetAllDanmakuAsync()
-                    : DanmakuDao.GetDanmakuByVidAsync(vid);
+                    ? DanmuDao.GetAllDanmuAsync()
+                    : DanmuDao.GetDanmuByVidAsync(vid);
 
-            var danmaku = string.IsNullOrEmpty(vid)
-                    ? DanmakuDao.GetAllDanmakuAsync(page, size, descending)
-                    : DanmakuDao.GetDanmakuByVidAsync(vid, page, size, descending);
+            var danmu = string.IsNullOrEmpty(vid)
+                    ? DanmuDao.GetAllDanmuAsync(page, size, descending)
+                    : DanmuDao.GetDanmuByVidAsync(vid, page, size, descending);
 
-            return new DanmakuListWebResult<DanmakuTable>(await total, await danmaku);
+            return new DanmuListWebResult<DanmuTable>(await total, await danmu);
         }
 
         /// <summary>
@@ -52,12 +52,12 @@ namespace Danmaku.Controllers.Admin
         /// <param name="descending"></param>
         /// <returns></returns>
         [HttpGet("date" + "select")]
-        public async Task<DanmakuListWebResult<DanmakuTable>> DateSelect(int page = 1, int size = 30,
+        public async Task<DanmuListWebResult<DanmuTable>> DateSelect(int page = 1, int size = 30,
                                                                      string startDate = null,
                                                                      string endDate = null, bool descending = true)
         {
-            var result = DanmakuDao.DateSelectAsync(page, size, startDate, endDate);
-            return new DanmakuListWebResult<DanmakuTable>(0)
+            var result = DanmuDao.DateSelectAsync(page, size, startDate, endDate);
+            return new DanmuListWebResult<DanmuTable>(0)
             {
                 Data = await result
             };
@@ -68,7 +68,7 @@ namespace Danmaku.Controllers.Admin
         /// </summary>
         /// <returns></returns>
         [HttpGet("base" + "select")]
-        public async Task<DanmakuListWebResult<DanmakuTable>> DanmakuBasesSelect(
+        public async Task<DanmuListWebResult<DanmuTable>> DanmuBasesSelect(
                 int page = 1, int size = 30, string vid = null,
                 string author = null, string authorId = null,
                 string startDate = null,
@@ -77,11 +77,11 @@ namespace Danmaku.Controllers.Admin
                 bool descending = true)
         {
             var iAuthorId = int.TryParse(authorId, out var uid) ? uid : -1;
-            var result = DanmakuDao.DanmakuBasesSelectAsync(page, size, vid, author, iAuthorId, startDate, endDate,
+            var result = DanmuDao.DanmuBasesSelectAsync(page, size, vid, author, iAuthorId, startDate, endDate,
                     mode,
                     ip,
                     key, descending);
-            return new DanmakuListWebResult<DanmakuTable>(0)
+            return new DanmuListWebResult<DanmuTable>(0)
             {
                 Data = await result
             };

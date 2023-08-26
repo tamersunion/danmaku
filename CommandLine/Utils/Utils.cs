@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Medallion.Shell;
 using Octokit;
 
-namespace Danmaku.CommandLine.Utils
+namespace Danmu.CommandLine.Utils
 {
     public static class Utils
     {

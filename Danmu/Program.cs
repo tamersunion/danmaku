@@ -1,8 +1,8 @@
 using System;
 using System.Net;
-using Danmaku.Model.Config;
-using Danmaku.Model.DbContext;
-using Danmaku.Utils.Dao;
+using Danmu.Model.Config;
+using Danmu.Model.DbContext;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using System.IO;
 #endif
 
-namespace Danmaku
+namespace Danmu
 {
     public class Program
     {
@@ -66,7 +66,7 @@ namespace Danmaku
             var services = scope.ServiceProvider;
             try
             {
-                var context = services.GetRequiredService<DanmakuContext>();
+                var context = services.GetRequiredService<DanmuContext>();
                 DbInitializer.Initialize(context, _appSettings);
             }
             catch (Exception ex)

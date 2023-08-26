@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 using Medallion.Shell;
 using ShellProgressBar;
 using static System.Console;
-using static Danmaku.CommandLine.Utils.GlobalConstant;
-using static Danmaku.CommandLine.Utils.Utils;
+using static Danmu.CommandLine.Utils.GlobalConstant;
+using static Danmu.CommandLine.Utils.Utils;
 
-namespace Danmaku.CommandLine.Utils
+namespace Danmu.CommandLine.Utils
 {
     public static class Menu
     {

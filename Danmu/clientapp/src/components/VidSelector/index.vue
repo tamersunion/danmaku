@@ -6,7 +6,7 @@
 
 <script>
     import { mapState } from 'vuex'
-    import { getAllVids } from '@/api/admin/danmaku'
+    import { getAllVids } from '@/api/admin/danmu'
 
     export default {
         name: 'index',

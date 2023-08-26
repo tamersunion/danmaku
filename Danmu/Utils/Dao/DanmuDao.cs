@@ -1,17 +1,17 @@
 using System.Linq;
 using System.Threading.Tasks;
-using Danmaku.Model.Danmaku.DanmakuData;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.DbContext;
+using Danmu.Model.Danmu.DanmuData;
+using Danmu.Model.DataTable;
+using Danmu.Model.DbContext;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmaku.Utils.Dao
+namespace Danmu.Utils.Dao
 {
-    public partial class DanmakuDao
+    public partial class DanmuDao
     {
-        private readonly DanmakuContext _con;
+        private readonly DanmuContext _con;
 
-        public DanmakuDao(DanmakuContext con)
+        public DanmuDao(DanmuContext con)
         {
             _con = con;
         }
@@ -21,19 +21,19 @@ namespace Danmaku.Utils.Dao
         /// </summary>
         /// <param name="vid">视频vid</param>
         /// <returns>通用弹幕列表</returns>
-        public async Task<BaseDanmakuData[]> QueryDanmakusByVidAsync(string vid)
+        public async Task<BaseDanmuData[]> QueryDanmusByVidAsync(string vid)
         {
-            return await _con.Danmaku.AsNoTracking().Where(e => e.Vid.Equals(vid) && !e.IsDelete).Select(s => s.Data).ToArrayAsync();
+            return await _con.Danmu.AsNoTracking().Where(e => e.Vid.Equals(vid) && !e.IsDelete).Select(s => s.Data).ToArrayAsync();
         }
 
         /// <summary>
         ///     插入弹幕
         /// </summary>
-        /// <param name="danmaku">弹幕信息</param>
+        /// <param name="danmu">弹幕信息</param>
         /// <returns>是否成功</returns>
-        public async Task<bool> InsertDanmakuAsync(DanmakuTable danmaku)
+        public async Task<bool> InsertDanmuAsync(DanmuTable danmu)
         {
-            await _con.Danmaku.AddAsync(danmaku);
+            await _con.Danmu.AddAsync(danmu);
             return await _con.SaveChangesAsync() > 0;
         }
     }

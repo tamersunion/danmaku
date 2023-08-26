@@ -1,16 +1,16 @@
-using Danmaku.Model.Config;
-using Danmaku.Utils.Configuration;
+using Danmu.Model.Config;
+using Danmu.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmaku.Model.DbContext
+namespace Danmu.Model.DbContext
 {
     public class BaseContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        private protected readonly DanmakuSql Sql;
+        private protected readonly DanmuSql Sql;
 
         public BaseContext(DbContextOptions options) : base(options)
         {
-            Sql = AppConfiguration.AppSettings.DanmakuSql;
+            Sql = AppConfiguration.AppSettings.DanmuSql;
         }
     }
 }

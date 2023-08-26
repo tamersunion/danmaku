@@ -341,4 +341,4 @@ ASALocalRun/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-/Danmaku/appsettings.Development.json
+/Danmu/appsettings.Development.json

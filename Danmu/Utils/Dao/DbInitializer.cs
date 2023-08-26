@@ -1,15 +1,15 @@
 using System.Linq;
-using Danmaku.Model.Config;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.DbContext;
-using Danmaku.Utils.Common;
+using Danmu.Model.Config;
+using Danmu.Model.DataTable;
+using Danmu.Model.DbContext;
+using Danmu.Utils.Common;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmaku.Utils.Dao
+namespace Danmu.Utils.Dao
 {
     public class DbInitializer
     {
-        public static void Initialize(DanmakuContext context, AppSettings appSettings)
+        public static void Initialize(DanmuContext context, AppSettings appSettings)
         {
             context.Database.EnsureCreated();
 

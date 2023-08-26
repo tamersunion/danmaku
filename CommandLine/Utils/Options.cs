@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using CommandLine;
 
-namespace Danmaku.CommandLine.Utils
+namespace Danmu.CommandLine.Utils
 {
     public class Options
     {

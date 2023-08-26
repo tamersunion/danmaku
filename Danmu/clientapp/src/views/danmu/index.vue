@@ -28,7 +28,7 @@
             </search-form-item>
             <search-form-item label="弹幕类型：">
                 <el-select v-model="searchForm.mode" clearable @clear="searchForm.mode=null">
-                    <el-option v-for="{value,label} in danmakuModes" :key="value" :value="value" :label="label"/>
+                    <el-option v-for="{value,label} in danmuModes" :key="value" :value="value" :label="label"/>
                 </el-select>
             </search-form-item>
             <search-form-item label="ip：">
@@ -62,7 +62,7 @@
                     <el-form slot-scope="{row}" label-position="right" label-width="85px" size="small">
                         <el-row>
                             <el-col
-                                    v-for="{label,value} in formatDanmakuData(row.data)"
+                                    v-for="{label,value} in formatDanmuData(row.data)"
                                     :key="label"
                                     :sm="12"
                                     :lg="8"
@@ -110,11 +110,11 @@
     import { getLocalTime } from '@/utils/date'
     import { elConfirm, elError, elSuccess } from '@/utils/message'
     import tableMixin from '@/mixins/tablePageMixin'
-    import { danmakuModes, danmakuDataDefine } from './constant'
-    import { search, del } from '@/api/admin/danmaku'
+    import { danmuModes, danmuDataDefine } from './constant'
+    import { search, del } from '@/api/admin/danmu'
 
     export default {
-        name: 'danmakuList',
+        name: 'danmuList',
         mixins: [tableMixin],
         components: { SearchForm, SearchFormItem, VidSelector, EditDialog },
         data() {
@@ -130,17 +130,17 @@
                     key: null,
                     descending: true
                 },
-                danmakuModes,
+                danmuModes,
                 editDialog: false
             }
         },
         methods: {
             getLocalTime,
-            formatDanmakuData(data) {
+            formatDanmuData(data) {
                 const res = []
                 for (const key of Object.keys(data)) {
                     if (['text'].includes(key)) continue
-                    res.push({ label: danmakuDataDefine[key], value: data[key] })
+                    res.push({ label: danmuDataDefine[key], value: data[key] })
                 }
                 return res
             },

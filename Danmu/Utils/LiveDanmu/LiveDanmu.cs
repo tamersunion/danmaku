@@ -1,9 +1,9 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 
-namespace Danmaku.Utils.LiveDanmaku
+namespace Danmu.Utils.LiveDanmu
 {
-    public class LiveDanmaku : Hub
+    public class LiveDanmu : Hub
     {
         public async Task Connection(string group)
         {

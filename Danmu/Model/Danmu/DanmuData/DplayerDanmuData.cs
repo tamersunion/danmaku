@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 
-namespace Danmaku.Model.Danmaku.DanmakuData
+namespace Danmu.Model.Danmu.DanmuData
 {
-    public class DplayerDanmakuData : IDanmakuData
+    public class DplayerDanmuData : IDanmuData
     {
         /// <summary>
         ///     弹幕时间
@@ -30,10 +30,10 @@ namespace Danmaku.Model.Danmaku.DanmakuData
         /// </summary>
         public string Text { get; set; }
 
-        public BaseDanmakuData ToBaseDanmakuData()
+        public BaseDanmuData ToBaseDanmuData()
         {
             var isId = int.TryParse(Author, out var authorId);
-            return new BaseDanmakuData
+            return new BaseDanmuData
             {
                 Time = Time,
                 Mode = Type == 1 ? 5 : Type == 2 ? 4 : 1,
@@ -44,7 +44,7 @@ namespace Danmaku.Model.Danmaku.DanmakuData
             };
         }
 
-        public static explicit operator DplayerDanmakuData(BaseDanmakuData data)
+        public static explicit operator DplayerDanmuData(BaseDanmuData data)
         {
             var t = data.Mode;
             switch (t)
@@ -68,7 +68,7 @@ namespace Danmaku.Model.Danmaku.DanmakuData
                     break;
             }
 
-            return new DplayerDanmakuData
+            return new DplayerDanmuData
             {
                 Time = data.Time,
                 Type = t,
@@ -79,7 +79,7 @@ namespace Danmaku.Model.Danmaku.DanmakuData
         }
     }
 
-    public class DplayerDanmakuDataIn : DplayerDanmakuData
+    public class DplayerDanmuDataIn : DplayerDanmuData
     {
         /// <summary>
         ///     视频的id

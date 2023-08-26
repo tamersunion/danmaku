@@ -3,7 +3,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Danmaku.Model.Converter
+namespace Danmu.Model.Converter
 {
     // ReSharper disable once InconsistentNaming
     public class IPAddressConverter : JsonConverter<IPAddress>

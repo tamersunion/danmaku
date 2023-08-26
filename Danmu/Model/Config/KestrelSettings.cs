@@ -1,4 +1,4 @@
-namespace Danmaku.Model.Config
+namespace Danmu.Model.Config
 {
     public class KestrelSettings
     {

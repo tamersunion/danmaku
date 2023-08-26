@@ -1,10 +1,10 @@
 using System.Threading.Tasks;
-using Danmaku.Controllers.Base;
-using Danmaku.Model.WebResult;
-using Danmaku.Utils.BiliBili;
+using Danmu.Controllers.Base;
+using Danmu.Model.WebResult;
+using Danmu.Utils.BiliBili;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmaku.Controllers.Other
+namespace Danmu.Controllers.Other
 {
     [Route("/api/other/bilibili")]
     [ApiController]

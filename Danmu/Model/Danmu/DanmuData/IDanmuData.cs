@@ -1,7 +1,7 @@
-namespace Danmaku.Model.Danmaku.DanmakuData
+namespace Danmu.Model.Danmu.DanmuData
 {
-    public interface IDanmakuData
+    public interface IDanmuData
     {
-        public BaseDanmakuData ToBaseDanmakuData();
+        public BaseDanmuData ToBaseDanmuData();
     }
 }

@@ -1,14 +1,14 @@
 using System.Text.Json;
 using System.Threading.Tasks;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.WebResult;
-using Danmaku.Utils.Dao;
+using Danmu.Model.DataTable;
+using Danmu.Model.WebResult;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
-using static Danmaku.Utils.Global.VariableDictionary;
+using static Danmu.Utils.Global.VariableDictionary;
 
-namespace Danmaku.Controllers.Admin
+namespace Danmu.Controllers.Admin
 {
     [ApiController]
     [EnableCors(AdminAllowSpecificOrigins)]

@@ -1,10 +1,10 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Danmaku.Utils.Common;
-using static Danmaku.Utils.Global.VariableDictionary;
+using Danmu.Utils.Common;
+using static Danmu.Utils.Global.VariableDictionary;
 
-namespace Danmaku.Utils.BiliBili
+namespace Danmu.Utils.BiliBili
 {
     public partial class BiliBiliHelp
     {
@@ -31,10 +31,10 @@ namespace Danmaku.Utils.BiliBili
         /// <param name="url">url</param>
         /// <param name="useCookie"></param>
         /// <returns></returns>
-        private async Task<byte[]> GetDanmakuRawAsync(string url, bool useCookie = false)
+        private async Task<byte[]> GetDanmuRawAsync(string url, bool useCookie = false)
         {
             var key = Md5.GetMd5(url);
-            return await _cache.GetOrCreateHttpCacheAsync(key, TimeSpan.FromMinutes(_setting.DanmakuCacheTime), async () =>
+            return await _cache.GetOrCreateHttpCacheAsync(key, TimeSpan.FromMinutes(_setting.DanmuCacheTime), async () =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
                 if (useCookie && !string.IsNullOrEmpty(_setting.Cookie))
