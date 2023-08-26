@@ -1,7 +1,7 @@
 KestrelSettings:
   Host: 127.0.0.1
   Port: 5000
-  UnixSocketPath: "/tmp/danmu.sock"
+  UnixSocketPath: "/tmp/danmaku.sock"
 WithOrigins:
   - "*"
 LiveWithOrigins:
@@ -9,7 +9,7 @@ LiveWithOrigins:
   - http://localhost:4000
 AdminWithOrigins:
   - http://localhost:5000
-DanmuSql:
+DanmakuSql:
   Sql: 0
   Host: 127.0.0.1
   Port: 0
@@ -24,4 +24,4 @@ Admin:
 BiliBiliSetting:
   Cookie: ""
   CidCacheTime: 168
-  DanmuCacheTime: 12
+  DanmakuCacheTime: 12

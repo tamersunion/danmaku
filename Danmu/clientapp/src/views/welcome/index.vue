@@ -50,7 +50,7 @@
                 )
             })
             intro.unshift(
-                <h2 class="section-title">“ Danmu.Server，一个开源的弹幕服务器 ”</h2>
+                <h2 class="section-title">“ Danmaku.Server，一个开源的弹幕服务器 ”</h2>
             )
             return (
                 <div class="welcome-wrapper">

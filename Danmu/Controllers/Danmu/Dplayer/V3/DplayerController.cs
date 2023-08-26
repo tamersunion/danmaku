@@ -2,19 +2,19 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Danmu.Controllers.Base;
-using Danmu.Model.Danmu.DanmuData;
-using Danmu.Model.DataTable;
-using Danmu.Model.WebResult;
-using Danmu.Utils.Dao;
+using Danmaku.Controllers.Base;
+using Danmaku.Model.Danmaku.DanmakuData;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.WebResult;
+using Danmaku.Utils.Dao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmu.Controllers.Danmu.Dplayer.V3
+namespace Danmaku.Controllers.Danmaku.Dplayer.V3
 {
-    [Route("/api/danmu/dplayer/v3")]
-    public class DplayerController : DanmuBaseController
+    [Route("/api/danmaku/dplayer/v3")]
+    public class DplayerController : DanmakuBaseController
     {
-        public DplayerController(DanmuDao danmuDao, VideoDao videoDao) : base(danmuDao, videoDao) { }
+        public DplayerController(DanmakuDao danmakuDao, VideoDao videoDao) : base(danmakuDao, videoDao) { }
 
         // GET: api/dplayer/v3/
         [HttpGet]
@@ -23,11 +23,11 @@ namespace Danmu.Controllers.Danmu.Dplayer.V3
             id ??= Request.Query["id"];
             return string.IsNullOrEmpty(id)
                     ? new DplayerWebResult(1)
-                    : new DplayerWebResult(await DanmuDao.QueryDanmusByVidAsync(id));
+                    : new DplayerWebResult(await DanmakuDao.QueryDanmakusByVidAsync(id));
         }
 
         [HttpPost]
-        public async Task<WebResult> Post([FromBody] DplayerDanmuDataIn data)
+        public async Task<WebResult> Post([FromBody] DplayerDanmakuDataIn data)
         {
             if (string.IsNullOrWhiteSpace(data.Id) || string.IsNullOrWhiteSpace(data.Text))
                 return new WebResult(1);
@@ -37,14 +37,14 @@ namespace Danmu.Controllers.Danmu.Dplayer.V3
             data.Referer ??= Request.Headers["Referer"].FirstOrDefault();
 
             var video = await VideoDao.InsertAsync(data.Id, new Uri(data.Referer));
-            var danmu = new DanmuTable
+            var danmaku = new DanmakuTable
             {
                 Vid = data.Id,
-                Data = data.ToBaseDanmuData(),
+                Data = data.ToBaseDanmakuData(),
                 Ip = data.Ip,
                 Video = video
             };
-            var result = await DanmuDao.InsertDanmuAsync(danmu);
+            var result = await DanmakuDao.InsertDanmakuAsync(danmaku);
             return new WebResult(result ? 0 : 1);
         }
     }

@@ -1,14 +1,14 @@
 using System;
 using System.Net;
 using System.Net.Http;
-using Danmu.Model.Converter;
-using Danmu.Model.DataTable;
-using Danmu.Model.DbContext;
-using Danmu.Utils;
-using Danmu.Utils.BiliBili;
-using Danmu.Utils.Configuration;
-using Danmu.Utils.Dao;
-using Danmu.Utils.LiveDanmu;
+using Danmaku.Model.Converter;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.DbContext;
+using Danmaku.Utils;
+using Danmaku.Utils.BiliBili;
+using Danmaku.Utils.Configuration;
+using Danmaku.Utils.Dao;
+using Danmaku.Utils.LiveDanmaku;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
@@ -17,13 +17,13 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using static Danmu.Utils.Global.VariableDictionary;
+using static Danmaku.Utils.Global.VariableDictionary;
 #if DEBUG
 using VueCliMiddleware;
 
 #endif
 
-namespace Danmu
+namespace Danmaku
 {
     public class Startup
     {
@@ -51,8 +51,8 @@ namespace Danmu
 
             //数据库连接
             // ReSharper disable once ObjectCreationAsStatement
-            services.AddDbContextPool<DanmuContext>(option => new DbContextBuild(config, option),
-                    appSetting.DanmuSql.PoolSize);
+            services.AddDbContextPool<DanmakuContext>(option => new DbContextBuild(config, option),
+                    appSetting.DanmakuSql.PoolSize);
 
 
             //Http请求
@@ -74,7 +74,7 @@ namespace Danmu
             {
                 options.AddDefaultPolicy(builder => builder.WithMethods("GET", "POST", "OPTIONS"));
 
-                options.AddPolicy(DanmuAllowSpecificOrigins, builder =>
+                options.AddPolicy(DanmakuAllowSpecificOrigins, builder =>
                         builder.WithOrigins(appSetting.WithOrigins)
                                .SetIsOriginAllowedToAllowWildcardSubdomains().WithMethods("GET", "POST", "OPTIONS")
                                .AllowAnyHeader());
@@ -118,7 +118,7 @@ namespace Danmu
             services.AddSingleton(s => config);
 
             services.AddScoped<UserDao>();
-            services.AddScoped<DanmuDao>();
+            services.AddScoped<DanmakuDao>();
             services.AddScoped<VideoDao>();
             services.AddScoped<CacheDao>();
             services.AddScoped<BiliBiliHelp>();
@@ -145,7 +145,7 @@ namespace Danmu
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHub<LiveDanmu>("api/live/danmu").RequireCors(LiveAllowSpecificOrigins);
+                endpoints.MapHub<LiveDanmaku>("api/live/danmaku").RequireCors(LiveAllowSpecificOrigins);
             });
 
             app.UseSpa(spa =>

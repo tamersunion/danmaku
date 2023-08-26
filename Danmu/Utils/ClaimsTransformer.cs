@@ -4,7 +4,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 
-namespace Danmu.Utils
+namespace Danmaku.Utils
 {
     public class ClaimsTransformer : IClaimsTransformation
     {

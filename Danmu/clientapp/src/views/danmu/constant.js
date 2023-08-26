@@ -1,4 +1,4 @@
-const danmuModes = [
+const danmakuModes = [
     { value: 0, label: '' },
     { value: 1, label: '滚动弹幕' },
     { value: 2, label: '' },
@@ -11,7 +11,7 @@ const danmuModes = [
     { value: 9, label: '特殊弹幕' }
 ].filter(i => i.label)
 
-const danmuDataDefine = {
+const danmakuDataDefine = {
     time: '出现时间：',
     mode: '弹幕类型：',
     size: '大小：',
@@ -33,4 +33,4 @@ const predefineColors = [
     '#D500F9'
 ]
 
-export { danmuModes, danmuDataDefine, predefineColors }
+export { danmakuModes, danmakuDataDefine, predefineColors }

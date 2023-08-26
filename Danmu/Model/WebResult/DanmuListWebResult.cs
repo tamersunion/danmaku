@@ -1,13 +1,13 @@
-namespace Danmu.Model.WebResult
+namespace Danmaku.Model.WebResult
 {
-    public class DanmuListWebResult<T> : WebResult<DanmuList<T>>
+    public class DanmakuListWebResult<T> : WebResult<DanmakuList<T>>
     {
-        public DanmuListWebResult() { }
-        public DanmuListWebResult(int code) : base(code) { }
+        public DanmakuListWebResult() { }
+        public DanmakuListWebResult(int code) : base(code) { }
 
-        public DanmuListWebResult(int total, T[] list) : this(0)
+        public DanmakuListWebResult(int total, T[] list) : this(0)
         {
-            Data = new DanmuList<T>
+            Data = new DanmakuList<T>
             {
                 Total = total,
                 List = list
@@ -15,7 +15,7 @@ namespace Danmu.Model.WebResult
         }
     }
 
-    public class DanmuList<T>
+    public class DanmakuList<T>
     {
         public int Total { get; set; }
         public T[] List { get; set; }

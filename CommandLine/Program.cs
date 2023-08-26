@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using CommandLine;
-using Danmu.CommandLine.Utils;
+using Danmaku.CommandLine.Utils;
 
-namespace Danmu.CommandLine
+namespace Danmaku.CommandLine
 {
     internal class Program
     {

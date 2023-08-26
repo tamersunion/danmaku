@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Danmu.Model.Danmu.BiliBili
+namespace Danmaku.Model.Danmaku.BiliBili
 {
     public class BvidInfo
     {

@@ -1,9 +1,9 @@
 using System;
 using System.Net;
 
-namespace Danmu.Model.Danmu.DanmuData
+namespace Danmaku.Model.Danmaku.DanmakuData
 {
-    public class ArtPlayerDanmuData : IDanmuData
+    public class ArtPlayerDanmakuData : IDanmakuData
     {
         /// <summary>
         ///     弹幕文本
@@ -35,9 +35,9 @@ namespace Danmu.Model.Danmu.DanmuData
         /// </summary>
         public int Mode { get; set; }
 
-        public BaseDanmuData ToBaseDanmuData()
+        public BaseDanmakuData ToBaseDanmakuData()
         {
-            return new BaseDanmuData
+            return new BaseDanmakuData
             {
                 Time = Time,
                 Mode = Mode,
@@ -47,7 +47,7 @@ namespace Danmu.Model.Danmu.DanmuData
             };
         }
 
-        public static explicit operator ArtPlayerDanmuData(BaseDanmuData data)
+        public static explicit operator ArtPlayerDanmakuData(BaseDanmakuData data)
         {
             var t = data.Mode;
             switch (t)
@@ -71,7 +71,7 @@ namespace Danmu.Model.Danmu.DanmuData
                     break;
             }
 
-            return new ArtPlayerDanmuData
+            return new ArtPlayerDanmakuData
             {
                 Time = data.Time,
                 Mode = t,
@@ -82,7 +82,7 @@ namespace Danmu.Model.Danmu.DanmuData
         }
     }
 
-    public class ArtPlayerDanmuDataIn : ArtPlayerDanmuData
+    public class ArtPlayerDanmakuDataIn : ArtPlayerDanmakuData
     {
         /// <summary>
         ///     视频的Id

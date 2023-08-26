@@ -1,21 +1,21 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Danmu.Model.Config;
-using Danmu.Model.DataTable;
-using Danmu.Model.DbContext;
-using Danmu.Utils.Common;
-using Danmu.Utils.Configuration;
+using Danmaku.Model.Config;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.DbContext;
+using Danmaku.Utils.Common;
+using Danmaku.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmu.Utils.Dao
+namespace Danmaku.Utils.Dao
 {
     public class UserDao
     {
         private readonly Admin _admin;
-        private readonly DanmuContext _con;
+        private readonly DanmakuContext _con;
 
-        public UserDao(AppConfiguration appConfiguration, DanmuContext con)
+        public UserDao(AppConfiguration appConfiguration, DanmakuContext con)
         {
             _admin = appConfiguration.GetAppSetting().Admin;
             _con = con;

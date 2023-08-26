@@ -1,4 +1,4 @@
-namespace Danmu.Model.WebResult
+namespace Danmaku.Model.WebResult
 {
     public class WebResult<T>
     {

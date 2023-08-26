@@ -3,12 +3,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Danmu.Model.Config;
-using Danmu.Model.Danmu.BiliBili;
-using Danmu.Utils.Configuration;
-using Danmu.Utils.Dao;
+using Danmaku.Model.Config;
+using Danmaku.Model.Danmaku.BiliBili;
+using Danmaku.Utils.Configuration;
+using Danmaku.Utils.Dao;
 
-namespace Danmu.Utils.BiliBili
+namespace Danmaku.Utils.BiliBili
 {
     public partial class BiliBiliHelp
     {
@@ -31,9 +31,9 @@ namespace Danmu.Utils.BiliBili
         /// </summary>
         /// <param name="cid">视频的cid</param>
         /// <returns>B站弹幕数据流</returns>
-        public async Task<Stream> GetDanmuRawByCidAsync(int cid)
+        public async Task<Stream> GetDanmakuRawByCidAsync(int cid)
         {
-            var r = await GetDanmuRawAsync($"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}");
+            var r = await GetDanmakuRawAsync($"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}");
             return r.Length == 0 ? Stream.Null : new MemoryStream(r);
         }
 
@@ -42,10 +42,10 @@ namespace Danmu.Utils.BiliBili
         /// </summary>
         /// <param name="query"></param>
         /// <returns></returns>
-        public async Task<Stream> GetDanmuRawByQueryAsync(BiliBiliQuery query)
+        public async Task<Stream> GetDanmakuRawByQueryAsync(BiliBiliQuery query)
         {
             query = await CheckCid(query);
-            return await GetDanmuRawByCidAsync(query.Cid);
+            return await GetDanmakuRawByCidAsync(query.Cid);
         }
 
         /// <summary>
@@ -54,17 +54,17 @@ namespace Danmu.Utils.BiliBili
         /// <param name="cid">视频的cid</param>
         /// <param name="date">历史日期</param>
         /// <returns></returns>
-        public async Task<DanmuDataBiliBili> GetDanmuAsync(int cid, string[] date)
+        public async Task<DanmakuDataBiliBili> GetDanmakuAsync(int cid, string[] date)
         {
-            if (!_canGetHistory) return await GetDanmuAsync(new BiliBiliQuery {Cid = cid});
+            if (!_canGetHistory) return await GetDanmakuAsync(new BiliBiliQuery {Cid = cid});
             var a = Task.Run(() => date.Select(async s =>
             {
-                var b = await GetDanmuRawAsync(
+                var b = await GetDanmakuRawAsync(
                         $"https://api.bilibili.com/x/v2/dm/history?type=1&oid={cid}&date={s}", true);
                 var c = b.Length == 0 ? Stream.Null : new MemoryStream(b);
-                return new DanmuDataBiliBili(c);
+                return new DanmakuDataBiliBili(c);
             }).SelectMany(s => s.Result.D));
-            return new DanmuDataBiliBili
+            return new DanmakuDataBiliBili
             {
                 D = (await a).ToArray()
             };
@@ -75,15 +75,15 @@ namespace Danmu.Utils.BiliBili
         /// </summary>
         /// <param name="query"></param>
         /// <returns></returns>
-        public async Task<DanmuDataBiliBili> GetDanmuAsync(BiliBiliQuery query)
+        public async Task<DanmakuDataBiliBili> GetDanmakuAsync(BiliBiliQuery query)
         {
             query = await CheckCid(query);
 
             return query.Cid == 0
-                    ? new DanmuDataBiliBili()
+                    ? new DanmakuDataBiliBili()
                     : query.Date.Length == 0 || !_canGetHistory
-                            ? new DanmuDataBiliBili(await GetDanmuRawByCidAsync(query.Cid))
-                            : await GetDanmuAsync(query.Cid, query.Date);
+                            ? new DanmakuDataBiliBili(await GetDanmakuRawByCidAsync(query.Cid))
+                            : await GetDanmakuAsync(query.Cid, query.Date);
         }
 
         /// <summary>

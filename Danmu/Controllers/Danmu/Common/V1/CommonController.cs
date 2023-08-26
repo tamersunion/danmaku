@@ -2,21 +2,21 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Danmu.Controllers.Base;
-using Danmu.Model.Danmu.BiliBili;
-using Danmu.Model.Danmu.DanmuData;
-using Danmu.Model.DataTable;
-using Danmu.Model.WebResult;
-using Danmu.Utils.Dao;
+using Danmaku.Controllers.Base;
+using Danmaku.Model.Danmaku.BiliBili;
+using Danmaku.Model.Danmaku.DanmakuData;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.WebResult;
+using Danmaku.Utils.Dao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmu.Controllers.Danmu.Common.V1
+namespace Danmaku.Controllers.Danmaku.Common.V1
 {
-    [Route("/api/danmu/v1")]
+    [Route("/api/danmaku/v1")]
     [FormatFilter]
-    public class CommonController : DanmuBaseController
+    public class CommonController : DanmakuBaseController
     {
-        public CommonController(DanmuDao danmuDao, VideoDao videoDao) : base(danmuDao, videoDao) { }
+        public CommonController(DanmakuDao danmakuDao, VideoDao videoDao) : base(danmakuDao, videoDao) { }
 
         [HttpGet]
         [HttpGet("{id}.{format?}")]
@@ -25,15 +25,15 @@ namespace Danmu.Controllers.Danmu.Common.V1
             id ??= Request.Query["id"];
             if (string.IsNullOrEmpty(id)) return new WebResult(1);
 
-            var result = await DanmuDao.QueryDanmusByVidAsync(id);
+            var result = await DanmakuDao.QueryDanmakusByVidAsync(id);
 
-            if (!string.IsNullOrEmpty(format) && format.Equals("xml")) return (DanmuDataBiliBili) result;
+            if (!string.IsNullOrEmpty(format) && format.Equals("xml")) return (DanmakuDataBiliBili) result;
 
-            return new WebResult<BaseDanmuData[]>(result);
+            return new WebResult<BaseDanmakuData[]>(result);
         }
 
         [HttpPost]
-        public async Task<WebResult> Post([FromBody] BaseDanmuDataIn data)
+        public async Task<WebResult> Post([FromBody] BaseDanmakuDataIn data)
         {
             if (string.IsNullOrWhiteSpace(data.Id) || string.IsNullOrWhiteSpace(data.Text))
                 return new WebResult(1);
@@ -42,14 +42,14 @@ namespace Danmu.Controllers.Danmu.Common.V1
                     : Request.HttpContext.Connection.RemoteIpAddress;
             data.Referer ??= Request.Headers["Referer"].FirstOrDefault();
             var video = await VideoDao.InsertAsync(data.Id, new Uri(data.Referer));
-            var danmu = new DanmuTable
+            var danmaku = new DanmakuTable
             {
                 Vid = data.Id,
                 Data = data,
                 Ip = data.Ip,
                 Video = video
             };
-            var result = await DanmuDao.InsertDanmuAsync(danmu);
+            var result = await DanmakuDao.InsertDanmakuAsync(danmaku);
             return new WebResult(result ? 0 : 1);
         }
     }

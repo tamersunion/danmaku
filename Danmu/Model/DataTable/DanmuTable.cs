@@ -2,12 +2,12 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Net;
-using Danmu.Model.Danmu.DanmuData;
+using Danmaku.Model.Danmaku.DanmakuData;
 
-namespace Danmu.Model.DataTable
+namespace Danmaku.Model.DataTable
 {
-    [Table("Danmu")]
-    public class DanmuTable
+    [Table("Danmaku")]
+    public class DanmakuTable
     {
         /// <summary>
         ///     Id
@@ -25,7 +25,7 @@ namespace Danmu.Model.DataTable
         ///     弹幕数据
         /// </summary>
         [Column("Data", TypeName = "jsonb"), Required]
-        public BaseDanmuData Data { get; set; }
+        public BaseDanmakuData Data { get; set; }
 
         /// <summary>
         ///     弹幕发送者IP

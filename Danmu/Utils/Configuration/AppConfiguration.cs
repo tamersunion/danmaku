@@ -1,7 +1,7 @@
-using Danmu.Model.Config;
+using Danmaku.Model.Config;
 using Microsoft.Extensions.Configuration;
 
-namespace Danmu.Utils.Configuration
+namespace Danmaku.Utils.Configuration
 {
     public class AppConfiguration
     {

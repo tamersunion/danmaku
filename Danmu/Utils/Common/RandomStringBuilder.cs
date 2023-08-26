@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 
-namespace Danmu.Utils.Common
+namespace Danmaku.Utils.Common
 {
     public class RandomStringBuilder
     {

@@ -2,9 +2,9 @@ using System;
 using System.Net;
 using System.Text.Json;
 
-namespace Danmu.Model.Danmu.DanmuData
+namespace Danmaku.Model.Danmaku.DanmakuData
 {
-    public class BaseDanmuData : IDanmuData
+    public class BaseDanmakuData : IDanmakuData
     {
         /// <summary>
         ///     弹幕出现时间
@@ -51,7 +51,7 @@ namespace Danmu.Model.Danmu.DanmuData
         /// </summary>
         public string Text { get; set; } = "";
 
-        public BaseDanmuData ToBaseDanmuData()
+        public BaseDanmakuData ToBaseDanmakuData()
         {
             return this;
         }
@@ -69,13 +69,13 @@ namespace Danmu.Model.Danmu.DanmuData
         ///     显示转换
         /// </summary>
         /// <param name="json">json数据</param>
-        public static explicit operator BaseDanmuData(string json)
+        public static explicit operator BaseDanmakuData(string json)
         {
-            return JsonSerializer.Deserialize<BaseDanmuData>(json);
+            return JsonSerializer.Deserialize<BaseDanmakuData>(json);
         }
     }
 
-    public class BaseDanmuDataIn : BaseDanmuData
+    public class BaseDanmakuDataIn : BaseDanmakuData
     {
         /// <summary>
         ///     视频的Id

@@ -1,17 +1,17 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Danmu.Model.DataTable;
-using Danmu.Model.DbContext;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.DbContext;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmu.Utils.Dao
+namespace Danmaku.Utils.Dao
 {
     public class CacheDao
     {
-        private readonly DanmuContext _con;
+        private readonly DanmakuContext _con;
 
-        public CacheDao(DanmuContext con)
+        public CacheDao(DanmakuContext con)
         {
             _con = con;
         }

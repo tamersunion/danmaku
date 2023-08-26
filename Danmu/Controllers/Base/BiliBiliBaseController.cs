@@ -1,11 +1,11 @@
-using Danmu.Utils.BiliBili;
+using Danmaku.Utils.BiliBili;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
-using static Danmu.Utils.Global.VariableDictionary;
+using static Danmaku.Utils.Global.VariableDictionary;
 
-namespace Danmu.Controllers.Base
+namespace Danmaku.Controllers.Base
 {
-    [EnableCors(DanmuAllowSpecificOrigins)]
+    [EnableCors(DanmakuAllowSpecificOrigins)]
     [FormatFilter]
     [ApiController]
     public class BiliBiliBaseController : ControllerBase

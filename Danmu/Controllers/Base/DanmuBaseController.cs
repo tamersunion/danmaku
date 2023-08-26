@@ -1,21 +1,21 @@
-using Danmu.Utils.Dao;
+using Danmaku.Utils.Dao;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
-using static Danmu.Utils.Global.VariableDictionary;
+using static Danmaku.Utils.Global.VariableDictionary;
 
-namespace Danmu.Controllers.Base
+namespace Danmaku.Controllers.Base
 {
     [ApiController]
-    [EnableCors(DanmuAllowSpecificOrigins)]
+    [EnableCors(DanmakuAllowSpecificOrigins)]
     [FormatFilter]
-    public abstract class DanmuBaseController : ControllerBase
+    public abstract class DanmakuBaseController : ControllerBase
     {
-        private protected DanmuDao DanmuDao;
+        private protected DanmakuDao DanmakuDao;
         private protected VideoDao VideoDao;
 
-        protected DanmuBaseController(DanmuDao danmuDao, VideoDao videoDao)
+        protected DanmakuBaseController(DanmakuDao danmakuDao, VideoDao videoDao)
         {
-            DanmuDao = danmuDao;
+            DanmakuDao = danmakuDao;
             VideoDao = videoDao;
         }
     }

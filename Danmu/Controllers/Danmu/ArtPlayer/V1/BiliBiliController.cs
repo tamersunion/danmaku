@@ -1,39 +1,39 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Danmu.Controllers.Base;
-using Danmu.Model.Danmu.BiliBili;
-using Danmu.Model.Danmu.DanmuData;
-using Danmu.Model.WebResult;
-using Danmu.Utils.BiliBili;
+using Danmaku.Controllers.Base;
+using Danmaku.Model.Danmaku.BiliBili;
+using Danmaku.Model.Danmaku.DanmakuData;
+using Danmaku.Model.WebResult;
+using Danmaku.Utils.BiliBili;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmu.Controllers.Danmu.ArtPlayer.V1
+namespace Danmaku.Controllers.Danmaku.ArtPlayer.V1
 {
-    [Route("/api/danmu/artplayer/v1/bilibili")]
+    [Route("/api/danmaku/artplayer/v1/bilibili")]
     public class BiliBiliController : BiliBiliBaseController
     {
         public BiliBiliController(BiliBiliHelp bilibili) : base(bilibili) { }
 
         [HttpGet]
-        [HttpGet("danmu")]
-        [HttpGet("danmu.{format}")]
+        [HttpGet("danmaku")]
+        [HttpGet("danmaku.{format}")]
         public async Task<dynamic> Get([FromQuery] BiliBiliQuery query, string format)
         {
             if (query.Date.Length == 0 && !(!string.IsNullOrEmpty(format) && format.Equals("json")))
             {
                 HttpContext.Response.ContentType = "application/xml; charset=utf-8";
-                return await Bilibili.GetDanmuRawByQueryAsync(query);
+                return await Bilibili.GetDanmakuRawByQueryAsync(query);
             }
 
-            var danmu = await Bilibili.GetDanmuAsync(query);
+            var danmaku = await Bilibili.GetDanmakuAsync(query);
 
             if (!string.IsNullOrEmpty(format) && format.Equals("json"))
-                return new WebResult<IEnumerable<ArtPlayerDanmuData>>(danmu
-                                                                     .ToDanmuDataBases()
-                                                                     .Select(s => (ArtPlayerDanmuData) s));
+                return new WebResult<IEnumerable<ArtPlayerDanmakuData>>(danmaku
+                                                                     .ToDanmakuDataBases()
+                                                                     .Select(s => (ArtPlayerDanmakuData) s));
             if (string.IsNullOrEmpty(format)) HttpContext.Request.Headers["Accept"] = "application/xml";
-            return danmu;
+            return danmaku;
         }
     }
 }

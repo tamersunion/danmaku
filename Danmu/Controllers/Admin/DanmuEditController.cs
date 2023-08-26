@@ -1,36 +1,36 @@
 using System.Threading.Tasks;
-using Danmu.Controllers.Base;
-using Danmu.Model.DataTable;
-using Danmu.Model.WebResult;
-using Danmu.Utils.Dao;
+using Danmaku.Controllers.Base;
+using Danmaku.Model.DataTable;
+using Danmaku.Model.WebResult;
+using Danmaku.Utils.Dao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmu.Controllers.Admin
+namespace Danmaku.Controllers.Admin
 {
-    [Route("/api/admin/danmuedit/")]
-    public class DanmuEditController : AdminBaseController
+    [Route("/api/admin/danmakuedit/")]
+    public class DanmakuEditController : AdminBaseController
     {
-        public DanmuEditController(DanmuDao danmuDao, VideoDao videoDao) : base(danmuDao, videoDao) { }
+        public DanmakuEditController(DanmakuDao danmakuDao, VideoDao videoDao) : base(danmakuDao, videoDao) { }
 
         [HttpGet()]
-        public async Task<WebResult<DanmuTable>> Get(string id)
+        public async Task<WebResult<DanmakuTable>> Get(string id)
         {
-            var danmu = await DanmuDao.QueryDanmuByIdAsync(id);
-            return new WebResult<DanmuTable>(danmu);
+            var danmaku = await DanmakuDao.QueryDanmakuByIdAsync(id);
+            return new WebResult<DanmakuTable>(danmaku);
         }
 
         [HttpPost("edit")]
-        public async Task<WebResult<DanmuTable>> EditDanmu(DanmuTable data)
+        public async Task<WebResult<DanmakuTable>> EditDanmaku(DanmakuTable data)
         {
-            var result = await DanmuDao.EditDanmuAsync(data.Id, data.Data.Time, data.Data.Mode, data.Data.Color,
+            var result = await DanmakuDao.EditDanmakuAsync(data.Id, data.Data.Time, data.Data.Mode, data.Data.Color,
                     data.Data.Text, data.IsDelete);
-            return new WebResult<DanmuTable>(result);
+            return new WebResult<DanmakuTable>(result);
         }
 
         [HttpGet("delete")]
-        public async Task<WebResult> DeleteDanmu(string id)
+        public async Task<WebResult> DeleteDanmaku(string id)
         {
-            var result = await DanmuDao.DeleteDanmuAsync(id);
+            var result = await DanmakuDao.DeleteDanmakuAsync(id);
             return new WebResult(result ? 0 : 1);
         }
     }

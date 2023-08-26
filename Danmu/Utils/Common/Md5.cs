@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Danmu.Utils.Common
+namespace Danmaku.Utils.Common
 {
     public static class Md5
     {

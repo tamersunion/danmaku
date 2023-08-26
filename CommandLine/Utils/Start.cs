@@ -1,6 +1,6 @@
 using System;
 
-namespace Danmu.CommandLine.Utils
+namespace Danmaku.CommandLine.Utils
 {
     public class Start
     {

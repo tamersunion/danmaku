@@ -1,22 +1,22 @@
 using System.Threading.Tasks;
-using Danmu.Model.DataTable;
+using Danmaku.Model.DataTable;
 using Microsoft.EntityFrameworkCore;
 
-namespace Danmu.Model.DbContext
+namespace Danmaku.Model.DbContext
 {
-    public class DanmuContext : BaseContext
+    public class DanmakuContext : BaseContext
     {
-        public DanmuContext(DbContextOptions<DanmuContext> options) : base(options) { }
+        public DanmakuContext(DbContextOptions<DanmakuContext> options) : base(options) { }
 
-        public DbSet<DanmuTable> Danmu { get; set; }
+        public DbSet<DanmakuTable> Danmaku { get; set; }
         public DbSet<UserTable> User { get; set; }
         public DbSet<VideoTable> Video { get; set; }
         public DbSet<HttpClientCacheTable> HttpClientCache { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<DanmuTable>().Property(p => p.IsDelete).HasDefaultValue(false);
-            modelBuilder.Entity<DanmuTable>().HasIndex(d => new {d.Vid, d.IsDelete});
+            modelBuilder.Entity<DanmakuTable>().Property(p => p.IsDelete).HasDefaultValue(false);
+            modelBuilder.Entity<DanmakuTable>().HasIndex(d => new {d.Vid, d.IsDelete});
 
             modelBuilder.Entity<HttpClientCacheTable>().HasIndex(h => h.Key).HasMethod("hash");
         }

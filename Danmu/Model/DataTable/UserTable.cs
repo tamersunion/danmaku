@@ -2,9 +2,9 @@ using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Danmu.Utils.Common;
+using Danmaku.Utils.Common;
 
-namespace Danmu.Model.DataTable
+namespace Danmaku.Model.DataTable
 {
     [Table("User")]
     public class UserTable

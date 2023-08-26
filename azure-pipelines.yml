@@ -31,7 +31,7 @@ steps:
         sudo apt-get install apt-transport-https
         sudo apt-get update
         sudo apt-get install dotnet-sdk-3.1
-        cd $(Build.SourcesDirectory)/Danmu
+        cd $(Build.SourcesDirectory)/Danmaku
         dotnet remove package Microsoft.VisualStudio.Web.CodeGeneration.Design
         dotnet remove package VueCliMiddleware
         cd clientapp
@@ -46,33 +46,33 @@ steps:
       script: |
         #!/bin/bash
         CLI_VERSION=`git describe --tags`
-        sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" $(Build.SourcesDirectory)/Danmu/Danmu.csproj
-        sed -i "s/<Version>1.0.0/<Version>`echo ${CLI_VERSION}`/g" $(Build.SourcesDirectory)/CommandLine/Danmu.CommandLine.csproj
+        sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" $(Build.SourcesDirectory)/Danmaku/Danmaku.csproj
+        sed -i "s/<Version>1.0.0/<Version>`echo ${CLI_VERSION}`/g" $(Build.SourcesDirectory)/CommandLine/Danmaku.CommandLine.csproj
 
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux64 -r linux-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmu64-R2R"
+      arguments: "-c Release-Linux64 -r linux-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmaku64-R2R"
       zipAfterPublish: False
 
   # #开启程序集链接
   # - task: CmdLine@2
   #   inputs:
   #     script: |
-  #       sed -i "s/<PublishTrimmed>false/<PublishTrimmed>true/g" $(Build.SourcesDirectory)/Danmu/Danmu.csproj
+  #       sed -i "s/<PublishTrimmed>false/<PublishTrimmed>true/g" $(Build.SourcesDirectory)/Danmaku/Danmaku.csproj
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmu64-R2R-SCD"
+      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmaku64-R2R-SCD"
       zipAfterPublish: False
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64-R2R/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64-R2R/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -81,7 +81,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64-R2R-SCD/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64-R2R-SCD/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -92,32 +92,32 @@ steps:
   - task: CmdLine@2
     inputs:
       script: |
-        sed -i "s/<PublishReadyToRun>true/<PublishReadyToRun>false/g" $(Build.SourcesDirectory)/Danmu/Danmu.csproj
-        rm -r ./Danmu/bin
+        sed -i "s/<PublishReadyToRun>true/<PublishReadyToRun>false/g" $(Build.SourcesDirectory)/Danmaku/Danmaku.csproj
+        rm -r ./Danmaku/bin
 
   ##编译SCD版
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmu64-SCD"
+      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmaku64-SCD"
       zipAfterPublish: False
 
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux32 -r linux-arm --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmu32-Arm-SCD"
+      arguments: "-c Release-Linux32 -r linux-arm --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmaku32-Arm-SCD"
       zipAfterPublish: False
 
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Win -r win-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmu64-Win-SCD"
+      arguments: "-c Release-Win -r win-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Danmaku64-Win-SCD"
       zipAfterPublish: False
 
   #编译非SCD版
@@ -125,34 +125,34 @@ steps:
   # - task: CmdLine@2
   #   inputs:
   #     script: |
-  #       sed -i "s/<PublishTrimmed>true/<PublishTrimmed>false/g" $(Build.SourcesDirectory)/Danmu/Danmu.csproj
+  #       sed -i "s/<PublishTrimmed>true/<PublishTrimmed>false/g" $(Build.SourcesDirectory)/Danmaku/Danmaku.csproj
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux64 -r linux-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmu64"
+      arguments: "-c Release-Linux64 -r linux-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmaku64"
       zipAfterPublish: False
 
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Linux32 -r linux-arm --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmu32-Arm"
+      arguments: "-c Release-Linux32 -r linux-arm --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmaku32-Arm"
       zipAfterPublish: False
 
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/Danmu/Danmu.csproj"
+      projects: "$(Build.SourcesDirectory)/Danmaku/Danmaku.csproj"
       publishWebProjects: True
-      arguments: "-c Release-Win -r win-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmu64-Win"
+      arguments: "-c Release-Win -r win-x64 --self-contained false --output $(Build.ArtifactStagingDirectory)/Danmaku64-Win"
       zipAfterPublish: False
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -161,7 +161,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64-SCD/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64-SCD/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -170,7 +170,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu32-Arm/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku32-Arm/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -179,7 +179,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu32-Arm-SCD/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku32-Arm-SCD/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -188,7 +188,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64-Win/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64-Win/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -197,7 +197,7 @@ steps:
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmu64-Win-SCD/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Danmaku64-Win-SCD/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -208,15 +208,15 @@ steps:
   - task: DotNetCoreCLI@2
     inputs:
       command: publish
-      projects: "$(Build.SourcesDirectory)/CommandLine/Danmu.CommandLine.csproj"
+      projects: "$(Build.SourcesDirectory)/CommandLine/Danmaku.CommandLine.csproj"
       publishWebProjects: False
-      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Cli-Tool/Danmu"
+      arguments: "-c Release-Linux64 -r linux-x64 --self-contained true -p:PublishSingleFile=true --output $(Build.ArtifactStagingDirectory)/Cli-Tool/Danmaku"
       zipAfterPublish: false
       modifyOutputPath: false
 
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Cli-Tool/Danmu"
+      rootFolderOrFile: "$(Build.ArtifactStagingDirectory)/Cli-Tool/Danmaku"
       includeRootFolder: true
       archiveType: "tar"
       tarCompression: "xz"
@@ -228,7 +228,7 @@ steps:
     displayName: "Edit GitHub Release"
     inputs:
       gitHubConnection: MonoLogueChiToken
-      repositoryName: MonoLogueChi/Danmu.Server
+      repositoryName: MonoLogueChi/Danmaku.Server
       action: create
       tag: $(Build.BuildNumber)
       assets: $(Build.ArtifactStagingDirectory)/*.tar.xz

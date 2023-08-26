@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 
-namespace Danmu.Model.DataTable
+namespace Danmaku.Model.DataTable
 {
     [Table("Video")]
     public class VideoTable

@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Danmu.Model.DataTable
+namespace Danmaku.Model.DataTable
 {
     public class HttpClientCacheTable
     {
