@@ -46,8 +46,8 @@ namespace Danmu
 #if LINUX
                                 if (!string.IsNullOrEmpty(ks.UnixSocketPath))
                                 {
-                                    if (File.Exists(path)) File.Delete(path);
-                                    options.ListenUnixSocket(path);
+                                    if (File.Exists(ks.UnixSocketPath)) File.Delete(ks.UnixSocketPath);
+                                    options.ListenUnixSocket(ks.UnixSocketPath);
                                 }
 #endif
                                 if (ks.Port.HasValue && ks.Port.Value != 0)
