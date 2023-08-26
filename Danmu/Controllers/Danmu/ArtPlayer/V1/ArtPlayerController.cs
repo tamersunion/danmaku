@@ -2,21 +2,21 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Danmaku.Controllers.Base;
-using Danmaku.Model.Danmaku.BiliBili;
-using Danmaku.Model.Danmaku.DanmakuData;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.WebResult;
-using Danmaku.Utils.Dao;
+using Danmu.Controllers.Base;
+using Danmu.Model.Danmu.BiliBili;
+using Danmu.Model.Danmu.DanmuData;
+using Danmu.Model.DataTable;
+using Danmu.Model.WebResult;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmaku.Controllers.Danmaku.ArtPlayer.V1
+namespace Danmu.Controllers.Danmu.ArtPlayer.V1
 {
-    [Route("/api/danmaku/artplayer/v1")]
+    [Route("/api/danmu/artplayer/v1")]
     [FormatFilter]
-    public class ArtPlayerController : DanmakuBaseController
+    public class ArtPlayerController : DanmuBaseController
     {
-        public ArtPlayerController(DanmakuDao danmakuDao, VideoDao videoDao) : base(danmakuDao, videoDao) { }
+        public ArtPlayerController(DanmuDao danmuDao, VideoDao videoDao) : base(danmuDao, videoDao) { }
 
         [HttpGet]
         [HttpGet("{id}.{format?}")]
@@ -25,21 +25,21 @@ namespace Danmaku.Controllers.Danmaku.ArtPlayer.V1
             id ??= Request.Query["id"];
             if (string.IsNullOrEmpty(id)) return new WebResult(1);
 
-            var result = await DanmakuDao.QueryDanmakusByVidAsync(id);
+            var result = await DanmuDao.QueryDanmusByVidAsync(id);
 
             if (!string.IsNullOrEmpty(format) && format.Equals("json"))
             {
-                var aData = result.Select(s => (ArtPlayerDanmakuData) s).ToArray();
-                return new WebResult<ArtPlayerDanmakuData[]>(aData);
+                var aData = result.Select(s => (ArtPlayerDanmuData) s).ToArray();
+                return new WebResult<ArtPlayerDanmuData[]>(aData);
             }
 
             if (string.IsNullOrEmpty(format)) HttpContext.Request.Headers["Accept"] = "application/xml";
 
-            return (DanmakuDataBiliBili) result;
+            return (DanmuDataBiliBili) result;
         }
 
         [HttpPost]
-        public async Task<WebResult> Post([FromBody] ArtPlayerDanmakuDataIn data)
+        public async Task<WebResult> Post([FromBody] ArtPlayerDanmuDataIn data)
         {
             if (string.IsNullOrWhiteSpace(data.Id) || string.IsNullOrWhiteSpace(data.Text))
                 return new WebResult(1);
@@ -49,14 +49,14 @@ namespace Danmaku.Controllers.Danmaku.ArtPlayer.V1
             data.Referer ??= Request.Headers["Referer"].FirstOrDefault();
 
             var video = await VideoDao.InsertAsync(data.Id, new Uri(data.Referer));
-            var danmaku = new DanmakuTable
+            var danmu = new DanmuTable
             {
                 Vid = data.Id,
-                Data = data.ToBaseDanmakuData(),
+                Data = data.ToBaseDanmuData(),
                 Ip = data.Ip,
                 Video = video
             };
-            var result = await DanmakuDao.InsertDanmakuAsync(danmaku);
+            var result = await DanmuDao.InsertDanmuAsync(danmu);
             return new WebResult(result ? 0 : 1);
         }
     }

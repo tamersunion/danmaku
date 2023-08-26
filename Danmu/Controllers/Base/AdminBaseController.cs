@@ -1,22 +1,22 @@
-using Danmaku.Utils.Dao;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
-using static Danmaku.Utils.Global.VariableDictionary;
+using static Danmu.Utils.Global.VariableDictionary;
 
-namespace Danmaku.Controllers.Base
+namespace Danmu.Controllers.Base
 {
     [ApiController]
     [EnableCors(AdminAllowSpecificOrigins)]
     [Authorize(Policy = AdminRolePolicy)]
     public class AdminBaseController : ControllerBase
     {
-        private protected DanmakuDao DanmakuDao;
+        private protected DanmuDao DanmuDao;
         private protected VideoDao VideoDao;
 
-        protected AdminBaseController(DanmakuDao danmakuDao, VideoDao videoDao)
+        protected AdminBaseController(DanmuDao danmuDao, VideoDao videoDao)
         {
-            DanmakuDao = danmakuDao;
+            DanmuDao = danmuDao;
             VideoDao = videoDao;
         }
     }

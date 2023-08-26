@@ -4,44 +4,44 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
-using Danmaku.Model.Danmaku.DanmakuData;
+using Danmu.Model.Danmu.DanmuData;
 
-namespace Danmaku.Model.Danmaku.BiliBili
+namespace Danmu.Model.Danmu.BiliBili
 {
     [Serializable]
     [DesignerCategory("code")]
     [XmlType(AnonymousType = true)]
     [XmlRoot("i", Namespace = "", IsNullable = false)]
-    public class DanmakuDataBiliBili
+    public class DanmuDataBiliBili
     {
-        public DanmakuDataBiliBili() { }
+        public DanmuDataBiliBili() { }
 
-        public DanmakuDataBiliBili(Stream s)
+        public DanmuDataBiliBili(Stream s)
         {
-            var serializer = new XmlSerializer(typeof(DanmakuDataBiliBili));
-            var bd = (DanmakuDataBiliBili) serializer.Deserialize(s);
+            var serializer = new XmlSerializer(typeof(DanmuDataBiliBili));
+            var bd = (DanmuDataBiliBili) serializer.Deserialize(s);
             D = bd.D;
         }
 
         [XmlElement("d")] public iD[] D { get; set; }
 
-        public static explicit operator DanmakuDataBiliBili(BaseDanmakuData[] data)
+        public static explicit operator DanmuDataBiliBili(BaseDanmuData[] data)
         {
             var d = data.Select(s => new iD
             {
                 P = $"{s.Time},{s.Mode},{s.Size},{s.Color},{s.TimeStamp},{s.Pool},{s.Author},{s.TimeStamp}",
                 Value = s.Text
             }).ToArray();
-            return new DanmakuDataBiliBili {D = d};
+            return new DanmuDataBiliBili {D = d};
         }
 
-        public IEnumerable<BaseDanmakuData> ToDanmakuDataBases()
+        public IEnumerable<BaseDanmuData> ToDanmuDataBases()
         {
-            if (D == null || D.Length == 0) return new BaseDanmakuData[0];
+            if (D == null || D.Length == 0) return new BaseDanmuData[0];
             return D.Select(s =>
             {
                 var d = s.P.Split(",");
-                return new BaseDanmakuData
+                return new BaseDanmuData
                 {
                     Time = float.Parse(d[0]),
                     Mode = int.Parse(d[1]),

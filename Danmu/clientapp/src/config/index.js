@@ -1,5 +1,5 @@
 module.exports = {
-    title: 'Danmaku.Server',
+    title: 'Danmu.Server',
 
     //全局axios的baseUrl
     apiPrefix: '/api',

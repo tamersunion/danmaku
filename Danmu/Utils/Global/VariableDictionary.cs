@@ -1,4 +1,4 @@
-namespace Danmaku.Utils.Global
+namespace Danmu.Utils.Global
 {
     /// <summary>
     ///     变量字典
@@ -19,7 +19,7 @@ namespace Danmaku.Utils.Global
         /// <summary>
         ///     普通弹幕允许跨域
         /// </summary>
-        public const string DanmakuAllowSpecificOrigins = "DanmakuAllowSpecificOrigins";
+        public const string DanmuAllowSpecificOrigins = "DanmuAllowSpecificOrigins";
 
         /// <summary>
         ///     直播弹幕允许跨域

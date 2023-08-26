@@ -1,4 +1,4 @@
-namespace Danmaku.Model.Danmaku.BiliBili
+namespace Danmu.Model.Danmu.BiliBili
 {
     public class BiliBiliQuery
     {

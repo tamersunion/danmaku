@@ -2,9 +2,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Danmaku.Model.Danmaku.BiliBili;
+using Danmu.Model.Danmu.BiliBili;
 
-namespace Danmaku.Utils.BiliBili
+namespace Danmu.Utils.BiliBili
 {
     public partial class BiliBiliHelp
     {

@@ -1,8 +1,8 @@
 /*需要权限控制的路由表*/
-import danmakuRouter from '@/router/modules/danmaku'
+import danmuRouter from '@/router/modules/danmu'
 
 const authorityRoutes = [
-    danmakuRouter
+    danmuRouter
 ]
 
 export default authorityRoutes

@@ -3,18 +3,18 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Danmaku.Controllers.Base;
-using Danmaku.Model.DataTable;
-using Danmaku.Model.WebResult;
-using Danmaku.Utils.Configuration;
-using Danmaku.Utils.Dao;
+using Danmu.Controllers.Base;
+using Danmu.Model.DataTable;
+using Danmu.Model.WebResult;
+using Danmu.Utils.Configuration;
+using Danmu.Utils.Dao;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Danmaku.Controllers.Account
+namespace Danmu.Controllers.Account
 {
     [Route("/api/admin")]
     [AllowAnonymous]
@@ -23,8 +23,8 @@ namespace Danmaku.Controllers.Account
         private readonly Model.Config.Admin _admin;
         private readonly UserDao _userDao;
 
-        public AccountBaseController(AppConfiguration configuration, UserDao userDao, DanmakuDao danmakuDao,
-                                     VideoDao videoDao) : base(danmakuDao, videoDao)
+        public AccountBaseController(AppConfiguration configuration, UserDao userDao, DanmuDao danmuDao,
+                                     VideoDao videoDao) : base(danmuDao, videoDao)
         {
             _admin = configuration.GetAppSetting().Admin;
             _userDao = userDao;

@@ -35,7 +35,7 @@
                 </dialog-form-item>
                 <dialog-form-item label="弹幕类型：" prop="data.mode">
                     <el-select v-model="form.data.mode" clearable @clear="form.data.mode=null">
-                        <el-option v-for="{value,label} in danmakuModes" :key="value" :value="value" :label="label"/>
+                        <el-option v-for="{value,label} in danmuModes" :key="value" :value="value" :label="label"/>
                     </el-select>
                 </dialog-form-item>
                 <dialog-form-item label="弹幕大小：" prop="data.size">
@@ -65,12 +65,12 @@
 <script>
     import DialogForm from '@/components/DialogForm'
     import DialogFormItem from '@/components/DialogForm/DialogFormItem'
-    import { danmakuModes, predefineColors } from './constant'
+    import { danmuModes, predefineColors } from './constant'
     import { isEmpty, mergeObj, resetObj } from '@/utils'
     import { elAlert } from '@/utils/message'
-    import { getById } from '@/api/admin/danmaku'
+    import { getById } from '@/api/admin/danmu'
     import { getLocalTime } from '@/utils/date'
-    import { update } from '@/api/admin/danmaku'
+    import { update } from '@/api/admin/danmu'
 
     export default {
         name: 'EditDialog',
@@ -109,7 +109,7 @@
                     createTime: null,
                     updateTime: null
                 },
-                danmakuModes,
+                danmuModes,
                 predefineColors
             }
         },

@@ -4,7 +4,7 @@
             <div class="top">
                 <div class="title">
                     <img src="/favicon.png">
-                    <span>Danmaku.Server</span>
+                    <span>Danmu.Server</span>
                 </div>
                 <div class="intro">
                     一个开源的弹幕服务器

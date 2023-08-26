@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace Danmaku.Model.Config
+namespace Danmu.Model.Config
 {
     public class AppSettings
     {
@@ -15,12 +15,12 @@ namespace Danmaku.Model.Config
         public string[] WithOrigins { get; set; }
         public string[] LiveWithOrigins { get; set; }
         public string[] AdminWithOrigins { get; set; }
-        public DanmakuSql DanmakuSql { get; set; } = new DanmakuSql();
+        public DanmuSql DanmuSql { get; set; } = new DanmuSql();
         public Admin Admin { get; set; } = new Admin();
         public BiliBiliSetting BiliBiliSetting { get; set; } = new BiliBiliSetting();
     }
 
-    public class DanmakuSql
+    public class DanmuSql
     {
         public string Host { get; set; } = "127.0.0.1";
         public int Port { get; set; } = 0;
@@ -41,6 +41,6 @@ namespace Danmaku.Model.Config
     {
         public string Cookie { get; set; }
         public int CidCacheTime { get; set; } = 72;
-        public int DanmakuCacheTime { get; set; } = 5;
+        public int DanmuCacheTime { get; set; } = 5;
     }
 }
