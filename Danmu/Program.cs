@@ -54,7 +54,7 @@ namespace Danmu
                                 {
                                     var host = string.IsNullOrEmpty(ks.Host) ? IPAddress.Any.ToString() : ks.Host;
                                     var port = ks.Port.Value;
-                                    options.Listen(IPAddress.Loopback, port);
+                                    options.Listen(host, port);
                                 }
                             }).UseStartup<Startup>();
                         });
