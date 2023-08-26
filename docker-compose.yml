@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  danmaku:
+    image: registry.hanada.info/hanada/danmaku:1.0.0-beta11
+    container_name: danmaku
+    restart: unless-stopped
+    volumes:
+      - "/usr/local/danmaku/appsettings.yml:/usr/local/danmaku/appsettings.yml"
+    ports:
+      - "127.0.0.1:13009:80"
+    depends_on:
+      - danmaku-postgres
+
+  danmaku-postgres:
+    image: dockerhub.hanada.info/library/postgres:13
+    container_name: danmaku-postgres
+    restart: unless-stopped
+    volumes:
+      - "/usr/local/danmaku/database:/var/lib/postgresql/data:Z"
+    environment:
+      POSTGRES_USER: 'danmaku'
+      POSTGRES_PASSWORD: 'danmaku'
+      POSTGRES_DB: 'danmaku'
+      PGDATA: /var/lib/postgresql/data/pgdata

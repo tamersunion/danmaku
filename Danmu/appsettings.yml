@@ -1,7 +1,7 @@
 KestrelSettings:
-  Host: 127.0.0.1
-  Port: 5000
-  UnixSocketPath: "/tmp/danmu.sock"
+  Host: 0.0.0.0
+  Port: 80
+  UnixSocketPath: "/tmp/danmaku.sock"
 WithOrigins:
   - "*"
 LiveWithOrigins:
@@ -11,12 +11,12 @@ AdminWithOrigins:
   - http://localhost:5000
 DanmuSql:
   Sql: 0
-  Host: 127.0.0.1
+  Host: danmaku-postgres
   Port: 0
   UserName: danmaku
   PassWord: danmaku
   DataBase: danmaku
-  PoolSize: 16
+  PoolSize: 64
 Admin:
   User: tamers
   Password: "000000"
