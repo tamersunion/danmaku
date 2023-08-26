@@ -44,16 +44,18 @@ namespace Danmu
                             {
                                 var ks = _appSettings.KestrelSettings;
 #if LINUX
-                                if (ks.UnixSocketPath.Length > 0)
-                                    foreach (var path in ks.UnixSocketPath)
-                                    {
-                                        if (File.Exists(path)) File.Delete(path);
-                                        options.ListenUnixSocket(path);
-                                    }
+                                if (!string.IsNullOrEmpty(ks.UnixSocketPath))
+                                {
+                                    if (File.Exists(path)) File.Delete(path);
+                                    options.ListenUnixSocket(path);
+                                }
 #endif
-                                if (ks.Port.Length > 0)
-                                    foreach (var port in ks.Port)
-                                        options.Listen(IPAddress.Loopback, port);
+                                if (ks.Port.HasValue && ks.Port.Value != 0)
+                                {
+                                    var host = string.IsNullOrEmpty(ks.Host) ? IPAddress.Any.ToString() : ks.Host;
+                                    var port = ks.Port.Value;
+                                    options.Listen(IPAddress.Loopback, port);
+                                }
                             }).UseStartup<Startup>();
                         });
         }

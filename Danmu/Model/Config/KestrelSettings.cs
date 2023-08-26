@@ -3,13 +3,18 @@ namespace Danmu.Model.Config
     public class KestrelSettings
     {
         /// <summary>
-        ///     服务运行端口
+        ///     监听的IP地址
         /// </summary>
-        public int[] Port { get; set; }
+        public string Host { get; set; }
+
+        /// <summary>
+        ///     监听的端口
+        /// </summary>
+        public int Port { get; set; }
 
         /// <summary>
         ///     UnixSocketPath
         /// </summary>
-        public string[] UnixSocketPath { get; set; }
+        public string UnixSocketPath { get; set; }
     }
 }
