@@ -50,10 +50,10 @@ namespace Danmu
                                     options.ListenUnixSocket(ks.UnixSocketPath);
                                 }
 #endif
-                                if (ks.Port.Value != 0)
+                                if (ks.Port != 0)
                                 {
                                     var host = string.IsNullOrEmpty(ks.Host) ? IPAddress.Any.ToString() : ks.Host;
-                                    var port = ks.Port.Value;
+                                    var port = ks.Port;
                                     options.Listen(host, port);
                                 }
                             }).UseStartup<Startup>();
