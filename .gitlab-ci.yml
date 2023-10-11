@@ -16,7 +16,7 @@ docker-build:
       docker login -u ${NEXUS_USERNAME} -p ${NEXUS_PASSWORD} registry.hanada.info
     - >
       docker buildx build \
-        --platform linux/amd64,linux/arm64 \
+        --platform linux/amd64 \
         -t registry.hanada.info/tamersunion/danmaku:latest \
         -t registry.hanada.info/tamersunion/danmaku:${DANMAKU_VERSION} \
         --build-arg DANMAKU_VERSION=${DANMAKU_VERSION} \
