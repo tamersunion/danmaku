@@ -34,21 +34,12 @@ RUN apt-get update \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && mkdir /output \
-    && if [ "$TARGETARCH" == "amd64" ]; then \
         dotnet publish \
         "/build/Danmu/Danmu.csproj" \
         -c Release-Linux64 \
         -r linux-x64 \
         --self-contained false \
-        --output /output; \
-       elif [ "$TARGETARCH" == "arm64" ]; then \
-        dotnet publish \
-        "/build/Danmu/Danmu.csproj" \
-        -c Release-Linux64 \
-        -r linux-arm64 \
-        --self-contained false \
-        --output /output; \
-       fi
+        --output /output
 
 FROM dockerhub.hanada.info/library/ubuntu:20.04 as runner
 
