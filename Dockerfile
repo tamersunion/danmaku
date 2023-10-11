@@ -34,8 +34,8 @@ RUN apt-get update \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && mkdir /output \
-        dotnet publish \
-        "/build/Danmu/Danmu.csproj" \
+    && dotnet publish \
+        /build/Danmu/Danmu.csproj \
         -c Release-Linux64 \
         -r linux-x64 \
         --self-contained false \
