@@ -1,4 +1,4 @@
-FROM dockerhub.hanada.info/library/ubuntu:20.04 as builder
+FROM dockerhub.hanada.info/ubuntu:20.04 as builder
 
 ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive
@@ -41,7 +41,7 @@ RUN apt-get update \
         --self-contained false \
         --output /output
 
-FROM dockerhub.hanada.info/library/ubuntu:20.04 as runner
+FROM dockerhub.hanada.info/ubuntu:20.04 as runner
 
 ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive
