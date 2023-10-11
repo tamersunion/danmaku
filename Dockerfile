@@ -8,7 +8,7 @@ WORKDIR /build
 COPY . /build
 
 RUN apt-get update \
-    && apt-get install -y
+    && apt-get install -y \
         curl \
         apt-transport-https \
         xz-utils \
@@ -29,10 +29,10 @@ RUN apt-get update \
     && npm install \
     && npm run build \
     && cd /build/danmaku \
-    && CLI_VERSION=`git describe --tags`
-    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj
-    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj
-    && mkdir /output
+    && CLI_VERSION=`git describe --tags` \
+    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
+    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
+    && mkdir /output \
     && if [ "$TARGETARCH" == "amd64" ]; then \
         dotnet publish \
         "/build/Danmu/Danmu.csproj" \
