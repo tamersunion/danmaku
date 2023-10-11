@@ -11,6 +11,7 @@ RUN apt-get update \
     && apt-get install -y \
         curl \
         apt-transport-https \
+        git \
         xz-utils \
         nodejs \
         npm \
