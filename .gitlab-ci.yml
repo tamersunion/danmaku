@@ -10,7 +10,7 @@ docker-build:
     - debian-x86_64
   only:
     refs:
-      - main
+      - master
   script:
     - >
       docker login -u ${NEXUS_USERNAME} -p ${NEXUS_PASSWORD} registry.hanada.info
