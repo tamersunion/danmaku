@@ -48,7 +48,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /usr/local/danmaku
 
-COPY --from=builder /output /usr/local/danmaku
+COPY --from=builder /output/ /usr/local/danmaku/
 
 RUN apt-get update \
     && apt-get install -y curl apt-transport-https xz-utils \
