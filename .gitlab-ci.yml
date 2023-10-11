@@ -1,0 +1,25 @@
+variables:
+  DANMAKU_VERSION: 1.0.0-beta11
+
+stages:
+  - build
+
+docker-build:
+  stage: build
+  tags:
+    - debian-x86_64
+  only:
+    refs:
+      - main
+  script:
+    - >
+      docker login -u ${NEXUS_USERNAME} -p ${NEXUS_PASSWORD} registry.hanada.info
+    - >
+      docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -t registry.hanada.info/tamersunion/danmaku:latest \
+        -t registry.hanada.info/tamersunion/danmaku:${DANMAKU_VERSION} \
+        --build-arg DANMAKU_VERSION=${DANMAKU_VERSION} \
+        --push \
+        .
+
