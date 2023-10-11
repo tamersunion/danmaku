@@ -21,7 +21,6 @@ RUN apt-get update \
     && curl -L -o /tmp/packages-microsoft-prod.deb \
         https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
     && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && add-apt-repository universe \
     && apt-get update \
     && apt-get install -y dotnet-sdk-3.1 \
     && cd /build/Danmu \
