@@ -14,6 +14,7 @@ RUN apt-get update \
         xz-utils \
         nodejs \
         npm \
+        software-properties-common \
     && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata \
     && curl -L -o /tmp/packages-microsoft-prod.deb \
