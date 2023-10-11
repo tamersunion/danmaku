@@ -30,7 +30,6 @@ RUN apt-get update \
     && npm install \
     && npm run build \
     && cd /build \
-    && CLI_VERSION=`git describe --tags` \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
     && mkdir /output \
