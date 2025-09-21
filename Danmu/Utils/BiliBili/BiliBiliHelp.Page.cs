@@ -14,7 +14,7 @@ namespace Danmu.Utils.BiliBili
         /// <param name="aid">视频的aid</param>
         /// <param name="p">分p</param>
         /// <returns>cid</returns>
-        public async Task<int> GetCidAsync(int aid, int p)
+        public async Task<long> GetCidAsync(int aid, int p)
         {
             var pages = await GetBiliBiliPageAsync(aid);
             return GetCid(pages, p);
@@ -26,7 +26,7 @@ namespace Danmu.Utils.BiliBili
         /// <param name="bvid"></param>
         /// <param name="p"></param>
         /// <returns></returns>
-        public async Task<int> GetCidAsync(string bvid, int p)
+        public async Task<long> GetCidAsync(string bvid, int p)
         {
             var pages = await GetBiliBiliPageAsync(bvid);
             return GetCid(pages, p);
@@ -72,7 +72,7 @@ namespace Danmu.Utils.BiliBili
         /// <param name="pages">Page数据</param>
         /// <param name="p">分p</param>
         /// <returns>cid</returns>
-        private int GetCid(BiliBiliPage pages, int p)
+        private long GetCid(BiliBiliPage pages, int p)
         {
             var cid = pages.Code == 0 ? pages.Data.Where(e => e.Page == p).Select(s => s.Cid).FirstOrDefault() : 0;
             return cid;

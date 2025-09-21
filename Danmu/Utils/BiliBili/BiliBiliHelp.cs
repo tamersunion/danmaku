@@ -31,7 +31,7 @@ namespace Danmu.Utils.BiliBili
         /// </summary>
         /// <param name="cid">视频的cid</param>
         /// <returns>B站弹幕数据流</returns>
-        public async Task<Stream> GetDanmuRawByCidAsync(int cid)
+        public async Task<Stream> GetDanmuRawByCidAsync(long cid)
         {
             var r = await GetDanmuRawAsync($"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}");
             return r.Length == 0 ? Stream.Null : new MemoryStream(r);
@@ -54,7 +54,7 @@ namespace Danmu.Utils.BiliBili
         /// <param name="cid">视频的cid</param>
         /// <param name="date">历史日期</param>
         /// <returns></returns>
-        public async Task<DanmuDataBiliBili> GetDanmuAsync(int cid, string[] date)
+        public async Task<DanmuDataBiliBili> GetDanmuAsync(long cid, string[] date)
         {
             if (!_canGetHistory) return await GetDanmuAsync(new BiliBiliQuery {Cid = cid});
             var a = Task.Run(() => date.Select(async s =>

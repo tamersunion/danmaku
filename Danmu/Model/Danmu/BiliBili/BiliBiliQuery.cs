@@ -2,7 +2,7 @@ namespace Danmu.Model.Danmu.BiliBili
 {
     public class BiliBiliQuery
     {
-        public int Cid { get; set; }
+        public long Cid { get; set; }
         public int Aid { get; set; }
         public string Bvid { get; set; }
         public int P { get; set; }
