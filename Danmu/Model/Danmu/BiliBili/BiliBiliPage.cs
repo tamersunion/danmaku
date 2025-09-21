@@ -26,7 +26,7 @@ namespace Danmu.Model.Danmu.BiliBili
             ///     cid
             /// </summary>
             [JsonPropertyName("cid")]
-            public int Cid { get; set; }
+            public long Cid { get; set; }
 
             /// <summary>
             ///     时长
