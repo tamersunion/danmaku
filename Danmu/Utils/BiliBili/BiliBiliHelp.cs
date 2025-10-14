@@ -33,7 +33,7 @@ namespace Danmu.Utils.BiliBili
         /// <returns>B站弹幕数据流</returns>
         public async Task<Stream> GetDanmuRawByCidAsync(long cid)
         {
-            var r = await GetDanmuRawAsync($"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}");
+            var r = await GetDanmuRawAsync($"https://bilibili-api.hanada.info/x/v1/dm/list.so?oid={cid}");
             return r.Length == 0 ? Stream.Null : new MemoryStream(r);
         }
 
@@ -60,7 +60,7 @@ namespace Danmu.Utils.BiliBili
             var a = Task.Run(() => date.Select(async s =>
             {
                 var b = await GetDanmuRawAsync(
-                        $"https://api.bilibili.com/x/v2/dm/history?type=1&oid={cid}&date={s}", true);
+                        $"https://bilibili-api.hanada.info/x/v2/dm/history?type=1&oid={cid}&date={s}", true);
                 var c = b.Length == 0 ? Stream.Null : new MemoryStream(b);
                 return new DanmuDataBiliBili(c);
             }).SelectMany(s => s.Result.D));
@@ -114,9 +114,9 @@ namespace Danmu.Utils.BiliBili
         {
             string url;
             if (string.IsNullOrEmpty(bvid))
-                url = $"https://api.bilibili.com/x/web-interface/archive/stat?aid={aid}";
+                url = $"https://bilibili-api.hanada.info/x/web-interface/archive/stat?aid={aid}";
             else if (aid == 0)
-                url = $"https://api.bilibili.com/x/web-interface/archive/stat?bvid={bvid}";
+                url = $"https://bilibili-api.hanada.info/x/web-interface/archive/stat?bvid={bvid}";
             else
                 return new BvidInfo
                 {

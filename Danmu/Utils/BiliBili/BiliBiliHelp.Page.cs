@@ -39,7 +39,7 @@ namespace Danmu.Utils.BiliBili
         /// <returns>Page数据</returns>
         public async Task<BiliBiliPage> GetBiliBiliPageAsync(int aid)
         {
-            var raw = await GetBiliBiliPageRawAsync($"https://api.bilibili.com/x/player/pagelist?aid={aid}");
+            var raw = await GetBiliBiliPageRawAsync($"https://bilibili-api.hanada.info/x/player/pagelist?aid={aid}");
             if (raw.Length != 0)
             {
                 var pages = JsonSerializer.DeserializeAsync<BiliBiliPage>(new MemoryStream(raw));
@@ -56,7 +56,7 @@ namespace Danmu.Utils.BiliBili
         /// <returns></returns>
         public async Task<BiliBiliPage> GetBiliBiliPageAsync(string bvid)
         {
-            var raw = await GetBiliBiliPageRawAsync($"https://api.bilibili.com/x/player/pagelist?bvid={bvid}");
+            var raw = await GetBiliBiliPageRawAsync($"https://bilibili-api.hanada.info/x/player/pagelist?bvid={bvid}");
             if (raw.Length != 0)
             {
                 var pages = JsonSerializer.DeserializeAsync<BiliBiliPage>(new MemoryStream(raw));
