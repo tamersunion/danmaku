@@ -1,0 +1,55 @@
+import type { ReactElement } from "react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Spinner } from "@/components/ui/spinner";
+
+export function ConfirmAction({
+  trigger,
+  title,
+  description,
+  confirmLabel = "确认",
+  destructive = false,
+  pending = false,
+  onConfirm,
+}: {
+  trigger: ReactElement;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+  pending?: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger render={trigger} nativeButton={false} />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant={destructive ? "destructive" : "default"}
+            disabled={pending}
+            onClick={onConfirm}
+          >
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

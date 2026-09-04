@@ -32,7 +32,7 @@ CAS:
   ValidationHost: ""
   PublicURL: https://danmaku.tamersunion.org
   AutoCreateUsers: true
-  DefaultRole: 1
+  DefaultRole: 3
   SessionMaxAge: 10080
   RequestTimeout: 10
   CookieSecure: true

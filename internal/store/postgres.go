@@ -93,6 +93,7 @@ func schemaStatements() []string {
 			"PassWord" text NOT NULL,
 			"Salt" text NOT NULL,
 			"Role" integer NOT NULL,
+			"Enabled" boolean NOT NULL DEFAULT TRUE,
 			"PhoneNumber" text NULL,
 			"Email" text NULL,
 			"CreateTime" timestamp(3) without time zone NOT NULL,
@@ -129,6 +130,7 @@ func schemaStatements() []string {
 		`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "CASSubject" character varying(128) NULL`,
 		`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "CASDisplayName" character varying(240) NULL`,
 		`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "CASAvatar" text NULL`,
+		`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "Enabled" boolean NOT NULL DEFAULT TRUE`,
 		`DO $$ BEGIN
 			IF EXISTS(SELECT 1 FROM pg_constraint WHERE conname='FK_Danmu_Video_VideoId' AND conrelid='"Danmaku"'::regclass)
 			AND EXISTS(SELECT 1 FROM pg_constraint WHERE conname='FK_Danmaku_Video_VideoId' AND conrelid='"Danmaku"'::regclass) THEN
@@ -413,8 +415,9 @@ func (p *Postgres) Delete(ctx context.Context, id string) (bool, error) {
 
 func (p *Postgres) VerifyPassword(ctx context.Context, name, password string) (bool, int, int, error) {
 	var uid, role int
+	var enabled bool
 	var stored, salt string
-	err := p.pool.QueryRow(ctx, `SELECT "Id","Role","PassWord","Salt" FROM "User" WHERE "Name"=$1 LIMIT 1`, name).Scan(&uid, &role, &stored, &salt)
+	err := p.pool.QueryRow(ctx, `SELECT "Id","Role","PassWord","Salt","Enabled" FROM "User" WHERE "Name"=$1 LIMIT 1`, name).Scan(&uid, &role, &stored, &salt, &enabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if configuredAdminMatches(p.admin, name, password) {
 			return true, 0, 1, nil
@@ -424,7 +427,7 @@ func (p *Postgres) VerifyPassword(ctx context.Context, name, password string) (b
 	if err != nil {
 		return false, 0, 3, err
 	}
-	if stored == saltedMD5(password, salt) {
+	if enabled && stored == saltedMD5(password, salt) {
 		return true, uid, role, nil
 	}
 	if configuredAdminMatches(p.admin, name, password) {
@@ -474,7 +477,7 @@ func (p *Postgres) ChangeUserInfo(ctx context.Context, id int, name string, emai
 }
 
 func (p *Postgres) User(ctx context.Context, id int) (*domain.User, error) {
-	user, err := scanUser(p.pool.QueryRow(ctx, `SELECT "Id","Name","Role","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE "Id"=$1`, id))
+	user, err := scanUser(p.pool.QueryRow(ctx, `SELECT "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE "Id"=$1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -485,13 +488,125 @@ func (p *Postgres) User(ctx context.Context, id int) (*domain.User, error) {
 	return user, nil
 }
 
+func (p *Postgres) Users(ctx context.Context, filter UserFilter) (domain.Page[domain.User], error) {
+	page, size := normalizePage(filter.Page, filter.Size)
+	where := make([]string, 0, 2)
+	args := make([]any, 0, 4)
+	if query := strings.TrimSpace(filter.Query); query != "" {
+		args = append(args, "%"+query+"%")
+		where = append(where, fmt.Sprintf(`("Name" ILIKE $%d OR COALESCE("CASDisplayName",'') ILIKE $%d OR COALESCE("Email",'') ILIKE $%d)`, len(args), len(args), len(args)))
+	}
+	switch filter.Role {
+	case "administrator":
+		where = append(where, `"Role" IN (1,2)`)
+	case "user":
+		where = append(where, `"Role"=3`)
+	}
+	clause := ""
+	if len(where) > 0 {
+		clause = " WHERE " + strings.Join(where, " AND ")
+	}
+	var total int
+	if err := p.pool.QueryRow(ctx, `SELECT COUNT(*) FROM "User"`+clause, args...).Scan(&total); err != nil {
+		return domain.Page[domain.User]{}, err
+	}
+	args = append(args, size, (page-1)*size)
+	rows, err := p.pool.Query(ctx, `SELECT "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User"`+clause+fmt.Sprintf(` ORDER BY "Id" DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
+	if err != nil {
+		return domain.Page[domain.User]{}, err
+	}
+	defer rows.Close()
+	users := make([]domain.User, 0, size)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return domain.Page[domain.User]{}, err
+		}
+		users = append(users, *user)
+	}
+	if err := rows.Err(); err != nil {
+		return domain.Page[domain.User]{}, err
+	}
+	return domain.Page[domain.User]{Total: total, List: users}, nil
+}
+
+func (p *Postgres) CreateUser(ctx context.Context, input UserCreate) (*domain.User, error) {
+	input.Name = strings.TrimSpace(input.Name)
+	if input.Name == "" || len([]rune(input.Name)) > 16 || len([]rune(input.Password)) < 6 || len([]rune(input.Password)) > 100 || (input.Role != 2 && input.Role != 3) {
+		return nil, fmt.Errorf("invalid user fields")
+	}
+	var existingID int
+	err := p.pool.QueryRow(ctx, `SELECT "Id" FROM "User" WHERE lower("Name")=lower($1) LIMIT 1`, input.Name).Scan(&existingID)
+	if err == nil {
+		return nil, ErrUserNameConflict
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	salt, err := randomString(12)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	return scanUser(p.pool.QueryRow(ctx, `INSERT INTO "User" ("Name","PassWord","Salt","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime") VALUES ($1,$2,$3,$4,TRUE,NULLIF($5,''),NULLIF($6,''),$7,$7) RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, input.Name, saltedMD5(md5String(input.Password), salt), salt, input.Role, strings.TrimSpace(input.PhoneNumber), strings.TrimSpace(input.Email), now))
+}
+
+func (p *Postgres) UpdateUser(ctx context.Context, id int, input UserUpdate) (*domain.User, error) {
+	current, err := p.User(ctx, id)
+	if err != nil || current == nil {
+		return current, err
+	}
+	if input.Role != 1 && input.Role != 2 && input.Role != 3 {
+		return nil, fmt.Errorf("invalid user role")
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Email = strings.TrimSpace(input.Email)
+	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
+	if current.CASSubject != nil {
+		if input.Password != "" || input.Name != current.Name || input.Email != pointerValue(current.Email) || input.PhoneNumber != pointerValue(current.PhoneNumber) {
+			return nil, ErrCASProfileReadOnly
+		}
+		return scanUser(p.pool.QueryRow(ctx, `UPDATE "User" SET "Role"=$2,"UpdateTime"=$3 WHERE "Id"=$1 RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, id, input.Role, time.Now().UTC().Truncate(time.Millisecond)))
+	}
+	if input.Name == "" || len([]rune(input.Name)) > 16 || (input.Password != "" && (len([]rune(input.Password)) < 6 || len([]rune(input.Password)) > 100)) {
+		return nil, fmt.Errorf("invalid user fields")
+	}
+	var conflictingID int
+	err = p.pool.QueryRow(ctx, `SELECT "Id" FROM "User" WHERE lower("Name")=lower($1) AND "Id"<>$2 LIMIT 1`, input.Name, id).Scan(&conflictingID)
+	if err == nil {
+		return nil, ErrUserNameConflict
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	if input.Password == "" {
+		return scanUser(p.pool.QueryRow(ctx, `UPDATE "User" SET "Name"=$2,"Role"=$3,"PhoneNumber"=NULLIF($4,''),"Email"=NULLIF($5,''),"UpdateTime"=$6 WHERE "Id"=$1 RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, id, input.Name, input.Role, input.PhoneNumber, input.Email, now))
+	}
+	salt, err := randomString(12)
+	if err != nil {
+		return nil, err
+	}
+	return scanUser(p.pool.QueryRow(ctx, `UPDATE "User" SET "Name"=$2,"Role"=$3,"PhoneNumber"=NULLIF($4,''),"Email"=NULLIF($5,''),"PassWord"=$6,"Salt"=$7,"UpdateTime"=$8 WHERE "Id"=$1 RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, id, input.Name, input.Role, input.PhoneNumber, input.Email, saltedMD5(md5String(input.Password), salt), salt, now))
+}
+
+func (p *Postgres) SetUserEnabled(ctx context.Context, id int, enabled bool) (bool, error) {
+	command, err := p.pool.Exec(ctx, `UPDATE "User" SET "Enabled"=$2,"UpdateTime"=$3 WHERE "Id"=$1`, id, enabled, time.Now().UTC().Truncate(time.Millisecond))
+	return err == nil && command.RowsAffected() > 0, err
+}
+
+func (p *Postgres) DeleteUser(ctx context.Context, id int) (bool, error) {
+	command, err := p.pool.Exec(ctx, `DELETE FROM "User" WHERE "Id"=$1`, id)
+	return err == nil && command.RowsAffected() > 0, err
+}
+
 func (p *Postgres) UpsertCASUser(ctx context.Context, profile domain.CASProfile, defaultRole int, autoCreate bool) (*domain.User, bool, error) {
 	profile.Subject = strings.TrimSpace(profile.Subject)
 	profile.UserName = strings.TrimSpace(profile.UserName)
 	if profile.Subject == "" || profile.UserName == "" || len([]rune(profile.Subject)) > 128 || len([]rune(profile.UserName)) > 16 {
 		return nil, false, fmt.Errorf("invalid CAS identity: subject and username are required and must fit the database schema")
 	}
-	if defaultRole != 1 && defaultRole != 2 {
+	if defaultRole != 1 && defaultRole != 2 && defaultRole != 3 {
 		return nil, false, fmt.Errorf("invalid CAS default role %d", defaultRole)
 	}
 	profile.DisplayName = truncateRunes(strings.TrimSpace(profile.DisplayName), 240)
@@ -507,11 +622,14 @@ func (p *Postgres) UpsertCASUser(ctx context.Context, profile domain.CASProfile,
 		return nil, false, err
 	}
 
-	user, err := scanUser(tx.QueryRow(ctx, `SELECT "Id","Name","Role","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE "CASSubject"=$1 LIMIT 1`, profile.Subject))
+	user, err := scanUser(tx.QueryRow(ctx, `SELECT "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE "CASSubject"=$1 LIMIT 1`, profile.Subject))
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
 	if user != nil {
+		if !user.Enabled {
+			return nil, false, ErrUserDisabled
+		}
 		var conflictingID int
 		err = tx.QueryRow(ctx, `SELECT "Id" FROM "User" WHERE lower("Name")=lower($1) AND "Id"<>$2 LIMIT 1`, profile.UserName, user.ID).Scan(&conflictingID)
 		if err == nil {
@@ -530,11 +648,14 @@ func (p *Postgres) UpsertCASUser(ctx context.Context, profile domain.CASProfile,
 		return user, false, nil
 	}
 
-	user, err = scanUser(tx.QueryRow(ctx, `SELECT "Id","Name","Role","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE lower("Name")=lower($1) LIMIT 1`, profile.UserName))
+	user, err = scanUser(tx.QueryRow(ctx, `SELECT "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar" FROM "User" WHERE lower("Name")=lower($1) LIMIT 1`, profile.UserName))
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
 	if user != nil {
+		if !user.Enabled {
+			return nil, false, ErrUserDisabled
+		}
 		if user.CASSubject != nil && *user.CASSubject != profile.Subject {
 			return nil, false, ErrCASIdentityConflict
 		}
@@ -560,7 +681,7 @@ func (p *Postgres) UpsertCASUser(ctx context.Context, profile domain.CASProfile,
 		return nil, false, err
 	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	user, err = scanUser(tx.QueryRow(ctx, `INSERT INTO "User" ("Name","PassWord","Salt","Role","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar") VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9) RETURNING "Id","Name","Role","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, profile.UserName, saltedMD5(randomPassword, salt), salt, defaultRole, nullableString(profile.Email), now, profile.Subject, nullableString(profile.DisplayName), nullableString(profile.Avatar)))
+	user, err = scanUser(tx.QueryRow(ctx, `INSERT INTO "User" ("Name","PassWord","Salt","Role","Enabled","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar") VALUES ($1,$2,$3,$4,TRUE,$5,$6,$6,$7,$8,$9) RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, profile.UserName, saltedMD5(randomPassword, salt), salt, defaultRole, nullableString(profile.Email), now, profile.Subject, nullableString(profile.DisplayName), nullableString(profile.Avatar)))
 	if err != nil {
 		return nil, false, err
 	}
@@ -571,15 +692,22 @@ func (p *Postgres) UpsertCASUser(ctx context.Context, profile domain.CASProfile,
 }
 
 func updateCASUser(ctx context.Context, tx pgx.Tx, id int, profile domain.CASProfile) (*domain.User, error) {
-	return scanUser(tx.QueryRow(ctx, `UPDATE "User" SET "Name"=$2,"Email"=$3,"CASSubject"=$4,"CASDisplayName"=$5,"CASAvatar"=$6,"UpdateTime"=$7 WHERE "Id"=$1 RETURNING "Id","Name","Role","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, id, profile.UserName, nullableString(profile.Email), profile.Subject, nullableString(profile.DisplayName), nullableString(profile.Avatar), time.Now().UTC().Truncate(time.Millisecond)))
+	return scanUser(tx.QueryRow(ctx, `UPDATE "User" SET "Name"=$2,"Email"=$3,"CASSubject"=$4,"CASDisplayName"=$5,"CASAvatar"=$6,"UpdateTime"=$7 WHERE "Id"=$1 RETURNING "Id","Name","Role","Enabled","PhoneNumber","Email","CreateTime","UpdateTime","CASSubject","CASDisplayName","CASAvatar"`, id, profile.UserName, nullableString(profile.Email), profile.Subject, nullableString(profile.DisplayName), nullableString(profile.Avatar), time.Now().UTC().Truncate(time.Millisecond)))
 }
 
 func scanUser(row pgx.Row) (*domain.User, error) {
 	var user domain.User
-	if err := row.Scan(&user.ID, &user.Name, &user.Role, &user.PhoneNumber, &user.Email, &user.CreateTime, &user.UpdateTime, &user.CASSubject, &user.CASDisplayName, &user.CASAvatar); err != nil {
+	if err := row.Scan(&user.ID, &user.Name, &user.Role, &user.Enabled, &user.PhoneNumber, &user.Email, &user.CreateTime, &user.UpdateTime, &user.CASSubject, &user.CASDisplayName, &user.CASAvatar); err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func pointerValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func nullableString(value string) any {

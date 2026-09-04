@@ -1,4 +1,4 @@
-FROM node:12-bullseye-slim AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /src/frontend
 COPY frontend/package*.json ./
@@ -26,7 +26,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=backend-builder /output/danmaku ./danmaku
-COPY --from=frontend-builder /src/wwwroot/ ./wwwroot/
+COPY --from=frontend-builder /src/frontend/dist/ ./wwwroot/
 COPY appsettings.yml ./appsettings.yml
 
 EXPOSE 80

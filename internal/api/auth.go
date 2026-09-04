@@ -108,14 +108,6 @@ func (s *Server) signSession(value session) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
-func (s *Server) authenticate(r *http.Request) (string, int, bool) {
-	value, ok := s.requestSession(r)
-	if !ok {
-		return "", 0, false
-	}
-	return value.User, value.Role, true
-}
-
 func (s *Server) requestSession(r *http.Request) (session, bool) {
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
@@ -139,7 +131,7 @@ func (s *Server) requestSession(r *http.Request) (session, bool) {
 		return session{}, false
 	}
 	var value session
-	if json.Unmarshal(payload, &value) != nil || value.Expires < time.Now().Unix() || (value.Role != 1 && value.Role != 2) {
+	if json.Unmarshal(payload, &value) != nil || value.Expires < time.Now().Unix() || (value.Role != 1 && value.Role != 2 && value.Role != 3) {
 		return session{}, false
 	}
 	if value.Provider == "" {
@@ -174,6 +166,10 @@ func (s *Server) currentSession(w http.ResponseWriter, r *http.Request) {
 		"role": roleName(value.Role), "email": value.Email,
 		"avatar": value.Avatar, "provider": value.Provider,
 	}))
+}
+
+func isAdministrator(role int) bool {
+	return role == 1 || role == 2
 }
 
 func (s *Server) noStore(w http.ResponseWriter) {

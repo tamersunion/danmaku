@@ -75,7 +75,7 @@ func defaults() Config {
 		Admin:           AdminSettings{MaxAge: 1},
 		Bilibili:        BilibiliSettings{CIDCacheMinutes: 72, DataCacheMinutes: 5},
 		CAS: CASSettings{
-			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 1,
+			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 3,
 			SessionMaxAgeMinutes:  7 * 24 * 60,
 			RequestTimeoutSeconds: 10, CookieSecure: true,
 		},
@@ -123,8 +123,8 @@ func Load(path string) (Config, error) {
 		cfg.CAS.RequestTimeoutSeconds = 10
 	}
 	if cfg.CAS.Enabled {
-		if cfg.CAS.DefaultRole != 1 && cfg.CAS.DefaultRole != 2 {
-			return Config{}, errors.New("CAS.DefaultRole must be 1 (SuperAdmin) or 2 (Admin)")
+		if cfg.CAS.DefaultRole != 1 && cfg.CAS.DefaultRole != 2 && cfg.CAS.DefaultRole != 3 {
+			return Config{}, errors.New("CAS.DefaultRole must be 1 (SuperAdmin), 2 (Admin), or 3 (GeneralUser)")
 		}
 		if err := validateAbsoluteURL(cfg.CAS.BaseURL, "CAS.BaseURL"); err != nil {
 			return Config{}, err

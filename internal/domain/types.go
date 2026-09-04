@@ -96,6 +96,7 @@ type User struct {
 	Password       *string   `json:"passWord"`
 	Salt           string    `json:"salt"`
 	Role           int       `json:"role"`
+	Enabled        bool      `json:"-"`
 	PhoneNumber    *string   `json:"phoneNumber"`
 	Email          *string   `json:"email"`
 	CreateTime     time.Time `json:"createTime"`

@@ -74,11 +74,12 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 	case path == "/api/admin/logout" && r.Method == http.MethodGet:
 		s.logout(w, r)
 	case strings.HasPrefix(path, "/api/admin/"):
-		if _, _, ok := s.authenticate(r); !ok {
+		value, ok := s.requestSession(r)
+		if !ok {
 			s.writeJSON(w, http.StatusOK, result{Code: 401, Data: map[string]string{"desc": "没有权限"}})
 			return
 		}
-		s.serveAdmin(w, r, path)
+		s.serveAdmin(w, r, path, value)
 	case path == "/api/other/bilibili/queryaid" && r.Method == http.MethodGet:
 		s.queryAID(w, r)
 	case strings.HasPrefix(path, "/api/danmaku/dplayer/v3"):

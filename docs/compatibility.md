@@ -8,6 +8,8 @@
 
 2.0.2 的前端时间转换同时接受旧后端返回的无时区字符串和 Go 后端返回的 RFC3339 时间，避免重复追加 `Z` 后显示为 `NaN-aN-aN aN:aN:aN`。
 
+2.1.0 将管理前端迁移到 React 与 shadcn/ui，并新增用户管理接口。原有公开弹幕接口及其请求、响应结构不变。
+
 | 方法 | 路径 | 兼容行为 |
 | --- | --- | --- |
 | GET | `/api/danmaku/v1?id={vid}` | 返回通用弹幕数组 |
@@ -22,6 +24,9 @@
 | GET | `/api/admin/auth/options` | 返回 CAS 登录选项 |
 | GET | `/api/admin/session` | 从服务端 Cookie 恢复当前管理会话 |
 | GET/POST | `/api/admin/user/*` | 用户资料与密码操作 |
+| GET/POST | `/api/admin/users` | 管理员分页查询用户或创建本地用户；CAS 开启时不允许创建本地用户 |
+| GET/PUT/DELETE | `/api/admin/users/{id}` | 管理员查询、更新或删除用户；CAS 用户只能修改角色 |
+| PATCH | `/api/admin/users/{id}/status` | 管理员启用或停用用户 |
 | GET | `/api/admin/danmakulist[/vids\|/dateselect\|/baseselect]` | 管理列表和筛选 |
 | GET/POST | `/api/admin/danmakuedit[/delete\|/edit]` | 查询、软删除和编辑 |
 
@@ -46,4 +51,6 @@ Go 后端启动时在单个事务中迁移并读写以下区分大小写对象�
 
 数据库读取同时兼容既有 PascalCase JSONB 和可能存在的 camelCase 数据，但新增数据仍写成旧 EF Core 的 PascalCase 结构。
 
-已有 `"Danmu"` 表、`FK_Danmu_*` 外键和 `IX_Danmu_*` 索引会自动改为 `Danmaku` 命名。`"User"` 会新增 `"CASSubject"`、`"CASDisplayName"`、`"CASAvatar"` 字段及唯一索引，用于稳定绑定并同步 CAS 资料。
+已有 `"Danmu"` 表、`FK_Danmu_*` 外键和 `IX_Danmu_*` 索引会自动改为 `Danmaku` 命名。`"User"` 会新增 `"CASSubject"`、`"CASDisplayName"`、`"CASAvatar"`、`"Enabled"` 字段及唯一索引，用于稳定绑定、同步 CAS 资料及停用账户。结构检查在服务启动、开始监听前自动完成。
+
+用户角色 `1`、`2` 均为管理员，角色 `3` 为普通用户。普通用户只能查看自己的资料；管理员可访问弹幕和用户管理。CAS 启用后，CAS 返回的用户名、显示名、邮箱和头像会在登录时同步；包括电话在内的本地资料及密码均不可由本项目修改，只允许管理员调整角色或启停账户。

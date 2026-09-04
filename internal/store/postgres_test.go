@@ -66,6 +66,7 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`ALTER INDEX "IX_Danmu_Vid_IsDelete" RENAME TO "IX_Danmaku_Vid_IsDelete"`,
 		`"CASSubject"`,
 		`"UX_User_CASSubject"`,
+		`"Enabled" boolean NOT NULL DEFAULT TRUE`,
 	} {
 		if !strings.Contains(migration, expected) {
 			t.Fatalf("schema migration does not contain %q", expected)

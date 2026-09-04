@@ -31,6 +31,10 @@ type fakeRepository struct {
 	casUser       *domain.User
 	casCreated    bool
 	casProfile    domain.CASProfile
+	users         []domain.User
+	updatedUser   store.UserUpdate
+	statusUserID  int
+	deletedUserID int
 }
 
 func (f *fakeRepository) Initialize(context.Context) error { return nil }
@@ -65,7 +69,32 @@ func (f *fakeRepository) ChangePassword(context.Context, int, string, string) (b
 func (f *fakeRepository) ChangeUserInfo(context.Context, int, string, *string, *string) (bool, error) {
 	return true, nil
 }
-func (f *fakeRepository) User(context.Context, int) (*domain.User, error) { return nil, nil }
+func (f *fakeRepository) User(_ context.Context, id int) (*domain.User, error) {
+	for index := range f.users {
+		if f.users[index].ID == id {
+			return &f.users[index], nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) Users(context.Context, store.UserFilter) (domain.Page[domain.User], error) {
+	return domain.Page[domain.User]{Total: len(f.users), List: f.users}, nil
+}
+func (f *fakeRepository) CreateUser(_ context.Context, input store.UserCreate) (*domain.User, error) {
+	return &domain.User{ID: 10, Name: input.Name, Role: input.Role, Enabled: true}, nil
+}
+func (f *fakeRepository) UpdateUser(_ context.Context, id int, input store.UserUpdate) (*domain.User, error) {
+	f.updatedUser = input
+	return &domain.User{ID: id, Name: input.Name, Role: input.Role, Enabled: true}, nil
+}
+func (f *fakeRepository) SetUserEnabled(_ context.Context, id int, _ bool) (bool, error) {
+	f.statusUserID = id
+	return true, nil
+}
+func (f *fakeRepository) DeleteUser(_ context.Context, id int) (bool, error) {
+	f.deletedUserID = id
+	return true, nil
+}
 func (f *fakeRepository) UpsertCASUser(_ context.Context, profile domain.CASProfile, _ int, _ bool) (*domain.User, bool, error) {
 	f.casProfile = profile
 	if f.casUser == nil {
@@ -247,6 +276,9 @@ func TestNativeCASAuthCreatesSessionAndRestoresProfile(t *testing.T) {
 	if restored.Code != 0 || restored.Data.ID != 9 || restored.Data.Name != "花田" || restored.Data.Provider != "cas" {
 		t.Fatalf("unexpected restored session: %s", sessionResponse.Body.String())
 	}
+	if strings.Contains(sessionResponse.Body.String(), `"casEnabled"`) || strings.Contains(sessionResponse.Body.String(), `"profileEditable"`) {
+		t.Fatalf("legacy session response shape changed: %s", sessionResponse.Body.String())
+	}
 
 	changeRequest := httptest.NewRequest(http.MethodPost, "/api/admin/user/changepassword", strings.NewReader(`{}`))
 	changeRequest.AddCookie(authCookie)
@@ -284,6 +316,141 @@ func TestAdminUnauthorizedContract(t *testing.T) {
 	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/admin/danmakulist/vids", nil))
 	if response.Code != http.StatusOK || response.Body.String() != "{\"code\":401,\"data\":{\"desc\":\"没有权限\"}}\n" {
 		t.Fatalf("unexpected unauthorized response: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestGeneralUserCanOpenProfileButNotDanmakuManagement(t *testing.T) {
+	repository := &fakeRepository{
+		verifyOK: true, verifyUID: 7, verifyRole: 3,
+		users: []domain.User{{ID: 7, Name: "viewer", Role: 3, Enabled: true}},
+	}
+	server := testServer(t, repository)
+	loginResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"viewer","password":"hash"}`)))
+	var cookie *http.Cookie
+	for _, candidate := range loginResponse.Result().Cookies() {
+		if candidate.Name == sessionCookie {
+			cookie = candidate
+		}
+	}
+	if cookie == nil {
+		t.Fatal("missing general-user session cookie")
+	}
+
+	managementRequest := httptest.NewRequest(http.MethodGet, "/api/admin/danmakulist/vids", nil)
+	managementRequest.AddCookie(cookie)
+	managementResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(managementResponse, managementRequest)
+	if managementResponse.Body.String() != "{\"code\":401,\"data\":{\"desc\":\"没有权限\"}}\n" {
+		t.Fatalf("general user management response = %s", managementResponse.Body.String())
+	}
+
+	profileRequest := httptest.NewRequest(http.MethodGet, "/api/admin/user/user?uid=7", nil)
+	profileRequest.AddCookie(cookie)
+	profileResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(profileResponse, profileRequest)
+	if profileResponse.Code != http.StatusOK || !strings.Contains(profileResponse.Body.String(), `"name":"viewer"`) {
+		t.Fatalf("general user profile response = %d %s", profileResponse.Code, profileResponse.Body.String())
+	}
+	if strings.Contains(profileResponse.Body.String(), `"enabled"`) {
+		t.Fatalf("legacy profile response shape changed: %s", profileResponse.Body.String())
+	}
+}
+
+func TestAdministratorCanListManagedUsers(t *testing.T) {
+	repository := &fakeRepository{
+		verifyOK: true, verifyUID: 2, verifyRole: 2,
+		users: []domain.User{
+			{ID: 2, Name: "admin", Role: 2, Enabled: true},
+			{ID: 3, Name: "viewer", Role: 3, Enabled: true},
+		},
+	}
+	server := testServer(t, repository)
+	loginResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"admin","password":"hash"}`)))
+	var cookie *http.Cookie
+	for _, candidate := range loginResponse.Result().Cookies() {
+		if candidate.Name == sessionCookie {
+			cookie = candidate
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)
+	request.AddCookie(cookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"role":"administrator"`) || !strings.Contains(response.Body.String(), `"role":"user"`) {
+		t.Fatalf("managed users response = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestCASEnabledDisablesLocalProfileMutations(t *testing.T) {
+	repository := &fakeRepository{verifyOK: true, verifyUID: 2, verifyRole: 2}
+	cfg := config.Config{
+		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
+		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
+		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		CAS: config.CASSettings{
+			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
+			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+		},
+	}
+	server := testServerWithConfig(t, repository, cfg)
+	loginResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"admin","password":"hash"}`)))
+	var cookie *http.Cookie
+	for _, candidate := range loginResponse.Result().Cookies() {
+		if candidate.Name == sessionCookie {
+			cookie = candidate
+		}
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/user/changepassword", strings.NewReader(`{"uid":2,"oldP":"old","newP":"new"}`))
+	request.AddCookie(cookie)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("password mutation status = %d", response.Code)
+	}
+}
+
+func TestCASEnabledManagedUserAllowsRoleOnly(t *testing.T) {
+	subject := "cas-viewer"
+	repository := &fakeRepository{
+		verifyOK: true, verifyUID: 2, verifyRole: 2,
+		users: []domain.User{{ID: 7, Name: "viewer", Role: 3, Enabled: true, CASSubject: &subject}},
+	}
+	cfg := config.Config{
+		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
+		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
+		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		CAS: config.CASSettings{
+			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
+			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+		},
+	}
+	server := testServerWithConfig(t, repository, cfg)
+	loginResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"admin","password":"hash"}`)))
+	var cookie *http.Cookie
+	for _, candidate := range loginResponse.Result().Cookies() {
+		if candidate.Name == sessionCookie {
+			cookie = candidate
+		}
+	}
+
+	roleRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"administrator"}`))
+	roleRequest.AddCookie(cookie)
+	roleResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(roleResponse, roleRequest)
+	if roleResponse.Code != http.StatusOK || repository.updatedUser.Role != 2 {
+		t.Fatalf("role-only update = %d %s, role %d", roleResponse.Code, roleResponse.Body.String(), repository.updatedUser.Role)
+	}
+
+	profileRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"administrator","name":"changed"}`))
+	profileRequest.AddCookie(cookie)
+	profileResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(profileResponse, profileRequest)
+	if profileResponse.Code != http.StatusConflict {
+		t.Fatalf("CAS profile update status = %d, body %s", profileResponse.Code, profileResponse.Body.String())
 	}
 }
 

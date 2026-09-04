@@ -1,0 +1,682 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  EraserIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  SearchIcon,
+  Trash2Icon,
+} from "lucide-react";
+
+import { apiGet, apiPost } from "@/api/client";
+import type { ApiResponse, Danmaku } from "@/api/types";
+import { ConfirmAction } from "@/components/confirm-action";
+import { DataTable, type DataColumn } from "@/components/data-table";
+import { ListPagination } from "@/components/list-pagination";
+import { LoadingTable } from "@/components/loading-table";
+import { PageHeader } from "@/components/page-header";
+import { QueryError } from "@/components/query-error";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { useApiMutation } from "@/hooks/use-api-mutation";
+import { colorHex, formatDateTime } from "@/lib/format";
+
+const modes = [
+  { value: "all", label: "全部类型" },
+  { value: "1", label: "滚动弹幕" },
+  { value: "4", label: "底部弹幕" },
+  { value: "5", label: "顶部弹幕" },
+  { value: "8", label: "高级弹幕" },
+  { value: "9", label: "特殊弹幕" },
+];
+const editableModes = modes.slice(1);
+type Filters = {
+  vid: string;
+  startDate: string;
+  endDate: string;
+  author: string;
+  authorId: string;
+  mode: string;
+  ip: string;
+  key: string;
+  descending: string;
+};
+const emptyFilters: Filters = {
+  vid: "",
+  startDate: "",
+  endDate: "",
+  author: "",
+  authorId: "",
+  mode: "all",
+  ip: "",
+  key: "",
+  descending: "true",
+};
+
+function apiDate(value: string): string {
+  if (!value) return "";
+  const normalized = value.replace("T", " ");
+  return normalized.length === 16 ? `${normalized}:00` : normalized;
+}
+
+function modeLabel(mode: number): string {
+  return (
+    editableModes.find((item) => item.value === String(mode))?.label ??
+    `类型 ${mode}`
+  );
+}
+
+export function DanmakuPage() {
+  const [draft, setDraft] = useState<Filters>(emptyFilters);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [page, setPage] = useState(1);
+  const [editingID, setEditingID] = useState<string | null>(null);
+  const vids = useQuery({
+    queryKey: ["danmaku-vids"],
+    queryFn: async () =>
+      (await apiGet<ApiResponse<string[]>>("/api/admin/danmakulist/vids")).data,
+  });
+  const danmaku = useQuery({
+    queryKey: ["danmaku", page, filters],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<{ total: number; list: Danmaku[] }>>(
+          "/api/admin/danmakulist/baseselect",
+          {
+            page,
+            size: 20,
+            ...filters,
+            startDate: apiDate(filters.startDate),
+            endDate: apiDate(filters.endDate),
+            mode: filters.mode === "all" ? "" : filters.mode,
+            descending: filters.descending === "true",
+          },
+        )
+      ).data,
+  });
+  const remove = useApiMutation<string, ApiResponse<null>>({
+    mutationFn: (id) => apiGet("/api/admin/danmakuedit/delete", { id }),
+    successMessage: "弹幕已删除",
+    invalidate: [["danmaku"]],
+  });
+  const columns = useMemo<DataColumn<Danmaku>[]>(
+    () => [
+      {
+        key: "content",
+        label: "弹幕内容",
+        render: (item) => (
+          <div className="max-w-md">
+            <p className="truncate font-medium" title={item.data.text ?? ""}>
+              {item.data.text || "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {modeLabel(item.data.mode)} · {item.data.time.toFixed(2)} 秒 ·{" "}
+              {item.data.size}px
+            </p>
+          </div>
+        ),
+      },
+      {
+        key: "video",
+        label: "视频 ID",
+        render: (item) => (
+          <p className="max-w-56 truncate font-mono text-xs" title={item.vid}>
+            {item.vid}
+          </p>
+        ),
+      },
+      {
+        key: "author",
+        label: "发送者",
+        render: (item) => (
+          <div>
+            <p>{item.data.author || "匿名"}</p>
+            <p className="text-xs text-muted-foreground">
+              ID {item.data.authorId || "—"} · {item.ip || "—"}
+            </p>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        label: "状态",
+        render: (item) => (
+          <Badge variant={item.isDelete ? "destructive" : "secondary"}>
+            {item.isDelete ? "已删除" : "正常"}
+          </Badge>
+        ),
+      },
+      {
+        key: "created",
+        label: "创建时间",
+        className: "whitespace-nowrap",
+        render: (item) => formatDateTime(item.createTime),
+      },
+      {
+        key: "actions",
+        label: "",
+        className: "w-12",
+        render: (item) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button size="icon-sm" variant="ghost" aria-label="管理弹幕" />
+              }
+            >
+              <MoreHorizontalIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setEditingID(item.id)}>
+                  <PencilIcon />
+                  查看并编辑
+                </DropdownMenuItem>
+                <ConfirmAction
+                  trigger={
+                    <DropdownMenuItem
+                      variant="destructive"
+                      closeOnClick={false}
+                    >
+                      <Trash2Icon />
+                      删除
+                    </DropdownMenuItem>
+                  }
+                  title="删除这条弹幕？"
+                  description="弹幕会被标记为已删除，并立即从公开查询结果中隐藏。"
+                  destructive
+                  pending={remove.isPending}
+                  onConfirm={() => remove.mutate(item.id)}
+                />
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ],
+    [remove],
+  );
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setPage(1);
+    setFilters({ ...draft });
+  }
+  function reset() {
+    setDraft(emptyFilters);
+    setFilters(emptyFilters);
+    setPage(1);
+  }
+
+  const data = danmaku.data;
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Moderation"
+        title="弹幕管理"
+        description="快速检索、审阅并维护所有播放器产生的弹幕数据。"
+        action={
+          data ? <Badge variant="outline">共 {data.total} 条</Badge> : null
+        }
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>筛选条件</CardTitle>
+          <CardDescription>
+            按视频 ID、时间、发送者、IP 地址或内容组合查询。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={submit}>
+            <FieldGroup className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field>
+                <FieldLabel htmlFor="filter-vid">视频 ID</FieldLabel>
+                <Input
+                  id="filter-vid"
+                  list="danmaku-vids"
+                  value={draft.vid}
+                  placeholder="全部视频"
+                  onChange={(event) =>
+                    setDraft({ ...draft, vid: event.target.value })
+                  }
+                />
+                <datalist id="danmaku-vids">
+                  {vids.data?.map((vid) => (
+                    <option key={vid} value={vid} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-key">内容关键词</FieldLabel>
+                <Input
+                  id="filter-key"
+                  value={draft.key}
+                  placeholder="搜索弹幕内容"
+                  onChange={(event) =>
+                    setDraft({ ...draft, key: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-author">用户名</FieldLabel>
+                <Input
+                  id="filter-author"
+                  value={draft.author}
+                  placeholder="发送者名称"
+                  onChange={(event) =>
+                    setDraft({ ...draft, author: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-author-id">用户 ID</FieldLabel>
+                <Input
+                  id="filter-author-id"
+                  inputMode="numeric"
+                  value={draft.authorId}
+                  placeholder="发送者 ID"
+                  onChange={(event) =>
+                    setDraft({ ...draft, authorId: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-ip">IP 地址</FieldLabel>
+                <Input
+                  id="filter-ip"
+                  value={draft.ip}
+                  placeholder="IPv4 或 IPv6"
+                  onChange={(event) =>
+                    setDraft({ ...draft, ip: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-mode">弹幕类型</FieldLabel>
+                <Select
+                  items={modes}
+                  value={draft.mode}
+                  onValueChange={(value) =>
+                    setDraft({ ...draft, mode: value ?? "all" })
+                  }
+                >
+                  <SelectTrigger id="filter-mode" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {modes.map((mode) => (
+                        <SelectItem key={mode.value} value={mode.value}>
+                          {mode.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-start">开始时间</FieldLabel>
+                <Input
+                  id="filter-start"
+                  type="datetime-local"
+                  value={draft.startDate}
+                  onChange={(event) =>
+                    setDraft({ ...draft, startDate: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-end">结束时间</FieldLabel>
+                <Input
+                  id="filter-end"
+                  type="datetime-local"
+                  value={draft.endDate}
+                  onChange={(event) =>
+                    setDraft({ ...draft, endDate: event.target.value })
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="filter-order">排序</FieldLabel>
+                <Select
+                  items={[
+                    { value: "true", label: "最新在前" },
+                    { value: "false", label: "最早在前" },
+                  ]}
+                  value={draft.descending}
+                  onValueChange={(value) =>
+                    setDraft({ ...draft, descending: value ?? "true" })
+                  }
+                >
+                  <SelectTrigger id="filter-order" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="true">最新在前</SelectItem>
+                      <SelectItem value="false">最早在前</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit">
+                <SearchIcon data-icon="inline-start" />
+                查询
+              </Button>
+              <Button type="button" variant="outline" onClick={reset}>
+                <RotateCcwIcon data-icon="inline-start" />
+                重置
+              </Button>
+              {filters.key ||
+              filters.vid ||
+              filters.author ||
+              filters.authorId ||
+              filters.ip ||
+              filters.startDate ||
+              filters.endDate ||
+              filters.mode !== "all" ? (
+                <Badge variant="secondary">
+                  <EraserIcon />
+                  已应用筛选
+                </Badge>
+              ) : null}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>查询结果</CardTitle>
+          <CardDescription>
+            每条记录可单独查看详情、编辑内容或执行软删除。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {danmaku.isError ? (
+            <div className="p-6">
+              <QueryError
+                error={danmaku.error}
+                retry={() => void danmaku.refetch()}
+              />
+            </div>
+          ) : danmaku.isPending ? (
+            <LoadingTable />
+          ) : (
+            <DataTable
+              rows={data?.list ?? []}
+              columns={columns}
+              rowKey={(item) => item.id}
+              emptyTitle="没有匹配的弹幕"
+              emptyDescription="请调整筛选条件后重新查询。"
+            />
+          )}
+          {data ? (
+            <ListPagination
+              meta={{ page, pageSize: 20, total: data.total }}
+              onPageChange={setPage}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
+      <DanmakuEditor
+        id={editingID}
+        onOpenChange={(open) => {
+          if (!open) setEditingID(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function DanmakuEditor({
+  id,
+  onOpenChange,
+}: {
+  id: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const detail = useQuery({
+    queryKey: ["danmaku-detail", id],
+    queryFn: async () =>
+      (await apiGet<ApiResponse<Danmaku>>("/api/admin/danmakuedit", { id }))
+        .data,
+    enabled: Boolean(id),
+  });
+  const [time, setTime] = useState("0");
+  const [mode, setMode] = useState("1");
+  const [size, setSize] = useState("25");
+  const [color, setColor] = useState("#ffffff");
+  const [text, setText] = useState("");
+  const [deleted, setDeleted] = useState(false);
+  const save = useApiMutation<Record<string, unknown>, ApiResponse<Danmaku>>({
+    mutationFn: (body) => apiPost("/api/admin/danmakuedit/edit", body),
+    successMessage: "弹幕已更新",
+    invalidate: [["danmaku"], ["danmaku-detail", id]],
+  });
+
+  useEffect(() => {
+    if (!detail.data) return;
+    const item = detail.data;
+    setTime(String(item.data.time));
+    setMode(String(item.data.mode));
+    setSize(String(item.data.size));
+    setColor(colorHex(item.data.color));
+    setText(item.data.text ?? "");
+    setDeleted(item.isDelete);
+  }, [detail.data]);
+
+  const item = detail.data;
+  return (
+    <Dialog open={Boolean(id)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!item) return;
+            save.mutate(
+              {
+                id: item.id,
+                isDelete: deleted,
+                data: {
+                  ...item.data,
+                  time: Number(time),
+                  mode: Number(mode),
+                  size: Number(size),
+                  color: Number.parseInt(color.slice(1), 16),
+                  text,
+                },
+              },
+              { onSuccess: () => onOpenChange(false) },
+            );
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>查看并编辑弹幕</DialogTitle>
+            <DialogDescription>
+              修改展示参数、内容和软删除状态。
+            </DialogDescription>
+          </DialogHeader>
+          {detail.isError ? (
+            <QueryError
+              error={detail.error}
+              retry={() => void detail.refetch()}
+            />
+          ) : detail.isPending || !item ? (
+            <LoadingTable rows={6} />
+          ) : (
+            <FieldGroup>
+              <Field>
+                <FieldLabel>记录 ID</FieldLabel>
+                <Input value={item.id} readOnly />
+              </Field>
+              <Field>
+                <FieldLabel>视频 ID</FieldLabel>
+                <Input value={item.vid} readOnly />
+              </Field>
+              <Field>
+                <FieldLabel>发送者</FieldLabel>
+                <Input
+                  value={`${item.data.author || "匿名"} · ID ${item.data.authorId || "—"} · ${item.ip || "—"}`}
+                  readOnly
+                />
+              </Field>
+              <FieldGroup className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="danmaku-time">出现时间（秒）</FieldLabel>
+                  <Input
+                    id="danmaku-time"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={time}
+                    required
+                    onChange={(event) => setTime(event.target.value)}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="danmaku-mode">类型</FieldLabel>
+                  <Select
+                    items={editableModes}
+                    value={mode}
+                    onValueChange={(value) => setMode(value ?? "1")}
+                  >
+                    <SelectTrigger id="danmaku-mode" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {editableModes.map((entry) => (
+                          <SelectItem key={entry.value} value={entry.value}>
+                            {entry.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="danmaku-size">字号</FieldLabel>
+                  <Input
+                    id="danmaku-size"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={size}
+                    required
+                    onChange={(event) => setSize(event.target.value)}
+                  />
+                </Field>
+              </FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="danmaku-color">颜色</FieldLabel>
+                <div className="flex gap-3">
+                  <Input
+                    id="danmaku-color"
+                    type="color"
+                    className="w-16 p-1"
+                    value={color}
+                    onChange={(event) => setColor(event.target.value)}
+                  />
+                  <Input
+                    aria-label="颜色十六进制值"
+                    value={color}
+                    pattern="^#[0-9a-fA-F]{6}$"
+                    onChange={(event) => setColor(event.target.value)}
+                  />
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="danmaku-text">弹幕内容</FieldLabel>
+                <Textarea
+                  id="danmaku-text"
+                  rows={4}
+                  value={text}
+                  required
+                  onChange={(event) => setText(event.target.value)}
+                />
+                <FieldDescription>
+                  公开查询会返回这里保存的文本。
+                </FieldDescription>
+              </Field>
+              <Field orientation="horizontal">
+                <div>
+                  <FieldLabel htmlFor="danmaku-deleted">
+                    标记为已删除
+                  </FieldLabel>
+                  <FieldDescription>
+                    启用后，公开播放器接口将隐藏此弹幕。
+                  </FieldDescription>
+                </div>
+                <Switch
+                  id="danmaku-deleted"
+                  checked={deleted}
+                  onCheckedChange={setDeleted}
+                />
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                创建：{formatDateTime(item.createTime)} · 最后修改：
+                {formatDateTime(item.updateTime)}
+              </p>
+            </FieldGroup>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button type="submit" disabled={save.isPending || !item}>
+              {save.isPending ? <Spinner data-icon="inline-start" /> : null}
+              保存修改
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

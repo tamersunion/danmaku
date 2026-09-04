@@ -23,6 +23,9 @@ func TestLoadDanmakuConfiguration(t *testing.T) {
 	if cfg.Bilibili.DataCacheMinutes != 9 {
 		t.Fatalf("unexpected cache duration: %d", cfg.Bilibili.DataCacheMinutes)
 	}
+	if cfg.CAS.DefaultRole != 3 {
+		t.Fatalf("default CAS role = %d", cfg.CAS.DefaultRole)
+	}
 }
 
 func TestConnectionStringEscapesCredentials(t *testing.T) {
@@ -64,5 +67,21 @@ func TestLoadCASConfiguration(t *testing.T) {
 	}
 	if !cfg.CAS.Enabled || !cfg.CAS.DefaultLogin || !cfg.CAS.AutoCreateUsers || cfg.CAS.DefaultRole != 2 || cfg.CAS.SessionMaxAgeMinutes != 10080 {
 		t.Fatalf("unexpected CAS configuration: %#v", cfg.CAS)
+	}
+}
+
+func TestLoadAllowsGeneralUserAsCASDefaultRole(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "appsettings.yml")
+	contents := []byte("KestrelSettings:\n  Port: 80\nCAS:\n  Enabled: true\n  BaseURL: https://cas.example/cas/app\n  PublicURL: https://danmaku.example\n  DefaultRole: 3\n")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.CAS.DefaultRole != 3 {
+		t.Fatalf("default role = %d", cfg.CAS.DefaultRole)
 	}
 }

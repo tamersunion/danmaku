@@ -77,7 +77,7 @@ func (s *Server) casCallback(w http.ResponseWriter, r *http.Request, callbackPat
 	user, created, err := s.repository.UpsertCASUser(r.Context(), profile, s.config.CAS.DefaultRole, s.config.CAS.AutoCreateUsers)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, store.ErrCASUserNotFound) || errors.Is(err, store.ErrCASIdentityConflict) {
+		if errors.Is(err, store.ErrCASUserNotFound) || errors.Is(err, store.ErrCASIdentityConflict) || errors.Is(err, store.ErrUserDisabled) {
 			status = http.StatusForbidden
 		}
 		s.logger.Error("provision CAS user", "subject", identity.Subject, "error", err)
@@ -134,7 +134,7 @@ func localLoginURL(returnTo string) string {
 
 func (s *Server) requireLocalSession(w http.ResponseWriter, r *http.Request) bool {
 	value, ok := s.requestSession(r)
-	if ok && value.Provider != "cas" {
+	if ok && !s.config.CAS.Enabled && value.Provider != "cas" {
 		return true
 	}
 	http.Error(w, "local authentication required", http.StatusForbidden)

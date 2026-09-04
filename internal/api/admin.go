@@ -11,8 +11,14 @@ import (
 	"git.hanada.info/tamersunion/danmaku/internal/store"
 )
 
-func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string) {
+func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string, current session) {
+	if !isAdministrator(current.Role) && path != "/api/admin/user/changepassword" && path != "/api/admin/user/changeinfo" && path != "/api/admin/user/user" {
+		s.writeJSON(w, http.StatusOK, result{Code: 401, Data: map[string]string{"desc": "没有权限"}})
+		return
+	}
 	switch {
+	case path == "/api/admin/users" || strings.HasPrefix(path, "/api/admin/users/"):
+		s.serveUsers(w, r, path, current)
 	case path == "/api/admin/danmakulist" && r.Method == http.MethodGet:
 		s.listDanmaku(w, r)
 	case path == "/api/admin/danmakulist/vids" && r.Method == http.MethodGet:
@@ -28,11 +34,11 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string)
 	case path == "/api/admin/danmakuedit/delete" && r.Method == http.MethodGet:
 		s.deleteDanmaku(w, r)
 	case path == "/api/admin/user/changepassword" && r.Method == http.MethodPost:
-		s.changePassword(w, r)
+		s.changePassword(w, r, current)
 	case path == "/api/admin/user/changeinfo" && r.Method == http.MethodPost:
-		s.changeUserInfo(w, r)
+		s.changeUserInfo(w, r, current)
 	case path == "/api/admin/user/user" && r.Method == http.MethodGet:
-		s.userInfo(w, r)
+		s.userInfo(w, r, current)
 	default:
 		http.NotFound(w, r)
 	}
@@ -134,7 +140,7 @@ func (s *Server) deleteDanmaku(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
+func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, current session) {
 	if !s.requireLocalSession(w, r) {
 		return
 	}
@@ -146,6 +152,10 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &request) {
 		return
 	}
+	if request.UID != current.UID {
+		http.Error(w, "cannot change another user's password", http.StatusForbidden)
+		return
+	}
 	ok, err := s.repository.ChangePassword(r.Context(), request.UID, request.OldP, request.NewP)
 	if err != nil {
 		s.writeError(w, err)
@@ -154,7 +164,7 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, result{Code: boolCode(ok), Data: nil})
 }
 
-func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request, current session) {
 	if !s.requireLocalSession(w, r) {
 		return
 	}
@@ -167,6 +177,10 @@ func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request) {
 	if !s.decodeJSON(w, r, &request) {
 		return
 	}
+	if request.ID != current.UID {
+		http.Error(w, "cannot change another user's profile", http.StatusForbidden)
+		return
+	}
 	ok, err := s.repository.ChangeUserInfo(r.Context(), request.ID, request.Name, request.Email, request.PhoneNumber)
 	if err != nil {
 		s.writeError(w, err)
@@ -175,8 +189,12 @@ func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, result{Code: boolCode(ok), Data: nil})
 }
 
-func (s *Server) userInfo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) userInfo(w http.ResponseWriter, r *http.Request, current session) {
 	uid := queryInt(r.URL.Query().Get("uid"), 0)
+	if uid != current.UID && !isAdministrator(current.Role) {
+		http.Error(w, "cannot view another user's profile", http.StatusForbidden)
+		return
+	}
 	user, err := s.repository.User(r.Context(), uid)
 	if err != nil {
 		s.writeError(w, err)

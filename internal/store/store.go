@@ -12,6 +12,9 @@ import (
 var (
 	ErrCASUserNotFound     = errors.New("CAS user does not exist and automatic creation is disabled")
 	ErrCASIdentityConflict = errors.New("CAS identity conflicts with an existing user")
+	ErrUserDisabled        = errors.New("user is disabled")
+	ErrUserNameConflict    = errors.New("user name already exists")
+	ErrCASProfileReadOnly  = errors.New("CAS profile fields are read-only")
 )
 
 type SearchFilter struct {
@@ -26,6 +29,29 @@ type SearchFilter struct {
 	IP         net.IP
 	Key        string
 	Descending bool
+}
+
+type UserFilter struct {
+	Page  int
+	Size  int
+	Query string
+	Role  string
+}
+
+type UserCreate struct {
+	Name        string
+	Password    string
+	Role        int
+	Email       string
+	PhoneNumber string
+}
+
+type UserUpdate struct {
+	Name        string
+	Password    string
+	Role        int
+	Email       string
+	PhoneNumber string
 }
 
 type Repository interface {
@@ -43,6 +69,11 @@ type Repository interface {
 	ChangePassword(context.Context, int, string, string) (bool, error)
 	ChangeUserInfo(context.Context, int, string, *string, *string) (bool, error)
 	User(context.Context, int) (*domain.User, error)
+	Users(context.Context, UserFilter) (domain.Page[domain.User], error)
+	CreateUser(context.Context, UserCreate) (*domain.User, error)
+	UpdateUser(context.Context, int, UserUpdate) (*domain.User, error)
+	SetUserEnabled(context.Context, int, bool) (bool, error)
+	DeleteUser(context.Context, int) (bool, error)
 	UpsertCASUser(context.Context, domain.CASProfile, int, bool) (*domain.User, bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
 }
