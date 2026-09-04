@@ -513,7 +513,7 @@ function DanmakuEditor({
                     id="danmaku-time"
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="any"
                     value={time}
                     required
                     onChange={(event) => setTime(event.target.value)}

@@ -43,7 +43,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`，使用与 dnsmgr-frontend 一致的 React 19、Vite、Tailwind CSS v4、shadcn/ui Base UI Nova 预设和 Geist 字体。容器构建会先生成前端静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.1.3 -t danmaku:2.1.3 .
+docker build --build-arg DANMAKU_VERSION=2.1.4 -t danmaku:2.1.4 .
 docker compose up -d
 ```
 
