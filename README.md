@@ -41,7 +41,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`。容器构建会先生成 Vue 静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.0.1 -t danmaku:2.0.1 .
+docker build --build-arg DANMAKU_VERSION=2.0.2 -t danmaku:2.0.2 .
 docker compose up -d
 ```
 

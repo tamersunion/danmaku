@@ -18,10 +18,15 @@ export function timeFormat(fmt = 'yyyy-MM-dd HH:mm:ss', date = new Date()) {
 }
 
 export function utc2local(utcTime) {
-    return new Date(utcTime + 'Z')
+    if (utcTime instanceof Date || typeof utcTime === 'number') return new Date(utcTime)
+    const value = String(utcTime).trim()
+    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+    return new Date(hasTimezone ? value : value + 'Z')
 }
 
 export function getLocalTime(utcTime) {
     if (isEmpty(utcTime)) return null
-    return timeFormat(null, utc2local(utcTime))
+    const localTime = utc2local(utcTime)
+    if (Number.isNaN(localTime.getTime())) return null
+    return timeFormat(null, localTime)
 }
