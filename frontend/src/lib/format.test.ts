@@ -4,7 +4,7 @@ import { colorHex, formatDateTime, sessionRoleLabel } from "@/lib/format";
 
 describe("format helpers", () => {
   it("formats RFC3339 timestamps without NaN fragments", () => {
-    expect(formatDateTime("2026-09-04T14:06:45Z")).not.toContain("NaN");
+    expect(formatDateTime("2026-09-05T13:14:00Z")).toBe("2026-09-05 21:14:00");
   });
 
   it("formats colors as six-digit hex values", () => {

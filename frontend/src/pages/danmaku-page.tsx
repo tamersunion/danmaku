@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   EraserIcon,
-  MoreHorizontalIcon,
   PencilIcon,
   RotateCcwIcon,
   SearchIcon,
@@ -19,13 +18,7 @@ import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,14 +28,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -75,8 +62,6 @@ type Filters = {
   vid: string;
   startDate: string;
   endDate: string;
-  author: string;
-  authorId: string;
   mode: string;
   ip: string;
   key: string;
@@ -86,8 +71,6 @@ const emptyFilters: Filters = {
   vid: "",
   startDate: "",
   endDate: "",
-  author: "",
-  authorId: "",
   mode: "all",
   ip: "",
   key: "",
@@ -147,12 +130,19 @@ export function DanmakuPage() {
         label: "弹幕内容",
         render: (item) => (
           <div className="max-w-md">
-            <p className="truncate font-medium" title={item.data.text ?? ""}>
-              {item.data.text || "—"}
-            </p>
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto max-w-full justify-start p-0 text-left font-medium"
+              title={item.data.text ?? ""}
+              onClick={() => setEditingID(item.id)}
+            >
+              <span className="block max-w-full truncate">
+                {item.data.text || "—"}
+              </span>
+            </Button>
             <p className="text-xs text-muted-foreground">
-              {modeLabel(item.data.mode)} · {item.data.time.toFixed(2)} 秒 ·{" "}
-              {item.data.size}px
+              {modeLabel(item.data.mode)} · {item.data.time.toFixed(2)} 秒
             </p>
           </div>
         ),
@@ -167,15 +157,11 @@ export function DanmakuPage() {
         ),
       },
       {
-        key: "author",
-        label: "发送者",
+        key: "ip",
+        label: "IP 地址",
+        className: "whitespace-nowrap",
         render: (item) => (
-          <div>
-            <p>{item.data.author || "匿名"}</p>
-            <p className="text-xs text-muted-foreground">
-              ID {item.data.authorId || "—"} · {item.ip || "—"}
-            </p>
-          </div>
+          <span className="font-mono text-xs">{item.ip || "—"}</span>
         ),
       },
       {
@@ -195,42 +181,39 @@ export function DanmakuPage() {
       },
       {
         key: "actions",
-        label: "",
-        className: "w-12",
+        label: "操作",
+        className: "w-20 whitespace-nowrap text-right",
         render: (item) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button size="icon-sm" variant="ghost" aria-label="管理弹幕" />
-              }
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="查看并编辑弹幕"
+              title="查看并编辑"
+              onClick={() => setEditingID(item.id)}
             >
-              <MoreHorizontalIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setEditingID(item.id)}>
-                  <PencilIcon />
-                  查看并编辑
-                </DropdownMenuItem>
-                <ConfirmAction
-                  trigger={
-                    <DropdownMenuItem
-                      variant="destructive"
-                      closeOnClick={false}
-                    >
-                      <Trash2Icon />
-                      删除
-                    </DropdownMenuItem>
-                  }
-                  title="删除这条弹幕？"
-                  description="弹幕会被标记为已删除，并立即从公开查询结果中隐藏。"
-                  destructive
-                  pending={remove.isPending}
-                  onConfirm={() => remove.mutate(item.id)}
-                />
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <PencilIcon />
+            </Button>
+            <ConfirmAction
+              trigger={
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="destructive"
+                  aria-label="删除弹幕"
+                  title="删除"
+                >
+                  <Trash2Icon />
+                </Button>
+              }
+              title="删除这条弹幕？"
+              description="弹幕会被标记为已删除，并立即从公开查询结果中隐藏。"
+              destructive
+              pending={remove.isPending}
+              onConfirm={() => remove.mutate(item.id)}
+            />
+          </div>
         ),
       },
     ],
@@ -260,12 +243,6 @@ export function DanmakuPage() {
         }
       />
       <Card>
-        <CardHeader>
-          <CardTitle>筛选条件</CardTitle>
-          <CardDescription>
-            按视频 ID、时间、发送者、IP 地址或内容组合查询。
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={submit}>
             <FieldGroup className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -294,29 +271,6 @@ export function DanmakuPage() {
                   placeholder="搜索弹幕内容"
                   onChange={(event) =>
                     setDraft({ ...draft, key: event.target.value })
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="filter-author">用户名</FieldLabel>
-                <Input
-                  id="filter-author"
-                  value={draft.author}
-                  placeholder="发送者名称"
-                  onChange={(event) =>
-                    setDraft({ ...draft, author: event.target.value })
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="filter-author-id">用户 ID</FieldLabel>
-                <Input
-                  id="filter-author-id"
-                  inputMode="numeric"
-                  value={draft.authorId}
-                  placeholder="发送者 ID"
-                  onChange={(event) =>
-                    setDraft({ ...draft, authorId: event.target.value })
                   }
                 />
               </Field>
@@ -411,8 +365,6 @@ export function DanmakuPage() {
               </Button>
               {filters.key ||
               filters.vid ||
-              filters.author ||
-              filters.authorId ||
               filters.ip ||
               filters.startDate ||
               filters.endDate ||
@@ -427,12 +379,6 @@ export function DanmakuPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader>
-          <CardTitle>查询结果</CardTitle>
-          <CardDescription>
-            每条记录可单独查看详情、编辑内容或执行软删除。
-          </CardDescription>
-        </CardHeader>
         <CardContent className="p-0">
           {danmaku.isError ? (
             <div className="p-6">
@@ -557,11 +503,8 @@ function DanmakuEditor({
                 <Input value={item.vid} readOnly />
               </Field>
               <Field>
-                <FieldLabel>发送者</FieldLabel>
-                <Input
-                  value={`${item.data.author || "匿名"} · ID ${item.data.authorId || "—"} · ${item.ip || "—"}`}
-                  readOnly
-                />
+                <FieldLabel>IP 地址</FieldLabel>
+                <Input value={item.ip || "—"} readOnly />
               </Field>
               <FieldGroup className="grid gap-4 sm:grid-cols-3">
                 <Field>
@@ -641,22 +584,25 @@ function DanmakuEditor({
                   公开查询会返回这里保存的文本。
                 </FieldDescription>
               </Field>
-              <Field orientation="horizontal">
-                <div>
+              <Field
+                orientation="horizontal"
+                className="w-full justify-between rounded-xl border bg-muted/30 px-4 py-3"
+              >
+                <FieldContent>
                   <FieldLabel htmlFor="danmaku-deleted">
                     标记为已删除
                   </FieldLabel>
                   <FieldDescription>
                     启用后，公开播放器接口将隐藏此弹幕。
                   </FieldDescription>
-                </div>
+                </FieldContent>
                 <Switch
                   id="danmaku-deleted"
                   checked={deleted}
                   onCheckedChange={setDeleted}
                 />
               </Field>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-right text-xs text-muted-foreground">
                 创建：{formatDateTime(item.createTime)} · 最后修改：
                 {formatDateTime(item.updateTime)}
               </p>

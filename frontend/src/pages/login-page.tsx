@@ -1,15 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import md5Module from "js-md5";
-import {
-  KeyRoundIcon,
-  LogInIcon,
-  MessageCircleMoreIcon,
-  ShieldCheckIcon,
-} from "lucide-react";
+import { KeyRoundIcon, LogInIcon, ShieldCheckIcon } from "lucide-react";
 
 import { apiGet, apiPost, errorMessage } from "@/api/client";
 import type { ApiResponse, AuthOptions } from "@/api/types";
+import { DanmakuLogo } from "@/components/danmaku-logo";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,10 +94,10 @@ export function LoginPage() {
     <main className="grid min-h-svh place-items-center bg-muted/30 px-4 py-10">
       <Card className="w-full max-w-md shadow-lg shadow-black/5">
         <CardHeader className="text-center">
-          <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <MessageCircleMoreIcon />
+          <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <DanmakuLogo className="size-8" />
           </span>
-          <CardTitle>Danmaku 控制台</CardTitle>
+          <CardTitle>弹幕控制台</CardTitle>
           <CardDescription>登录后管理弹幕数据与用户权限。</CardDescription>
         </CardHeader>
         <CardContent>

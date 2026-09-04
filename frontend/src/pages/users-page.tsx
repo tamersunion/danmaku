@@ -23,13 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -287,12 +281,6 @@ export function UsersPage() {
         </Alert>
       ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>账户列表</CardTitle>
-          <CardDescription>
-            停用账户会阻止其继续通过本地密码或 CAS 建立新会话。
-          </CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-col gap-4 p-0">
           <form
             className="px-6 pt-2"

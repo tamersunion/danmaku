@@ -3,7 +3,6 @@ import {
   EllipsisVerticalIcon,
   ListFilterIcon,
   LogOutIcon,
-  MessageCircleMoreIcon,
   MoonIcon,
   SunIcon,
   UserRoundIcon,
@@ -12,6 +11,7 @@ import {
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useSession } from "@/auth/session-context";
+import { DanmakuLogo } from "@/components/danmaku-logo";
 import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -70,27 +70,24 @@ function AppShellContent() {
   }, [location.key, location.pathname, setOpenMobile]);
   const title =
     titles.find(([pattern]) => pattern.test(location.pathname))?.[1] ??
-    "Danmaku 控制台";
+    "弹幕控制台";
   const logoutPath =
     session.provider === "cas" ? "/cas/logout" : "/api/admin/logout";
 
   return (
     <>
-      <Sidebar collapsible="icon" variant="inset">
+      <Sidebar collapsible="icon" variant="inset" className="md:z-30">
         <SidebarHeader className="p-3 group-data-[collapsible=icon]:p-2">
           <NavLink
             to="/"
             className="flex h-10 items-center gap-2.5 overflow-hidden rounded-lg px-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-              <MessageCircleMoreIcon />
+              <DanmakuLogo className="size-[1.4rem]" />
             </span>
-            <span className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="min-w-0 group-data-[collapsible=icon]:hidden">
               <span className="block truncate text-sm font-semibold">
-                Danmaku 控制台
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                弹幕服务与用户管理
+                弹幕控制台
               </span>
             </span>
           </NavLink>

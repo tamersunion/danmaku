@@ -1,5 +1,5 @@
 variables:
-  DANMAKU_VERSION: 2.1.1
+  DANMAKU_VERSION: 2.1.2
 
 stages:
   - build
@@ -22,4 +22,3 @@ docker-build:
         --build-arg DANMAKU_VERSION=${DANMAKU_VERSION} \
         --push \
         .
-
