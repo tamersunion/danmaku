@@ -416,6 +416,9 @@ func (p *Postgres) VerifyPassword(ctx context.Context, name, password string) (b
 	var stored, salt string
 	err := p.pool.QueryRow(ctx, `SELECT "Id","Role","PassWord","Salt" FROM "User" WHERE "Name"=$1 LIMIT 1`, name).Scan(&uid, &role, &stored, &salt)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if configuredAdminMatches(p.admin, name, password) {
+			return true, 0, 1, nil
+		}
 		return false, 0, 3, nil
 	}
 	if err != nil {
@@ -424,10 +427,15 @@ func (p *Postgres) VerifyPassword(ctx context.Context, name, password string) (b
 	if stored == saltedMD5(password, salt) {
 		return true, uid, role, nil
 	}
-	if p.admin.User == name && strings.EqualFold(password, md5String(p.admin.Password)) {
+	if configuredAdminMatches(p.admin, name, password) {
 		return true, 0, 1, nil
 	}
 	return false, 0, 3, nil
+}
+
+func configuredAdminMatches(admin config.AdminSettings, name, password string) bool {
+	return admin.User != "" && admin.Password != "" &&
+		admin.User == name && strings.EqualFold(password, md5String(admin.Password))
 }
 
 func (p *Postgres) ChangePassword(ctx context.Context, id int, oldPassword, newPassword string) (bool, error) {

@@ -3,6 +3,8 @@ package store
 import (
 	"strings"
 	"testing"
+
+	"git.hanada.info/tamersunion/danmaku/internal/config"
 )
 
 func TestParseReferer(t *testing.T) {
@@ -28,6 +30,20 @@ func TestParseRefererRootPath(t *testing.T) {
 func TestSaltedMD5MatchesLegacyAlgorithm(t *testing.T) {
 	if got := saltedMD5("670b14728ad9902aecba32e22fa4f6bd", "Ab12Cd"); got != "d5b4c34886d55adb71f84f690c855044" {
 		t.Fatalf("legacy hash changed: %s", got)
+	}
+}
+
+func TestConfiguredAdminMatchesFrontendPasswordHash(t *testing.T) {
+	admin := config.AdminSettings{User: "tamers", Password: "tamersunion2022"}
+	password := md5String(admin.Password)
+	if !configuredAdminMatches(admin, "tamers", password) {
+		t.Fatal("configured administrator credentials should match without a database user")
+	}
+	if configuredAdminMatches(admin, "other", password) {
+		t.Fatal("different user must not match configured administrator")
+	}
+	if configuredAdminMatches(config.AdminSettings{}, "", md5String("")) {
+		t.Fatal("empty administrator configuration must not enable login")
 	}
 }
 
