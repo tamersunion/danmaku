@@ -43,7 +43,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { initials } from "@/lib/format";
+import { initials, sessionRoleLabel } from "@/lib/format";
 
 const titles: Array<[RegExp, string]> = [
   [/^\/danmaku/, "弹幕管理"],
@@ -96,7 +96,7 @@ function AppShellContent() {
           </NavLink>
         </SidebarHeader>
         <SidebarContent>
-          {session.isAdministrator ? (
+          {session.canManageDanmaku ? (
             <SidebarGroup>
               <SidebarGroupLabel>管理</SidebarGroupLabel>
               <SidebarGroupContent>
@@ -111,16 +111,18 @@ function AppShellContent() {
                       <span>弹幕管理</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      tooltip="用户管理"
-                      isActive={location.pathname.startsWith("/users")}
-                      render={<NavLink to="/users" />}
-                    >
-                      <UsersIcon />
-                      <span>用户管理</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  {session.canManageUsers ? (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        tooltip="用户管理"
+                        isActive={location.pathname.startsWith("/users")}
+                        render={<NavLink to="/users" />}
+                      >
+                        <UsersIcon />
+                        <span>用户管理</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : null}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -171,9 +173,11 @@ function AppShellContent() {
                 <DropdownMenuLabel className="flex items-center justify-between gap-2">
                   <span>{session.name}</span>
                   <Badge
-                    variant={session.isAdministrator ? "default" : "secondary"}
+                    variant={
+                      session.role === "GeneralUser" ? "secondary" : "default"
+                    }
                   >
-                    {session.isAdministrator ? "管理员" : "普通用户"}
+                    {sessionRoleLabel(session.role)}
                   </Badge>
                 </DropdownMenuLabel>
                 <DropdownMenuItem render={<NavLink to="/profile" />}>

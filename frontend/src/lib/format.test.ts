@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { colorHex, formatDateTime } from "@/lib/format";
+import { colorHex, formatDateTime, sessionRoleLabel } from "@/lib/format";
 
 describe("format helpers", () => {
   it("formats RFC3339 timestamps without NaN fragments", () => {
@@ -9,5 +9,11 @@ describe("format helpers", () => {
 
   it("formats colors as six-digit hex values", () => {
     expect(colorHex(255)).toBe("#0000ff");
+  });
+
+  it("labels the three permission levels", () => {
+    expect(sessionRoleLabel("SuperAdmin")).toBe("管理员");
+    expect(sessionRoleLabel("Admin")).toBe("弹幕管理员");
+    expect(sessionRoleLabel("GeneralUser")).toBe("普通用户");
   });
 });

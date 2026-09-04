@@ -34,8 +34,9 @@ export function AuthBoundary() {
       return {
         ...current,
         casEnabled: options.casEnabled,
-        isAdministrator:
+        canManageDanmaku:
           current.role === "SuperAdmin" || current.role === "Admin",
+        canManageUsers: current.role === "SuperAdmin",
         profileEditable:
           !options.casEnabled && current.provider !== "cas",
       };

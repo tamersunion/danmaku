@@ -74,9 +74,21 @@ import { formatDateTime, initials } from "@/lib/format";
 
 const roleOptions = [
   { value: "user", label: "普通用户" },
+  { value: "danmaku_manager", label: "弹幕管理员" },
   { value: "administrator", label: "管理员" },
 ];
 const filterRoles = [{ value: "all", label: "全部角色" }, ...roleOptions];
+
+function managedRoleLabel(role: ManagedUser["role"]): string {
+  switch (role) {
+    case "administrator":
+      return "管理员";
+    case "danmaku_manager":
+      return "弹幕管理员";
+    default:
+      return "普通用户";
+  }
+}
 
 function randomPassword(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -137,10 +149,15 @@ export function UsersPage() {
       label: "角色",
       render: (user) => (
         <Badge
-          variant={user.role === "administrator" ? "default" : "secondary"}
+          variant={
+            user.role === "administrator"
+              ? "default"
+              : user.role === "danmaku_manager"
+                ? "secondary"
+                : "outline"
+          }
         >
-          {user.role === "administrator" ? "管理员" : "普通用户"}
-          {user.superAdmin ? " · 超级" : ""}
+          {managedRoleLabel(user.role)}
         </Badge>
       ),
     },
@@ -155,15 +172,8 @@ export function UsersPage() {
     },
     {
       key: "contact",
-      label: "联系信息",
-      render: (user) => (
-        <div>
-          <p>{user.email || "—"}</p>
-          <p className="text-xs text-muted-foreground">
-            {user.phoneNumber || "未填写手机"}
-          </p>
-        </div>
-      ),
+      label: "邮箱",
+      render: (user) => user.email || "—",
     },
     {
       key: "created",
@@ -252,7 +262,7 @@ export function UsersPage() {
       <PageHeader
         eyebrow="Administration"
         title="用户管理"
-        description="区分普通用户与管理员，并维护账户状态和身份来源。"
+        description="区分普通用户、弹幕管理员与管理员，并维护账户状态和身份来源。"
         action={
           !session.casEnabled ? (
             <UserEditor
@@ -382,8 +392,7 @@ function UserEditor({
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [role, setRole] = useState<"user" | "administrator">("user");
+  const [role, setRole] = useState<ManagedUser["role"]>("user");
   const detail = useQuery({
     queryKey: ["user", user?.id],
     queryFn: async () =>
@@ -408,7 +417,6 @@ function UserEditor({
     const current = detail.data ?? user;
     setName(current?.name ?? "");
     setEmail(current?.email ?? "");
-    setPhoneNumber(current?.phoneNumber ?? "");
     setRole(current?.role ?? "user");
     setPassword("");
   }, [detail.data, open, user]);
@@ -428,7 +436,6 @@ function UserEditor({
             if (profileMutable) {
               body.name = name;
               body.email = email;
-              body.phoneNumber = phoneNumber;
               if (password) body.password = password;
             }
             save.mutate(body, { onSuccess: () => setOpen(false) });
@@ -476,14 +483,6 @@ function UserEditor({
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="managed-phone">手机</FieldLabel>
-                    <Input
-                      id="managed-phone"
-                      value={phoneNumber}
-                      onChange={(event) => setPhoneNumber(event.target.value)}
-                    />
-                  </Field>
-                  <Field>
                     <FieldLabel htmlFor="managed-password">
                       {user ? "重置密码" : "初始密码"}
                     </FieldLabel>
@@ -521,11 +520,15 @@ function UserEditor({
                   items={roleOptions}
                   value={role}
                   disabled={roleLocked}
-                  onValueChange={(value) =>
-                    setRole(
-                      value === "administrator" ? "administrator" : "user",
-                    )
-                  }
+                  onValueChange={(value) => {
+                    if (
+                      value === "administrator" ||
+                      value === "danmaku_manager" ||
+                      value === "user"
+                    ) {
+                      setRole(value);
+                    }
+                  }}
                 >
                   <SelectTrigger id="managed-role" className="w-full">
                     <SelectValue />
@@ -546,7 +549,7 @@ function UserEditor({
                   </FieldDescription>
                 ) : (
                   <FieldDescription>
-                    管理员可管理弹幕和用户；普通用户只能查看个人资料。
+                    管理员可管理弹幕和用户；弹幕管理员只能管理弹幕；普通用户只能查看个人资料。
                   </FieldDescription>
                 )}
               </Field>

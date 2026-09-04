@@ -498,7 +498,9 @@ func (p *Postgres) Users(ctx context.Context, filter UserFilter) (domain.Page[do
 	}
 	switch filter.Role {
 	case "administrator":
-		where = append(where, `"Role" IN (1,2)`)
+		where = append(where, `"Role"=1`)
+	case "danmaku_manager":
+		where = append(where, `"Role"=2`)
 	case "user":
 		where = append(where, `"Role"=3`)
 	}
@@ -532,7 +534,7 @@ func (p *Postgres) Users(ctx context.Context, filter UserFilter) (domain.Page[do
 
 func (p *Postgres) CreateUser(ctx context.Context, input UserCreate) (*domain.User, error) {
 	input.Name = strings.TrimSpace(input.Name)
-	if input.Name == "" || len([]rune(input.Name)) > 16 || len([]rune(input.Password)) < 6 || len([]rune(input.Password)) > 100 || (input.Role != 2 && input.Role != 3) {
+	if input.Name == "" || len([]rune(input.Name)) > 16 || len([]rune(input.Password)) < 6 || len([]rune(input.Password)) > 100 || (input.Role != 1 && input.Role != 2 && input.Role != 3) {
 		return nil, fmt.Errorf("invalid user fields")
 	}
 	var existingID int

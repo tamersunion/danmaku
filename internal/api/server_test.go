@@ -357,11 +357,52 @@ func TestGeneralUserCanOpenProfileButNotDanmakuManagement(t *testing.T) {
 	}
 }
 
-func TestAdministratorCanListManagedUsers(t *testing.T) {
+func TestDanmakuManagerCanManageDanmakuButNotUsers(t *testing.T) {
 	repository := &fakeRepository{
 		verifyOK: true, verifyUID: 2, verifyRole: 2,
+		vids: []string{"video"}, users: []domain.User{{ID: 7, Name: "viewer", Role: 3, Enabled: true}},
+	}
+	server := testServer(t, repository)
+	loginResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(loginResponse, httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"moderator","password":"hash"}`)))
+	var cookie *http.Cookie
+	for _, candidate := range loginResponse.Result().Cookies() {
+		if candidate.Name == sessionCookie {
+			cookie = candidate
+		}
+	}
+
+	danmakuRequest := httptest.NewRequest(http.MethodGet, "/api/admin/danmakulist/vids", nil)
+	danmakuRequest.AddCookie(cookie)
+	danmakuResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(danmakuResponse, danmakuRequest)
+	if danmakuResponse.Body.String() != "{\"code\":0,\"data\":[\"video\"]}\n" {
+		t.Fatalf("danmaku manager response = %s", danmakuResponse.Body.String())
+	}
+
+	usersRequest := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)
+	usersRequest.AddCookie(cookie)
+	usersResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(usersResponse, usersRequest)
+	if usersResponse.Body.String() != "{\"code\":401,\"data\":{\"desc\":\"没有权限\"}}\n" {
+		t.Fatalf("danmaku manager users response = %s", usersResponse.Body.String())
+	}
+
+	profileRequest := httptest.NewRequest(http.MethodGet, "/api/admin/user/user?uid=7", nil)
+	profileRequest.AddCookie(cookie)
+	profileResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(profileResponse, profileRequest)
+	if profileResponse.Code != http.StatusForbidden {
+		t.Fatalf("danmaku manager other profile status = %d", profileResponse.Code)
+	}
+}
+
+func TestAdministratorCanListManagedUsers(t *testing.T) {
+	repository := &fakeRepository{
+		verifyOK: true, verifyUID: 1, verifyRole: 1,
 		users: []domain.User{
-			{ID: 2, Name: "admin", Role: 2, Enabled: true},
+			{ID: 1, Name: "admin", Role: 1, Enabled: true},
+			{ID: 2, Name: "moderator", Role: 2, Enabled: true},
 			{ID: 3, Name: "viewer", Role: 3, Enabled: true},
 		},
 	}
@@ -378,8 +419,11 @@ func TestAdministratorCanListManagedUsers(t *testing.T) {
 	request.AddCookie(cookie)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"role":"administrator"`) || !strings.Contains(response.Body.String(), `"role":"user"`) {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"role":"administrator"`) || !strings.Contains(response.Body.String(), `"role":"danmaku_manager"`) || !strings.Contains(response.Body.String(), `"role":"user"`) {
 		t.Fatalf("managed users response = %d %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), `"phoneNumber"`) {
+		t.Fatalf("managed users response exposed legacy phone field: %s", response.Body.String())
 	}
 }
 
@@ -415,7 +459,7 @@ func TestCASEnabledDisablesLocalProfileMutations(t *testing.T) {
 func TestCASEnabledManagedUserAllowsRoleOnly(t *testing.T) {
 	subject := "cas-viewer"
 	repository := &fakeRepository{
-		verifyOK: true, verifyUID: 2, verifyRole: 2,
+		verifyOK: true, verifyUID: 1, verifyRole: 1,
 		users: []domain.User{{ID: 7, Name: "viewer", Role: 3, Enabled: true, CASSubject: &subject}},
 	}
 	cfg := config.Config{
@@ -437,7 +481,7 @@ func TestCASEnabledManagedUserAllowsRoleOnly(t *testing.T) {
 		}
 	}
 
-	roleRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"administrator"}`))
+	roleRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"danmaku_manager"}`))
 	roleRequest.AddCookie(cookie)
 	roleResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(roleResponse, roleRequest)
@@ -445,7 +489,7 @@ func TestCASEnabledManagedUserAllowsRoleOnly(t *testing.T) {
 		t.Fatalf("role-only update = %d %s, role %d", roleResponse.Code, roleResponse.Body.String(), repository.updatedUser.Role)
 	}
 
-	profileRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"administrator","name":"changed"}`))
+	profileRequest := httptest.NewRequest(http.MethodPut, "/api/admin/users/7", strings.NewReader(`{"role":"danmaku_manager","name":"changed"}`))
 	profileRequest.AddCookie(cookie)
 	profileResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(profileResponse, profileRequest)

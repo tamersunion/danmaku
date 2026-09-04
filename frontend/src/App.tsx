@@ -44,15 +44,26 @@ const queryClient = new QueryClient({
 function HomeRedirect() {
   const session = useSession();
   return (
-    <Navigate to={session.isAdministrator ? "/danmaku" : "/profile"} replace />
+    <Navigate
+      to={session.canManageDanmaku ? "/danmaku" : "/profile"}
+      replace
+    />
   );
 }
 
-function AdministratorRoute() {
-  return useSession().isAdministrator ? (
+function DanmakuManagerRoute() {
+  return useSession().canManageDanmaku ? (
     <Outlet />
   ) : (
     <Navigate to="/profile" replace />
+  );
+}
+
+function UserManagerRoute() {
+  return useSession().canManageUsers ? (
+    <Outlet />
+  ) : (
+    <Navigate to="/danmaku" replace />
   );
 }
 
@@ -74,8 +85,10 @@ export default function App() {
                 <Route element={<AuthBoundary />}>
                   <Route element={<AppShell />}>
                     <Route index element={<HomeRedirect />} />
-                    <Route element={<AdministratorRoute />}>
+                    <Route element={<DanmakuManagerRoute />}>
                       <Route path="danmaku" element={<DanmakuPage />} />
+                    </Route>
+                    <Route element={<UserManagerRoute />}>
                       <Route path="users" element={<UsersPage />} />
                     </Route>
                     <Route path="profile" element={<ProfilePage />} />

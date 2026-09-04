@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string, current session) {
-	if !isAdministrator(current.Role) && path != "/api/admin/user/changepassword" && path != "/api/admin/user/changeinfo" && path != "/api/admin/user/user" {
+	if !canManageDanmaku(current.Role) && path != "/api/admin/user/changepassword" && path != "/api/admin/user/changeinfo" && path != "/api/admin/user/user" {
 		s.writeJSON(w, http.StatusOK, result{Code: 401, Data: map[string]string{"desc": "没有权限"}})
 		return
 	}
@@ -191,7 +191,7 @@ func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request, current 
 
 func (s *Server) userInfo(w http.ResponseWriter, r *http.Request, current session) {
 	uid := queryInt(r.URL.Query().Get("uid"), 0)
-	if uid != current.UID && !isAdministrator(current.Role) {
+	if uid != current.UID && !canManageUsers(current.Role) {
 		http.Error(w, "cannot view another user's profile", http.StatusForbidden)
 		return
 	}

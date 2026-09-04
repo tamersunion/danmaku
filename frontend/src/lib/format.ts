@@ -1,3 +1,5 @@
+import type { SessionData } from "@/api/types";
+
 export function formatDateTime(value?: string | number | null): string {
   if (value === undefined || value === null || value === "") return "—";
   const date = new Date(value);
@@ -15,4 +17,15 @@ export function initials(value: string): string {
 
 export function colorHex(value: number): string {
   return `#${Math.max(0, Math.min(0xffffff, value)).toString(16).padStart(6, "0")}`;
+}
+
+export function sessionRoleLabel(role: SessionData["role"]): string {
+  switch (role) {
+    case "SuperAdmin":
+      return "管理员";
+    case "Admin":
+      return "弹幕管理员";
+    default:
+      return "普通用户";
+  }
 }

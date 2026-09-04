@@ -19,7 +19,8 @@ export type SessionData = {
 
 export type Session = SessionData & {
   casEnabled: boolean;
-  isAdministrator: boolean;
+  canManageDanmaku: boolean;
+  canManageUsers: boolean;
   profileEditable: boolean;
 };
 
@@ -51,13 +52,12 @@ export type ManagedUser = {
   id: number;
   name: string;
   displayName: string;
-  role: "administrator" | "user";
+  role: "administrator" | "danmaku_manager" | "user";
   superAdmin: boolean;
   enabled: boolean;
   provider: "local" | "cas";
   profileMutable: boolean;
   email?: string | null;
-  phoneNumber?: string | null;
   avatar?: string | null;
   createTime: string;
   updateTime: string;

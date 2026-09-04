@@ -44,7 +44,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { useApiMutation } from "@/hooks/use-api-mutation";
-import { formatDateTime, initials } from "@/lib/format";
+import { formatDateTime, initials, sessionRoleLabel } from "@/lib/format";
 
 const md5 = md5Module as unknown as (value: string) => string;
 
@@ -95,10 +95,10 @@ export function ProfilePage() {
                     <p className="truncate font-medium">{session.name}</p>
                     <Badge
                       variant={
-                        session.isAdministrator ? "default" : "secondary"
+                        session.role === "GeneralUser" ? "secondary" : "default"
                       }
                     >
-                      {session.isAdministrator ? "管理员" : "普通用户"}
+                      {sessionRoleLabel(session.role)}
                     </Badge>
                     <Badge variant="outline">
                       {session.provider === "cas" ? "CAS" : "本地"}

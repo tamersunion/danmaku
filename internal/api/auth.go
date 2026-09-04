@@ -168,8 +168,12 @@ func (s *Server) currentSession(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-func isAdministrator(role int) bool {
+func canManageDanmaku(role int) bool {
 	return role == 1 || role == 2
+}
+
+func canManageUsers(role int) bool {
+	return role == 1
 }
 
 func (s *Server) noStore(w http.ResponseWriter) {

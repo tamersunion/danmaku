@@ -21,7 +21,6 @@ type managedUser struct {
 	Provider       string    `json:"provider"`
 	ProfileMutable bool      `json:"profileMutable"`
 	Email          *string   `json:"email"`
-	PhoneNumber    *string   `json:"phoneNumber"`
 	Avatar         *string   `json:"avatar"`
 	CreateTime     time.Time `json:"createTime"`
 	UpdateTime     time.Time `json:"updateTime"`
@@ -42,20 +41,23 @@ func toManagedUser(user domain.User, casEnabled bool) managedUser {
 		}
 	}
 	role := "user"
-	if isAdministrator(user.Role) {
+	switch user.Role {
+	case 1:
 		role = "administrator"
+	case 2:
+		role = "danmaku_manager"
 	}
 	return managedUser{
 		ID: user.ID, Name: user.Name, DisplayName: displayName, Role: role,
 		SuperAdmin: user.Role == 1, Enabled: user.Enabled, Provider: provider,
 		ProfileMutable: !casEnabled && provider == "local", Email: user.Email,
-		PhoneNumber: user.PhoneNumber, Avatar: user.CASAvatar,
+		Avatar:     user.CASAvatar,
 		CreateTime: user.CreateTime, UpdateTime: user.UpdateTime,
 	}
 }
 
 func (s *Server) serveUsers(w http.ResponseWriter, r *http.Request, path string, current session) {
-	if !isAdministrator(current.Role) {
+	if !canManageUsers(current.Role) {
 		s.writeJSON(w, http.StatusOK, result{Code: 401, Data: map[string]string{"desc": "没有权限"}})
 		return
 	}
@@ -142,23 +144,22 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Name        string `json:"name"`
-		Password    string `json:"password"`
-		Role        string `json:"role"`
-		Email       string `json:"email"`
-		PhoneNumber string `json:"phoneNumber"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+		Email    string `json:"email"`
 	}
 	if !s.decodeJSON(w, r, &request) {
 		return
 	}
-	role, ok := managedRole(request.Role, 0)
+	role, ok := managedRole(request.Role)
 	if !ok {
 		s.writeManagedUserError(w, http.StatusBadRequest, "用户角色无效")
 		return
 	}
 	user, err := s.repository.CreateUser(r.Context(), store.UserCreate{
 		Name: request.Name, Password: request.Password, Role: role,
-		Email: request.Email, PhoneNumber: request.PhoneNumber,
+		Email: request.Email,
 	})
 	if err != nil {
 		s.handleManagedUserError(w, err)
@@ -182,16 +183,15 @@ func (s *Server) updateManagedUser(w http.ResponseWriter, r *http.Request, curre
 		return
 	}
 	var request struct {
-		Name        *string `json:"name"`
-		Password    *string `json:"password"`
-		Role        string  `json:"role"`
-		Email       *string `json:"email"`
-		PhoneNumber *string `json:"phoneNumber"`
+		Name     *string `json:"name"`
+		Password *string `json:"password"`
+		Role     string  `json:"role"`
+		Email    *string `json:"email"`
 	}
 	if !s.decodeJSON(w, r, &request) {
 		return
 	}
-	role, ok := managedRole(request.Role, target.Role)
+	role, ok := managedRole(request.Role)
 	if !ok {
 		s.writeManagedUserError(w, http.StatusBadRequest, "用户角色无效")
 		return
@@ -200,7 +200,7 @@ func (s *Server) updateManagedUser(w http.ResponseWriter, r *http.Request, curre
 		s.writeManagedUserError(w, http.StatusConflict, "不能修改自己的角色")
 		return
 	}
-	if s.config.CAS.Enabled && (request.Name != nil || request.Password != nil || request.Email != nil || request.PhoneNumber != nil) {
+	if s.config.CAS.Enabled && (request.Name != nil || request.Password != nil || request.Email != nil) {
 		s.writeManagedUserError(w, http.StatusConflict, "CAS 已启用，用户资料只能从 CAS 同步")
 		return
 	}
@@ -217,9 +217,6 @@ func (s *Server) updateManagedUser(w http.ResponseWriter, r *http.Request, curre
 	if request.Email != nil {
 		input.Email = *request.Email
 	}
-	if request.PhoneNumber != nil {
-		input.PhoneNumber = *request.PhoneNumber
-	}
 	updated, err := s.repository.UpdateUser(r.Context(), id, input)
 	if err != nil {
 		s.handleManagedUserError(w, err)
@@ -228,12 +225,11 @@ func (s *Server) updateManagedUser(w http.ResponseWriter, r *http.Request, curre
 	s.writeJSON(w, http.StatusOK, success(toManagedUser(*updated, s.config.CAS.Enabled)))
 }
 
-func managedRole(value string, current int) (int, bool) {
+func managedRole(value string) (int, bool) {
 	switch value {
 	case "administrator":
-		if current == 1 {
-			return 1, true
-		}
+		return 1, true
+	case "danmaku_manager":
 		return 2, true
 	case "user":
 		return 3, true

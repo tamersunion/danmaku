@@ -18,6 +18,8 @@ go run ./cmd/danmaku -config appsettings.yml
 
 CAS 默认接管登录流程，入口为 `/cas/login`，回调为 `/cas/callback`，退出为 `/cas/logout`；旧入口 `/cas/auth` 继续作为原生 CAS 组合入口。紧急情况下可访问 `/login?skipsso=true` 使用本地账号。CAS 用户首次登录会自动建档，默认以普通用户（`CAS.DefaultRole: 3`）加入；管理员可在用户管理中提升角色。CAS 开启时，用户名、显示名、邮箱和头像以 CAS 返回内容为准，前端及 API 均禁止修改资料和密码。
 
+权限分为三级：管理员可管理弹幕和用户，弹幕管理员只能管理弹幕，普通用户只能查看自己的资料。数据库角色值仍分别为 `1`、`2`、`3`。
+
 ## API 路径
 
 - 通用格式：`GET/POST /api/danmaku/v1`，以及 `/{id}.{format}`
@@ -41,7 +43,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`，使用与 dnsmgr-frontend 一致的 React 19、Vite、Tailwind CSS v4、shadcn/ui Base UI Nova 预设和 Geist 字体。容器构建会先生成前端静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.1.0 -t danmaku:2.1.0 .
+docker build --build-arg DANMAKU_VERSION=2.1.1 -t danmaku:2.1.1 .
 docker compose up -d
 ```
 
