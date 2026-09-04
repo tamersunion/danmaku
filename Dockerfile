@@ -1,70 +1,34 @@
-FROM dockerhub.hanada.info/ubuntu:20.04 as builder
+FROM node:12-bullseye-slim AS frontend-builder
+
+WORKDIR /src/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM golang:1.25-bookworm AS backend-builder
+
+ARG DANMAKU_VERSION=dev
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${DANMAKU_VERSION}" -o /output/danmaku ./cmd/danmaku
+
+FROM debian:bookworm-slim AS runner
 
 ENV TZ=Asia/Shanghai
-ENV DEBIAN_FRONTEND=noninteractive
-
-WORKDIR /build
-
-COPY . /build
-
-RUN apt-get update \
-    && apt-get install -y \
-        curl \
-        apt-transport-https \
-        git \
-        xz-utils \
-        nodejs \
-        npm \
-        software-properties-common \
-    && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && dpkg-reconfigure -f noninteractive tzdata \
-    && curl -L -o /tmp/packages-microsoft-prod.deb \
-        https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
-    && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y dotnet-sdk-3.1 \
-    && cd /build/Danmu \
-    && dotnet remove package Microsoft.VisualStudio.Web.CodeGeneration.Design \
-    && dotnet remove package VueCliMiddleware \
-    && cd clientapp \
-    && npm install \
-    && npm run build \
-    && cd /build \
-    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
-    && sed -i "s/<PublishReadyToRun>false/<PublishReadyToRun>true/g" /build/Danmu/Danmu.csproj \
-    && mkdir /output \
-    && dotnet publish \
-        /build/Danmu/Danmu.csproj \
-        -c Release-Linux64 \
-        -r linux-x64 \
-        --self-contained false \
-        --output /output
-
-FROM dockerhub.hanada.info/ubuntu:20.04 as runner
-
-ENV TZ=Asia/Shanghai
-ENV DEBIAN_FRONTEND=noninteractive
-
 WORKDIR /usr/local/danmaku
 
-COPY --from=builder /output/ /usr/local/danmaku/
-COPY Danmu/appsettings.yml /usr/local/danmaku/
-
 RUN apt-get update \
-    && apt-get install -y curl apt-transport-https xz-utils \
-    && curl -L -o "/tmp/packages-microsoft-prod.deb" \
-        https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
-    && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y aspnetcore-runtime-3.1 \
-    && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && dpkg-reconfigure -f noninteractive tzdata \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /tmp/packages-microsoft-prod.deb
+    && apt-get install -y --no-install-recommends ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/local/danmaku
+COPY --from=backend-builder /output/danmaku ./danmaku
+COPY --from=frontend-builder /src/wwwroot/ ./wwwroot/
+COPY appsettings.yml ./appsettings.yml
 
 EXPOSE 80
 
-CMD ["./Danmu"]
+CMD ["./danmaku"]

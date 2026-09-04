@@ -1,0 +1,7 @@
+.git
+.tmp
+coverage.out
+danmaku
+danmaku.exe
+frontend/node_modules
+wwwroot

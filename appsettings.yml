@@ -1,0 +1,26 @@
+KestrelSettings:
+  Host: 0.0.0.0
+  Port: 80
+  UnixSocketPath: "/tmp/danmaku.sock"
+WithOrigins:
+  - "*"
+LiveWithOrigins:
+  - http://localhost
+  - http://localhost:4000
+AdminWithOrigins:
+  - http://localhost:5000
+DanmakuSql:
+  Host: danmaku-postgres
+  Port: 0
+  UserName: danmaku
+  PassWord: danmaku
+  DataBase: danmaku
+  PoolSize: 64
+Admin:
+  User: tamers
+  Password: "000000"
+  MaxAge: 60
+BiliBiliSetting:
+  Cookie: ""
+  CidCacheTime: 168
+  DanmakuCacheTime: 12
