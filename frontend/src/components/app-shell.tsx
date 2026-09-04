@@ -124,23 +124,6 @@ function AppShellContent() {
               </SidebarGroupContent>
             </SidebarGroup>
           ) : null}
-          <SidebarGroup>
-            <SidebarGroupLabel>账户</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    tooltip="个人资料"
-                    isActive={location.pathname.startsWith("/profile")}
-                    render={<NavLink to="/profile" />}
-                  >
-                    <UserRoundIcon />
-                    <span>个人资料</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="p-3">
           <DropdownMenu>
