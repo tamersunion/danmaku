@@ -31,3 +31,38 @@ func TestConnectionStringEscapesCredentials(t *testing.T) {
 		t.Fatalf("unexpected connection string: %s", got)
 	}
 }
+
+func TestLoadLegacyDanmakuConfigurationAliases(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "appsettings.yml")
+	contents := []byte("KestrelSettings:\n  Port: 80\nDanmuSql:\n  Host: legacy-database\n  UserName: legacy-user\n  PassWord: legacy-password\n  DataBase: legacy-name\nBiliBiliSetting:\n  DanmuCacheTime: 17\n")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DanmakuSQL.Host != "legacy-database" || cfg.DanmakuSQL.UserName != "legacy-user" || cfg.DanmakuSQL.Database != "legacy-name" || cfg.DanmakuSQL.Port != 5432 {
+		t.Fatalf("legacy database alias was not normalized: %#v", cfg.DanmakuSQL)
+	}
+	if cfg.Bilibili.DataCacheMinutes != 17 {
+		t.Fatalf("legacy cache alias was not normalized: %d", cfg.Bilibili.DataCacheMinutes)
+	}
+}
+
+func TestLoadCASConfiguration(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "appsettings.yml")
+	contents := []byte("KestrelSettings:\n  Port: 80\nCAS:\n  Enabled: true\n  BaseURL: https://cas.example/cas/app\n  PublicURL: https://danmaku.example\n  DefaultRole: 2\n")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.CAS.Enabled || !cfg.CAS.DefaultLogin || !cfg.CAS.AutoCreateUsers || cfg.CAS.DefaultRole != 2 || cfg.CAS.SessionMaxAgeMinutes != 10080 {
+		t.Fatalf("unexpected CAS configuration: %#v", cfg.CAS)
+	}
+}

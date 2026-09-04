@@ -14,7 +14,7 @@
     import ChangePwd from './components/ChangePwd'
     import { mapState } from 'vuex'
 
-    const tabs = [
+    const allTabs = [
         { label: '个人信息', name: 'user-info' },
         { label: '修改密码', name: 'change-pwd' }
     ]
@@ -28,12 +28,14 @@
             }),
             tabContentClass() {
                 return this.tabPosition === 'left' ? 'tab-main-right' : 'tab-main-top'
+            },
+            tabs() {
+                return this.$store.state.user.provider === 'cas' ? allTabs.slice(0, 1) : allTabs
             }
         },
         data() {
             return {
-                activeTab: tabs[0].name,
-                tabs
+                activeTab: allTabs[0].name
             }
         }
     }

@@ -10,6 +10,7 @@
                     一个开源的弹幕服务器
                 </div>
             </div>
+            <el-button v-if="authOptions.casEnabled" style="width: 100%; margin-bottom: 16px" @click="casLogin">CAS 登录</el-button>
             <el-form ref="form" :model="form" :rules="rules" label-position="left">
                 <el-form-item prop="name">
                     <el-input
@@ -45,6 +46,7 @@
     import { isEmpty } from '@/utils'
     import md5 from 'js-md5'
     import { elSuccess } from '@/utils/message'
+    import { getAuthOptions } from '@/api/admin/account'
 
     export default {
         name: 'login',
@@ -61,10 +63,15 @@
                         { min: 6, message: '密码长度不能低于6位', trigger: 'change' }
                     ]
                 },
-                loading: false
+                loading: false,
+                authOptions: { casEnabled: false, defaultCAS: false }
             }
         },
         methods: {
+            casLogin() {
+                const redirect = this.$route.query.redirect || '/danmaku/index'
+                window.location.href = '/cas/login?returnTo=' + encodeURIComponent(redirect)
+            },
             login() {
                 if (this.loading) return
                 this.$refs.form.validate(valid => {
@@ -82,6 +89,7 @@
             }
         },
         mounted() {
+            getAuthOptions().then(options => { this.authOptions = options }).catch(() => null)
             if (isEmpty(this.form.name)) this.$refs.name.focus()
             else this.$refs.password.focus()
         },

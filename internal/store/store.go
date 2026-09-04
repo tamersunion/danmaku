@@ -2,10 +2,16 @@ package store
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
 
 	"git.hanada.info/tamersunion/danmaku/internal/domain"
+)
+
+var (
+	ErrCASUserNotFound     = errors.New("CAS user does not exist and automatic creation is disabled")
+	ErrCASIdentityConflict = errors.New("CAS identity conflicts with an existing user")
 )
 
 type SearchFilter struct {
@@ -37,5 +43,6 @@ type Repository interface {
 	ChangePassword(context.Context, int, string, string) (bool, error)
 	ChangeUserInfo(context.Context, int, string, *string, *string) (bool, error)
 	User(context.Context, int) (*domain.User, error)
+	UpsertCASUser(context.Context, domain.CASProfile, int, bool) (*domain.User, bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
 }

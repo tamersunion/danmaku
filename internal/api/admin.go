@@ -13,19 +13,19 @@ import (
 
 func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string) {
 	switch {
-	case path == "/api/admin/danmulist" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakulist" && r.Method == http.MethodGet:
 		s.listDanmaku(w, r)
-	case path == "/api/admin/danmulist/vids" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakulist/vids" && r.Method == http.MethodGet:
 		s.listVids(w, r)
-	case path == "/api/admin/danmulist/dateselect" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakulist/dateselect" && r.Method == http.MethodGet:
 		s.searchDanmaku(w, r, true)
-	case path == "/api/admin/danmulist/baseselect" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakulist/baseselect" && r.Method == http.MethodGet:
 		s.searchDanmaku(w, r, false)
-	case path == "/api/admin/danmuedit" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakuedit" && r.Method == http.MethodGet:
 		s.getDanmaku(w, r)
-	case path == "/api/admin/danmuedit/edit" && r.Method == http.MethodPost:
+	case path == "/api/admin/danmakuedit/edit" && r.Method == http.MethodPost:
 		s.editDanmaku(w, r)
-	case path == "/api/admin/danmuedit/delete" && r.Method == http.MethodGet:
+	case path == "/api/admin/danmakuedit/delete" && r.Method == http.MethodGet:
 		s.deleteDanmaku(w, r)
 	case path == "/api/admin/user/changepassword" && r.Method == http.MethodPost:
 		s.changePassword(w, r)
@@ -135,6 +135,9 @@ func (s *Server) deleteDanmaku(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
+	if !s.requireLocalSession(w, r) {
+		return
+	}
 	var request struct {
 		UID  int    `json:"uid"`
 		OldP string `json:"oldP"`
@@ -152,6 +155,9 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) changeUserInfo(w http.ResponseWriter, r *http.Request) {
+	if !s.requireLocalSession(w, r) {
+		return
+	}
 	var request struct {
 		ID          int     `json:"id"`
 		Name        string  `json:"name"`
@@ -175,6 +181,14 @@ func (s *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.writeError(w, err)
 		return
+	}
+	if value, ok := s.requestSession(r); ok && value.Provider == "cas" && user != nil && value.UID == user.ID {
+		if value.DisplayName != "" {
+			user.Name = value.DisplayName
+		}
+		if value.Email != "" {
+			user.Email = &value.Email
+		}
 	}
 	s.writeJSON(w, http.StatusOK, success(user))
 }

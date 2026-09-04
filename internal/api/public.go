@@ -13,7 +13,7 @@ import (
 )
 
 func (s *Server) serveDPlayer(w http.ResponseWriter, r *http.Request, path string) {
-	const base = "/api/danmu/dplayer/v3"
+	const base = "/api/danmaku/dplayer/v3"
 	switch {
 	case path == base+"/bilibili" && r.Method == http.MethodGet:
 		data, err := s.bilibili.Data(r.Context(), bilibiliQueryFromRequest(r))
@@ -65,7 +65,7 @@ func (s *Server) serveDPlayer(w http.ResponseWriter, r *http.Request, path strin
 }
 
 func (s *Server) serveCommon(w http.ResponseWriter, r *http.Request, path string) {
-	const base = "/api/danmu/v1"
+	const base = "/api/danmaku/v1"
 	if strings.HasPrefix(path, base+"/bilibili") {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -111,7 +111,7 @@ func (s *Server) serveCommon(w http.ResponseWriter, r *http.Request, path string
 }
 
 func (s *Server) serveArtPlayer(w http.ResponseWriter, r *http.Request, path string) {
-	const base = "/api/danmu/artplayer/v1"
+	const base = "/api/danmaku/artplayer/v1"
 	if strings.HasPrefix(path, base+"/bilibili") {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -245,8 +245,8 @@ func routeIDAndFormat(path, base string) (string, string) {
 func bilibiliFormat(path, base string) string {
 	suffix := strings.TrimPrefix(path, base)
 	suffix = strings.TrimPrefix(suffix, "/")
-	if strings.HasPrefix(suffix, "danmu.") {
-		return strings.TrimPrefix(suffix, "danmu.")
+	if strings.HasPrefix(suffix, "danmaku.") {
+		return strings.TrimPrefix(suffix, "danmaku.")
 	}
 	return ""
 }

@@ -18,6 +18,7 @@ import { title, routerMode } from '@/config'
 import constantRoutes from '@/router/constantRoutes'
 import authorityRoutes from '@/router/authorityRoutes'
 import store from '@/store'
+import { getAuthOptions } from '@/api/admin/account'
 
 Vue.use(Router)
 
@@ -41,24 +42,60 @@ const createRouter = () => new Router({
 
 const router = createRouter()
 
+let authOptionsPromise
+let sessionRestorePromise
+
+function loadAuthOptions() {
+    if (!authOptionsPromise) {
+        authOptionsPromise = getAuthOptions().catch(() => ({ casEnabled: false, defaultCAS: false }))
+    }
+    return authOptionsPromise
+}
+
+function restoreSession() {
+    if (!sessionRestorePromise) sessionRestorePromise = store.dispatch('user/restore').catch(() => null)
+    return sessionRestorePromise
+}
+
+function redirectToCAS(returnTo) {
+    window.location.replace('/cas/login?returnTo=' + encodeURIComponent(returnTo || '/danmaku/index'))
+}
+
 router.beforeEach(async (to, from, next) => {
     NProgress.start()
 
     document.title = getPageTitle(to.meta.title)
 
+    if (to.path === '/login') {
+        await restoreSession()
+        if (isUserExist()) return next({ path: '/' })
+        if (to.query.skipsso !== 'true') {
+            const options = await loadAuthOptions()
+            if (options.casEnabled && options.defaultCAS) {
+                redirectToCAS(to.query.redirect)
+                return
+            }
+        }
+        return next()
+    }
+
     //不需要登录的页面也不需要进行权限控制
     if (urlNoNeedLogin[to.path]) return next()
 
-    const isLogin = isUserExist()
+    await restoreSession()
 
     //未登录时返回登录页
-    if (!isLogin) return next({ path: '/login', query: { redirect: to.fullPath } })
+    if (!isUserExist()) {
+        const options = await loadAuthOptions()
+        if (options.casEnabled && options.defaultCAS) {
+            redirectToCAS(to.fullPath)
+            return
+        }
+        return next({ path: '/login', query: { redirect: to.fullPath } })
+    }
 
     //初始化菜单
     await store.dispatch('resource/init', store.state.user)
-
-    //已登录时访问登录页则跳转至首页
-    if (to.path === '/login') return next({ path: '/' })
 
     //页面不需要鉴权或有访问权限时通过
     if (auth(to)) return next()

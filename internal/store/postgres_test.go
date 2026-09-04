@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseReferer(t *testing.T) {
 	referer, err := ParseReferer("https://example.com/watch/index.html?id=7#player")
@@ -35,5 +38,24 @@ func TestRandomUUID(t *testing.T) {
 	}
 	if !validUUID(value) {
 		t.Fatalf("invalid UUID: %s", value)
+	}
+}
+
+func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
+	migration := strings.Join(schemaStatements(), "\n")
+	for _, expected := range []string{
+		`ALTER TABLE "Danmu" RENAME TO "Danmaku"`,
+		`CREATE TABLE IF NOT EXISTS "Danmaku"`,
+		`RENAME CONSTRAINT "FK_Danmu_Video_VideoId" TO "FK_Danmaku_Video_VideoId"`,
+		`ALTER INDEX "IX_Danmu_Vid_IsDelete" RENAME TO "IX_Danmaku_Vid_IsDelete"`,
+		`"CASSubject"`,
+		`"UX_User_CASSubject"`,
+	} {
+		if !strings.Contains(migration, expected) {
+			t.Fatalf("schema migration does not contain %q", expected)
+		}
+	}
+	if !strings.Contains(migration, `both legacy table "Danmu" and target table "Danmaku" exist`) {
+		t.Fatal("schema migration must reject ambiguous old/new table state")
 	}
 }

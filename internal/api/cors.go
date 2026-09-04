@@ -44,11 +44,11 @@ func (s *Server) cors(next http.Handler) http.Handler {
 
 func (s *Server) corsPolicy(path string) ([]string, bool, bool) {
 	switch {
-	case strings.HasPrefix(path, "/api/live/danmu"):
+	case strings.HasPrefix(path, "/api/live/danmaku"):
 		return s.config.LiveWithOrigins, true, true
 	case strings.HasPrefix(path, "/api/admin/"):
 		return s.config.AdminWithOrigins, false, false
-	case strings.HasPrefix(path, "/api/danmu/") || strings.HasPrefix(path, "/api/other/"):
+	case strings.HasPrefix(path, "/api/danmaku/") || strings.HasPrefix(path, "/api/other/"):
 		return s.config.WithOrigins, false, true
 	default:
 		return nil, false, false

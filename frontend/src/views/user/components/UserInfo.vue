@@ -11,13 +11,13 @@
             style="max-width: 600px"
     >
         <el-form-item label="用户名：" prop="name">
-            <el-input v-model="form.name" :maxlength="100"/>
+            <el-input v-model="form.name" :maxlength="100" :readonly="isCAS"/>
         </el-form-item>
         <el-form-item label="邮箱：" prop="email">
-            <el-input v-model="form.email" :maxlength="100"/>
+            <el-input v-model="form.email" :maxlength="100" :readonly="isCAS"/>
         </el-form-item>
         <el-form-item label="手机：" prop="phoneNumber">
-            <el-input v-model="form.phoneNumber" :maxlength="20"/>
+            <el-input v-model="form.phoneNumber" :maxlength="20" :readonly="isCAS"/>
         </el-form-item>
         <el-form-item label="用户角色：">
             <el-input :value="form.role" readonly/>
@@ -28,7 +28,7 @@
         <el-form-item label="修改时间：">
             <el-input :value="form.updateTime" readonly/>
         </el-form-item>
-        <el-form-item>
+        <el-form-item v-if="!isCAS">
             <el-button :loading="operating" type="primary" size="small" @click="submit">提 交</el-button>
         </el-form-item>
     </el-form>
@@ -64,8 +64,12 @@
         },
         computed: {
             ...mapState('user', {
-                id: state => state.id
-            })
+                id: state => state.id,
+                provider: state => state.provider
+            }),
+            isCAS() {
+                return this.provider === 'cas'
+            }
         },
         methods: {
             init() {

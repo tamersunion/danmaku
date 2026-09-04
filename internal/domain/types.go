@@ -91,15 +91,26 @@ type Danmaku struct {
 }
 
 type User struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Password    *string   `json:"passWord"`
-	Salt        string    `json:"salt"`
-	Role        int       `json:"role"`
-	PhoneNumber *string   `json:"phoneNumber"`
-	Email       *string   `json:"email"`
-	CreateTime  time.Time `json:"createTime"`
-	UpdateTime  time.Time `json:"updateTime"`
+	ID             int       `json:"id"`
+	Name           string    `json:"name"`
+	Password       *string   `json:"passWord"`
+	Salt           string    `json:"salt"`
+	Role           int       `json:"role"`
+	PhoneNumber    *string   `json:"phoneNumber"`
+	Email          *string   `json:"email"`
+	CreateTime     time.Time `json:"createTime"`
+	UpdateTime     time.Time `json:"updateTime"`
+	CASSubject     *string   `json:"-"`
+	CASDisplayName *string   `json:"-"`
+	CASAvatar      *string   `json:"-"`
+}
+
+type CASProfile struct {
+	Subject     string
+	UserName    string
+	Email       string
+	DisplayName string
+	Avatar      string
 }
 
 type Page[T any] struct {

@@ -26,6 +26,7 @@ service.interceptors.response.use(
 
         //未登录或无权限
         if (res.code === 401) {
+            if (response.config.skipAuthPrompt) return Promise.reject(res)
             if (store.state.user.prepareLogout) return Promise.reject()
             return MessageBox.alert('请登录后重试', {
                 type: 'warning',

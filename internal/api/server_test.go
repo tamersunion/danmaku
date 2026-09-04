@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,9 @@ type fakeRepository struct {
 	verifyOK      bool
 	verifyUID     int
 	verifyRole    int
+	casUser       *domain.User
+	casCreated    bool
+	casProfile    domain.CASProfile
 }
 
 func (f *fakeRepository) Initialize(context.Context) error { return nil }
@@ -62,6 +66,13 @@ func (f *fakeRepository) ChangeUserInfo(context.Context, int, string, *string, *
 	return true, nil
 }
 func (f *fakeRepository) User(context.Context, int) (*domain.User, error) { return nil, nil }
+func (f *fakeRepository) UpsertCASUser(_ context.Context, profile domain.CASProfile, _ int, _ bool) (*domain.User, bool, error) {
+	f.casProfile = profile
+	if f.casUser == nil {
+		f.casUser = &domain.User{ID: 1, Name: profile.UserName, Role: 1}
+	}
+	return f.casUser, f.casCreated, nil
+}
 func (f *fakeRepository) Cache(ctx context.Context, _ string, _ time.Duration, factory func(context.Context) ([]byte, error)) ([]byte, error) {
 	return factory(ctx)
 }
@@ -82,11 +93,20 @@ func testServer(t *testing.T, repository store.Repository) *Server {
 	return server
 }
 
+func testServerWithConfig(t *testing.T, repository store.Repository, cfg config.Config) *Server {
+	t.Helper()
+	server, err := New(context.Background(), cfg, repository, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server
+}
+
 func TestDPlayerGetContract(t *testing.T) {
 	text := "<hello>"
 	repository := &fakeRepository{data: []domain.DanmakuData{{Time: 1.5, Mode: 5, Color: 16777215, Author: "alice", Text: &text}}}
 	response := httptest.NewRecorder()
-	testServer(t, repository).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmu/dplayer/v3?id=video", nil))
+	testServer(t, repository).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/dplayer/v3?id=video", nil))
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -106,7 +126,7 @@ func TestCommonXMLContract(t *testing.T) {
 	text := "hello & goodbye"
 	repository := &fakeRepository{data: []domain.DanmakuData{{Time: 2.5, Mode: 1, Size: 25, Color: 255, Timestamp: 123, Pool: 0, Author: "alice", Text: &text}}}
 	response := httptest.NewRecorder()
-	testServer(t, repository).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmu/v1/video.xml", nil))
+	testServer(t, repository).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/v1/video.xml", nil))
 	if response.Header().Get("Content-Type") != "application/xml; charset=utf-8" || !strings.Contains(response.Body.String(), `<d p="2.5,1,25,255,123,0,alice,123">hello &amp; goodbye</d>`) {
 		t.Fatalf("unexpected XML: %s", response.Body.String())
 	}
@@ -114,7 +134,7 @@ func TestCommonXMLContract(t *testing.T) {
 
 func TestDPlayerPostUsesExternalContract(t *testing.T) {
 	repository := &fakeRepository{}
-	request := httptest.NewRequest(http.MethodPost, "/api/danmu/dplayer/v3", strings.NewReader(`{"id":"video","time":3.5,"type":2,"color":255,"author":"42","text":"hello"}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/danmaku/dplayer/v3", strings.NewReader(`{"id":"video","time":3.5,"type":2,"color":255,"author":"42","text":"hello"}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Referer", "https://example.com/watch?id=7")
 	request.Header.Set("X-Real-IP", "203.0.113.8")
@@ -145,7 +165,7 @@ func TestAdminCookieAuthentication(t *testing.T) {
 	if sessionCookie == nil {
 		t.Fatal("missing DCookie")
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/admin/danmulist/vids", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/danmakulist/vids", nil)
 	request.AddCookie(sessionCookie)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
@@ -154,9 +174,114 @@ func TestAdminCookieAuthentication(t *testing.T) {
 	}
 }
 
+func TestLoginSuccessPreservesLegacyJSONFieldOrder(t *testing.T) {
+	repository := &fakeRepository{verifyOK: true, verifyUID: 1, verifyRole: 1}
+	server := testServer(t, repository)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/login", strings.NewReader(`{"name":"Hanada","password":"hash"}`))
+
+	server.Handler().ServeHTTP(response, request)
+
+	const want = `{"code":0,"data":{"url":"/","uid":1}}` + "\n"
+	if response.Code != http.StatusOK || response.Body.String() != want {
+		t.Fatalf("login response = %d %q, want %d %q", response.Code, response.Body.String(), http.StatusOK, want)
+	}
+}
+
+func TestNativeCASAuthCreatesSessionAndRestoresProfile(t *testing.T) {
+	casServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/cas/application/serviceValidate" || r.URL.Query().Get("ticket") != "ST-1" {
+			t.Fatalf("unexpected CAS validation request: %s", r.URL.String())
+		}
+		if got := r.URL.Query().Get("service"); got != "https://danmaku.example/cas/auth?returnTo=%2Fdanmaku%2Findex" {
+			t.Fatalf("service = %q", got)
+		}
+		_, _ = io.WriteString(w, `<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas"><cas:authenticationSuccess><cas:user>cas-subject</cas:user><cas:attributes><cas:username>hanada</cas:username><cas:displayName>花田</cas:displayName><cas:email>hanada@example.com</cas:email><cas:avatar>https://example.com/avatar.png</cas:avatar></cas:attributes></cas:authenticationSuccess></cas:serviceResponse>`)
+	}))
+	defer casServer.Close()
+
+	repository := &fakeRepository{casUser: &domain.User{ID: 9, Name: "hanada", Role: 1}, casCreated: true}
+	cfg := config.Config{
+		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
+		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
+		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		CAS: config.CASSettings{
+			Enabled: true, BaseURL: casServer.URL + "/cas/application", PublicURL: "https://danmaku.example",
+			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+		},
+	}
+	server := testServerWithConfig(t, repository, cfg)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/cas/auth?returnTo=%2Fdanmaku%2Findex&ticket=ST-1", nil))
+	if response.Code != http.StatusFound || response.Header().Get("Location") != "/danmaku/index" {
+		t.Fatalf("unexpected CAS callback: %d %s", response.Code, response.Header().Get("Location"))
+	}
+	if repository.casProfile.Subject != "cas-subject" || repository.casProfile.UserName != "hanada" || repository.casProfile.DisplayName != "花田" {
+		t.Fatalf("unexpected provisioned profile: %#v", repository.casProfile)
+	}
+	var authCookie *http.Cookie
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == sessionCookie {
+			authCookie = cookie
+		}
+	}
+	if authCookie == nil {
+		t.Fatal("CAS callback did not set DCookie")
+	}
+
+	sessionRequest := httptest.NewRequest(http.MethodGet, "/api/admin/session", nil)
+	sessionRequest.AddCookie(authCookie)
+	sessionResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(sessionResponse, sessionRequest)
+	var restored struct {
+		Code int `json:"code"`
+		Data struct {
+			ID       int    `json:"id"`
+			Name     string `json:"name"`
+			Provider string `json:"provider"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.Code != 0 || restored.Data.ID != 9 || restored.Data.Name != "花田" || restored.Data.Provider != "cas" {
+		t.Fatalf("unexpected restored session: %s", sessionResponse.Body.String())
+	}
+
+	changeRequest := httptest.NewRequest(http.MethodPost, "/api/admin/user/changepassword", strings.NewReader(`{}`))
+	changeRequest.AddCookie(authCookie)
+	changeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(changeResponse, changeRequest)
+	if changeResponse.Code != http.StatusForbidden {
+		t.Fatalf("CAS password change status = %d", changeResponse.Code)
+	}
+}
+
+func TestCASLoginRejectsExternalReturnURL(t *testing.T) {
+	repository := &fakeRepository{}
+	cfg := config.Config{
+		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
+		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
+		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		CAS: config.CASSettings{
+			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
+			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+		},
+	}
+	response := httptest.NewRecorder()
+	testServerWithConfig(t, repository, cfg).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/cas/login?returnTo=https://evil.example/", nil))
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusFound || location.Host != "cas.example" || !strings.Contains(location.Query().Get("service"), "returnTo=%2Fdanmaku%2Findex") {
+		t.Fatalf("unsafe return URL was not replaced: %d %s", response.Code, location)
+	}
+}
+
 func TestAdminUnauthorizedContract(t *testing.T) {
 	response := httptest.NewRecorder()
-	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/admin/danmulist/vids", nil))
+	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/admin/danmakulist/vids", nil))
 	if response.Code != http.StatusOK || response.Body.String() != "{\"code\":401,\"data\":{\"desc\":\"没有权限\"}}\n" {
 		t.Fatalf("unexpected unauthorized response: %d %s", response.Code, response.Body.String())
 	}
@@ -164,7 +289,7 @@ func TestAdminUnauthorizedContract(t *testing.T) {
 
 func TestSignalRNegotiationRoute(t *testing.T) {
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/live/danmu/negotiate?negotiateVersion=1", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/live/danmaku/negotiate?negotiateVersion=1", nil)
 	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
@@ -180,12 +305,20 @@ func TestSignalRNegotiationRoute(t *testing.T) {
 
 func TestPublicCORSContract(t *testing.T) {
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodOptions, "/api/danmu/v1", nil)
+	request := httptest.NewRequest(http.MethodOptions, "/api/danmaku/v1", nil)
 	request.Header.Set("Origin", "https://player.example")
 	request.Header.Set("Access-Control-Request-Headers", "content-type")
 	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent || response.Header().Get("Access-Control-Allow-Origin") != "*" || response.Header().Get("Access-Control-Allow-Headers") != "content-type" {
 		t.Fatalf("unexpected CORS response: %#v", response.Header())
+	}
+}
+
+func TestLegacyDanmakuAPIPathIsRemoved(t *testing.T) {
+	response := httptest.NewRecorder()
+	testServer(t, &fakeRepository{}).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmu/v1?id=video", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("legacy API status = %d, want %d", response.Code, http.StatusNotFound)
 	}
 }
 
@@ -199,7 +332,7 @@ func TestBilibiliJSONCompatibility(t *testing.T) {
 	server := testServer(t, &fakeRepository{})
 	server.bilibili.baseURL = upstream.URL
 	response := httptest.NewRecorder()
-	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmu/v1/bilibili/danmu.json?cid=99", nil))
+	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/v1/bilibili/danmaku.json?cid=99", nil))
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"time":1.25`) || !strings.Contains(response.Body.String(), `"author":"alice"`) {
 		t.Fatalf("unexpected Bilibili response: %d %s", response.Code, response.Body.String())
 	}
@@ -222,9 +355,9 @@ func TestSignalRGroupContract(t *testing.T) {
 
 	receiver1 := &liveReceiver{messages: make(chan [2]string, 1)}
 	receiver2 := &liveReceiver{messages: make(chan [2]string, 1)}
-	client1 := newSignalRClient(t, ctx, server.URL+"/api/live/danmu", receiver1)
+	client1 := newSignalRClient(t, ctx, server.URL+"/api/live/danmaku", receiver1)
 	defer client1.Stop()
-	client2 := newSignalRClient(t, ctx, server.URL+"/api/live/danmu", receiver2)
+	client2 := newSignalRClient(t, ctx, server.URL+"/api/live/danmaku", receiver2)
 	defer client2.Stop()
 
 	waitInvocation(t, ctx, client1.Invoke("Connection", "room"))

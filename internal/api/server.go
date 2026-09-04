@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	casclient "git.hanada.info/tamersunion/danmaku/internal/cas"
 	"git.hanada.info/tamersunion/danmaku/internal/config"
 	"git.hanada.info/tamersunion/danmaku/internal/store"
 	"github.com/philippseith/signalr"
@@ -21,6 +22,7 @@ type Server struct {
 	config        config.Config
 	repository    store.Repository
 	bilibili      *Bilibili
+	cas           *casclient.Client
 	sessionSecret []byte
 	logger        *slog.Logger
 	mux           *http.ServeMux
@@ -38,10 +40,18 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 		staticDir: discoverStaticDir(),
 	}
 	server.bilibili = NewBilibili(repository, cfg.Bilibili)
+	if cfg.CAS.Enabled {
+		client, err := casclient.NewClient(cfg.CAS.BaseURL, cfg.CAS.ValidationURL, cfg.CAS.ValidationHost, time.Duration(cfg.CAS.RequestTimeoutSeconds)*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("configure CAS client: %w", err)
+		}
+		server.cas = client
+	}
 	if err := server.mapRealtime(ctx); err != nil {
 		return nil, err
 	}
 	server.mux.HandleFunc("/api/", server.serveAPI)
+	server.mux.HandleFunc("/cas/", server.serveCAS)
 	server.mux.HandleFunc("/", server.serveSPA)
 	return server, nil
 }
@@ -53,6 +63,10 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimSuffix(r.URL.Path, "/")
 	switch {
+	case path == "/api/admin/auth/options" && r.Method == http.MethodGet:
+		s.authOptions(w, r)
+	case path == "/api/admin/session" && r.Method == http.MethodGet:
+		s.currentSession(w, r)
 	case (path == "/api/admin/login" || path == "/api/admin/noAuth") && r.Method == http.MethodGet:
 		s.writeJSON(w, http.StatusOK, result{Code: 401, Data: map[string]string{"desc": "没有权限"}})
 	case path == "/api/admin/login" && r.Method == http.MethodPost:
@@ -67,11 +81,11 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 		s.serveAdmin(w, r, path)
 	case path == "/api/other/bilibili/queryaid" && r.Method == http.MethodGet:
 		s.queryAID(w, r)
-	case strings.HasPrefix(path, "/api/danmu/dplayer/v3"):
+	case strings.HasPrefix(path, "/api/danmaku/dplayer/v3"):
 		s.serveDPlayer(w, r, path)
-	case strings.HasPrefix(path, "/api/danmu/artplayer/v1"):
+	case strings.HasPrefix(path, "/api/danmaku/artplayer/v1"):
 		s.serveArtPlayer(w, r, path)
-	case strings.HasPrefix(path, "/api/danmu/v1"):
+	case strings.HasPrefix(path, "/api/danmaku/v1"):
 		s.serveCommon(w, r, path)
 	default:
 		http.NotFound(w, r)
@@ -167,7 +181,7 @@ func (s *Server) mapRealtime(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create SignalR server: %w", err)
 	}
-	hubServer.MapHTTP(signalr.WithHTTPServeMux(s.mux), "/api/live/danmu")
+	hubServer.MapHTTP(signalr.WithHTTPServeMux(s.mux), "/api/live/danmaku")
 	return nil
 }
 

@@ -15,13 +15,15 @@ import (
 )
 
 type Config struct {
-	KestrelSettings  ListenerSettings `json:"KestrelSettings" yaml:"KestrelSettings"`
-	WithOrigins      []string         `json:"WithOrigins" yaml:"WithOrigins"`
-	LiveWithOrigins  []string         `json:"LiveWithOrigins" yaml:"LiveWithOrigins"`
-	AdminWithOrigins []string         `json:"AdminWithOrigins" yaml:"AdminWithOrigins"`
-	DanmakuSQL       DatabaseSettings `json:"DanmakuSql" yaml:"DanmakuSql"`
-	Admin            AdminSettings    `json:"Admin" yaml:"Admin"`
-	Bilibili         BilibiliSettings `json:"BiliBiliSetting" yaml:"BiliBiliSetting"`
+	KestrelSettings  ListenerSettings  `json:"KestrelSettings" yaml:"KestrelSettings"`
+	WithOrigins      []string          `json:"WithOrigins" yaml:"WithOrigins"`
+	LiveWithOrigins  []string          `json:"LiveWithOrigins" yaml:"LiveWithOrigins"`
+	AdminWithOrigins []string          `json:"AdminWithOrigins" yaml:"AdminWithOrigins"`
+	DanmakuSQL       DatabaseSettings  `json:"DanmakuSql" yaml:"DanmakuSql"`
+	LegacyDanmakuSQL *DatabaseSettings `json:"DanmuSql,omitempty" yaml:"DanmuSql,omitempty"`
+	Admin            AdminSettings     `json:"Admin" yaml:"Admin"`
+	Bilibili         BilibiliSettings  `json:"BiliBiliSetting" yaml:"BiliBiliSetting"`
+	CAS              CASSettings       `json:"CAS" yaml:"CAS"`
 }
 
 type ListenerSettings struct {
@@ -46,9 +48,24 @@ type AdminSettings struct {
 }
 
 type BilibiliSettings struct {
-	Cookie           string `json:"Cookie" yaml:"Cookie"`
-	CIDCacheMinutes  int    `json:"CidCacheTime" yaml:"CidCacheTime"`
-	DataCacheMinutes int    `json:"DanmakuCacheTime" yaml:"DanmakuCacheTime"`
+	Cookie                 string `json:"Cookie" yaml:"Cookie"`
+	CIDCacheMinutes        int    `json:"CidCacheTime" yaml:"CidCacheTime"`
+	DataCacheMinutes       int    `json:"DanmakuCacheTime" yaml:"DanmakuCacheTime"`
+	LegacyDanmakuCacheTime *int   `json:"DanmuCacheTime,omitempty" yaml:"DanmuCacheTime,omitempty"`
+}
+
+type CASSettings struct {
+	Enabled               bool   `json:"Enabled" yaml:"Enabled"`
+	DefaultLogin          bool   `json:"DefaultLogin" yaml:"DefaultLogin"`
+	BaseURL               string `json:"BaseURL" yaml:"BaseURL"`
+	ValidationURL         string `json:"ValidationURL" yaml:"ValidationURL"`
+	ValidationHost        string `json:"ValidationHost" yaml:"ValidationHost"`
+	PublicURL             string `json:"PublicURL" yaml:"PublicURL"`
+	AutoCreateUsers       bool   `json:"AutoCreateUsers" yaml:"AutoCreateUsers"`
+	DefaultRole           int    `json:"DefaultRole" yaml:"DefaultRole"`
+	SessionMaxAgeMinutes  int    `json:"SessionMaxAge" yaml:"SessionMaxAge"`
+	RequestTimeoutSeconds int    `json:"RequestTimeout" yaml:"RequestTimeout"`
+	CookieSecure          bool   `json:"CookieSecure" yaml:"CookieSecure"`
 }
 
 func defaults() Config {
@@ -57,6 +74,11 @@ func defaults() Config {
 		DanmakuSQL:      DatabaseSettings{Host: "127.0.0.1", Port: 5432, PoolSize: 8},
 		Admin:           AdminSettings{MaxAge: 1},
 		Bilibili:        BilibiliSettings{CIDCacheMinutes: 72, DataCacheMinutes: 5},
+		CAS: CASSettings{
+			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 1,
+			SessionMaxAgeMinutes:  7 * 24 * 60,
+			RequestTimeoutSeconds: 10, CookieSecure: true,
+		},
 	}
 }
 
@@ -94,6 +116,28 @@ func Load(path string) (Config, error) {
 	if cfg.Admin.MaxAge <= 0 {
 		cfg.Admin.MaxAge = 1
 	}
+	if cfg.CAS.SessionMaxAgeMinutes <= 0 {
+		cfg.CAS.SessionMaxAgeMinutes = 7 * 24 * 60
+	}
+	if cfg.CAS.RequestTimeoutSeconds <= 0 {
+		cfg.CAS.RequestTimeoutSeconds = 10
+	}
+	if cfg.CAS.Enabled {
+		if cfg.CAS.DefaultRole != 1 && cfg.CAS.DefaultRole != 2 {
+			return Config{}, errors.New("CAS.DefaultRole must be 1 (SuperAdmin) or 2 (Admin)")
+		}
+		if err := validateAbsoluteURL(cfg.CAS.BaseURL, "CAS.BaseURL"); err != nil {
+			return Config{}, err
+		}
+		if err := validateAbsoluteURL(cfg.CAS.PublicURL, "CAS.PublicURL"); err != nil {
+			return Config{}, err
+		}
+		if cfg.CAS.ValidationURL != "" {
+			if err := validateAbsoluteURL(cfg.CAS.ValidationURL, "CAS.ValidationURL"); err != nil {
+				return Config{}, err
+			}
+		}
+	}
 	return cfg, nil
 }
 
@@ -124,6 +168,25 @@ func mergeFile(path string, cfg *Config) error {
 	}
 	if err != nil {
 		return fmt.Errorf("parse config %q: %w", path, err)
+	}
+	if cfg.LegacyDanmakuSQL != nil {
+		cfg.DanmakuSQL = *cfg.LegacyDanmakuSQL
+		cfg.LegacyDanmakuSQL = nil
+	}
+	if cfg.Bilibili.LegacyDanmakuCacheTime != nil {
+		cfg.Bilibili.DataCacheMinutes = *cfg.Bilibili.LegacyDanmakuCacheTime
+		cfg.Bilibili.LegacyDanmakuCacheTime = nil
+	}
+	return nil
+}
+
+func validateAbsoluteURL(raw, name string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil {
+		return fmt.Errorf("%s must be an absolute URL", name)
+	}
+	if parsed.Scheme != "https" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+		return fmt.Errorf("%s must use HTTPS", name)
 	}
 	return nil
 }

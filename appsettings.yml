@@ -24,3 +24,15 @@ BiliBiliSetting:
   Cookie: ""
   CidCacheTime: 168
   DanmakuCacheTime: 12
+CAS:
+  Enabled: true
+  DefaultLogin: true
+  BaseURL: https://cas.tamersunion.org/cas/tamersunion/danmaku_tamersunion
+  ValidationURL: ""
+  ValidationHost: ""
+  PublicURL: https://danmaku.tamersunion.org
+  AutoCreateUsers: true
+  DefaultRole: 1
+  SessionMaxAge: 10080
+  RequestTimeout: 10
+  CookieSecure: true
