@@ -53,6 +53,27 @@ func TestLoadJSONConfiguration(t *testing.T) {
 	if cfg.Bilibili.APIBase != DefaultBilibiliAPIBase {
 		t.Fatalf("default bilibili API base = %q", cfg.Bilibili.APIBase)
 	}
+	if cfg.Iqiyi.DecodeAPIBase != DefaultIqiyiDecodeAPIBase || cfg.Iqiyi.VideoInfoAPIBase != DefaultIqiyiVideoInfoAPIBase || cfg.Iqiyi.DanmakuAPIBase != DefaultIqiyiDanmakuAPIBase || cfg.Iqiyi.SyncIntervalSeconds != DefaultIqiyiSyncIntervalSeconds {
+		t.Fatalf("unexpected default iQiyi settings: %#v", cfg.Iqiyi)
+	}
+}
+
+func TestLoadCustomIqiyiSettings(t *testing.T) {
+	path := writeConfig(t, "appsettings.json", `{
+		"iqiyi_setting": {
+			"decode_api_base": "https://decode.example/api/",
+			"video_info_api_base": "https://video.example/api/",
+			"danmaku_api_base": "https://danmaku.example/api/",
+			"sync_interval_seconds": 37
+		}
+	}`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Iqiyi.DecodeAPIBase != "https://decode.example/api" || cfg.Iqiyi.VideoInfoAPIBase != "https://video.example/api" || cfg.Iqiyi.DanmakuAPIBase != "https://danmaku.example/api" || cfg.Iqiyi.SyncIntervalSeconds != 37 {
+		t.Fatalf("unexpected custom iQiyi settings: %#v", cfg.Iqiyi)
+	}
 }
 
 func TestLoadCustomBilibiliAPIBase(t *testing.T) {

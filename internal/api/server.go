@@ -41,7 +41,7 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 		staticDir: discoverStaticDir(),
 	}
 	server.bilibili = NewBilibili(repository, cfg.Bilibili)
-	server.iqiyi = NewIqiyi()
+	server.iqiyi = NewIqiyi(repository, cfg.Iqiyi)
 	if cfg.CAS.Enabled {
 		client, err := casclient.NewClient(cfg.CAS.BaseURL, cfg.CAS.ValidationURL, cfg.CAS.ValidationHost, time.Duration(cfg.CAS.RequestTimeoutSeconds)*time.Second)
 		if err != nil {

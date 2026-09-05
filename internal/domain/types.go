@@ -80,6 +80,8 @@ type Video struct {
 	DanmakuCount      int               `json:"danmakuCount"`
 	BilibiliPoolCount int               `json:"bilibiliPoolCount"`
 	BilibiliBindings  []BilibiliBinding `json:"bilibiliBindings,omitempty"`
+	IqiyiPoolCount    int               `json:"iqiyiPoolCount"`
+	IqiyiBindings     []IqiyiBinding    `json:"iqiyiBindings,omitempty"`
 	Referer           *Referer          `json:"referer,omitempty"`
 	CreateTime        time.Time         `json:"createTime"`
 	UpdateTime        time.Time         `json:"updateTime"`
@@ -138,6 +140,7 @@ type Page[T any] struct {
 type BilibiliPool struct {
 	ID              int        `json:"id"`
 	BVID            string     `json:"bvid"`
+	AID             int64      `json:"aid"`
 	Page            int        `json:"p"`
 	CID             int64      `json:"cid"`
 	DanmakuCount    int        `json:"danmakuCount"`
@@ -163,6 +166,7 @@ type BilibiliKeyword struct {
 	ID         int       `json:"id"`
 	PoolID     *int      `json:"poolId"`
 	PoolBVID   string    `json:"poolBvid"`
+	PoolAID    int64     `json:"poolAid"`
 	PoolPage   int       `json:"poolP"`
 	PoolCID    int64     `json:"poolCid"`
 	Keyword    string    `json:"keyword"`
@@ -174,8 +178,49 @@ type BilibiliBinding struct {
 	Vid        string    `json:"vid"`
 	PoolID     int       `json:"poolId"`
 	BVID       string    `json:"bvid"`
+	AID        int64     `json:"aid"`
 	Page       int       `json:"p"`
 	CID        int64     `json:"cid"`
+	Offset     float64   `json:"offset"`
+	CreateTime time.Time `json:"createTime"`
+	UpdateTime time.Time `json:"updateTime"`
+}
+
+type IqiyiPool struct {
+	ID              int        `json:"id"`
+	VID             string     `json:"vid"`
+	DanmakuCount    int        `json:"danmakuCount"`
+	BlockedCount    int        `json:"blockedCount"`
+	BindingCount    int        `json:"bindingCount"`
+	LastAttemptTime *time.Time `json:"lastAttemptTime"`
+	LastSyncTime    *time.Time `json:"lastSyncTime"`
+	CreateTime      time.Time  `json:"createTime"`
+	UpdateTime      time.Time  `json:"updateTime"`
+}
+
+type IqiyiDanmaku struct {
+	ID              int64       `json:"id"`
+	PoolID          int         `json:"poolId"`
+	Data            DanmakuData `json:"data"`
+	IsBlocked       bool        `json:"isBlocked"`
+	ManuallyBlocked bool        `json:"manuallyBlocked"`
+	CreateTime      time.Time   `json:"createTime"`
+	UpdateTime      time.Time   `json:"updateTime"`
+}
+
+type IqiyiKeyword struct {
+	ID         int       `json:"id"`
+	PoolID     *int      `json:"poolId"`
+	PoolVID    string    `json:"poolVid"`
+	Keyword    string    `json:"keyword"`
+	CreateTime time.Time `json:"createTime"`
+}
+
+type IqiyiBinding struct {
+	ID         int       `json:"id"`
+	Vid        string    `json:"vid"`
+	PoolID     int       `json:"poolId"`
+	PoolVID    string    `json:"poolVid"`
 	Offset     float64   `json:"offset"`
 	CreateTime time.Time `json:"createTime"`
 	UpdateTime time.Time `json:"updateTime"`

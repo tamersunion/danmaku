@@ -21,6 +21,7 @@ type Config struct {
 	DanmakuSQL       DatabaseSettings `json:"danmaku_sql"`
 	Admin            AdminSettings    `json:"admin"`
 	Bilibili         BilibiliSettings `json:"bilibili_setting"`
+	Iqiyi            IqiyiSettings    `json:"iqiyi_setting"`
 	CAS              CASSettings      `json:"cas"`
 }
 
@@ -52,10 +53,21 @@ type BilibiliSettings struct {
 	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
 }
 
+type IqiyiSettings struct {
+	DecodeAPIBase       string `json:"decode_api_base"`
+	VideoInfoAPIBase    string `json:"video_info_api_base"`
+	DanmakuAPIBase      string `json:"danmaku_api_base"`
+	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
+}
+
 const (
 	DefaultBilibiliAPIBase             = "https://api.bilibili.com"
 	DefaultBilibiliCIDCacheSeconds     = 72 * 60
 	DefaultBilibiliSyncIntervalSeconds = 10 * 60
+	DefaultIqiyiDecodeAPIBase          = "https://pcw-api.iq.com/api/decode"
+	DefaultIqiyiVideoInfoAPIBase       = "https://pcw-api.iqiyi.com/video/video/baseinfo"
+	DefaultIqiyiDanmakuAPIBase         = "https://cmts.iqiyi.com/bullet"
+	DefaultIqiyiSyncIntervalSeconds    = 10 * 60
 	DefaultCASSessionMaxAgeSeconds     = 7 * 24 * 60 * 60
 	DefaultCASRequestTimeoutSeconds    = 10
 	DefaultAdminSessionMaxAgeSeconds   = 60
@@ -83,6 +95,10 @@ func defaults() Config {
 		Bilibili: BilibiliSettings{
 			APIBase: DefaultBilibiliAPIBase, CIDCacheSeconds: DefaultBilibiliCIDCacheSeconds,
 			SyncIntervalSeconds: DefaultBilibiliSyncIntervalSeconds,
+		},
+		Iqiyi: IqiyiSettings{
+			DecodeAPIBase: DefaultIqiyiDecodeAPIBase, VideoInfoAPIBase: DefaultIqiyiVideoInfoAPIBase,
+			DanmakuAPIBase: DefaultIqiyiDanmakuAPIBase, SyncIntervalSeconds: DefaultIqiyiSyncIntervalSeconds,
 		},
 		CAS: CASSettings{
 			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 3,
@@ -138,6 +154,30 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Bilibili.SyncIntervalSeconds <= 0 {
 		return Config{}, errors.New("bilibili_setting.sync_interval_seconds must be greater than zero")
+	}
+	cfg.Iqiyi.DecodeAPIBase = strings.TrimRight(strings.TrimSpace(cfg.Iqiyi.DecodeAPIBase), "/")
+	cfg.Iqiyi.VideoInfoAPIBase = strings.TrimRight(strings.TrimSpace(cfg.Iqiyi.VideoInfoAPIBase), "/")
+	cfg.Iqiyi.DanmakuAPIBase = strings.TrimRight(strings.TrimSpace(cfg.Iqiyi.DanmakuAPIBase), "/")
+	if cfg.Iqiyi.DecodeAPIBase == "" {
+		cfg.Iqiyi.DecodeAPIBase = DefaultIqiyiDecodeAPIBase
+	}
+	if cfg.Iqiyi.VideoInfoAPIBase == "" {
+		cfg.Iqiyi.VideoInfoAPIBase = DefaultIqiyiVideoInfoAPIBase
+	}
+	if cfg.Iqiyi.DanmakuAPIBase == "" {
+		cfg.Iqiyi.DanmakuAPIBase = DefaultIqiyiDanmakuAPIBase
+	}
+	for name, value := range map[string]string{
+		"iqiyi_setting.decode_api_base":     cfg.Iqiyi.DecodeAPIBase,
+		"iqiyi_setting.video_info_api_base": cfg.Iqiyi.VideoInfoAPIBase,
+		"iqiyi_setting.danmaku_api_base":    cfg.Iqiyi.DanmakuAPIBase,
+	} {
+		if err := validateAbsoluteURL(value, name); err != nil {
+			return Config{}, err
+		}
+	}
+	if cfg.Iqiyi.SyncIntervalSeconds <= 0 {
+		return Config{}, errors.New("iqiyi_setting.sync_interval_seconds must be greater than zero")
 	}
 	if cfg.CAS.SessionMaxAgeSeconds <= 0 {
 		cfg.CAS.SessionMaxAgeSeconds = DefaultCASSessionMaxAgeSeconds

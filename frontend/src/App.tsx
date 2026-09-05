@@ -26,6 +26,11 @@ const BilibiliPage = lazy(() =>
     default: module.BilibiliPage,
   })),
 );
+const IqiyiPage = lazy(() =>
+  import("@/pages/iqiyi-page").then((module) => ({
+    default: module.IqiyiPage,
+  })),
+);
 const VideosPage = lazy(() =>
   import("@/pages/videos-page").then((module) => ({
     default: module.VideosPage,
@@ -99,6 +104,7 @@ export default function App() {
                       <Route path="videos" element={<VideosPage />} />
                       <Route path="danmaku" element={<DanmakuPage />} />
                       <Route path="bilibili" element={<BilibiliPage />} />
+                      <Route path="iqiyi" element={<IqiyiPage />} />
                     </Route>
                     <Route element={<UserManagerRoute />}>
                       <Route path="users" element={<UsersPage />} />

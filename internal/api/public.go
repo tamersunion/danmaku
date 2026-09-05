@@ -22,7 +22,7 @@ func (s *Server) serveDPlayer(w http.ResponseWriter, r *http.Request, path strin
 			http.NotFound(w, r)
 			return
 		}
-		data, err := s.iqiyi.Data(r.Context(), vid)
+		data, err := s.iqiyi.DataWithOffset(r.Context(), vid, queryFloat(foldQuery(r, "offset"), 0))
 		if err != nil {
 			s.writeError(w, err)
 			return
@@ -232,7 +232,11 @@ func (s *Server) queryDanmakuByVID(r *http.Request, vid string) ([]domain.Danmak
 	if err != nil {
 		return nil, err
 	}
-	return offsetDanmaku(append(local, linked...), 0), nil
+	iqiyiLinked, err := s.iqiyi.BoundData(r.Context(), vid)
+	if err != nil {
+		return nil, err
+	}
+	return offsetDanmaku(append(append(local, linked...), iqiyiLinked...), 0), nil
 }
 
 func requestIP(r *http.Request, fallback net.IP) net.IP {

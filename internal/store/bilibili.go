@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,8 +158,15 @@ func (p *Postgres) BilibiliPools(ctx context.Context, filter BilibiliPoolFilter)
 	where := ""
 	args := []any{}
 	if strings.TrimSpace(filter.Query) != "" {
-		args = append(args, strings.TrimSpace(filter.Query))
+		query := strings.TrimSpace(filter.Query)
+		args = append(args, query)
 		where = ` WHERE p."BVID" ILIKE '%' || $1 || '%' OR p."CID"::text=$1`
+		if aid, err := strconv.ParseInt(query, 10, 64); err == nil {
+			if bvid, ok := domain.AIDToBVID(aid); ok {
+				args = append(args, bvid)
+				where += ` OR p."BVID"=$2`
+			}
+		}
 	}
 	var total int
 	if err := p.pool.QueryRow(ctx, `SELECT COUNT(*) FROM "BilibiliDanmakuPool" p`+where, args...).Scan(&total); err != nil {
@@ -183,6 +191,7 @@ func (p *Postgres) BilibiliPools(ctx context.Context, filter BilibiliPoolFilter)
 		if err := rows.Scan(&item.ID, &item.BVID, &item.Page, &item.CID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BlockedCount, &item.BindingCount); err != nil {
 			return domain.Page[domain.BilibiliPool]{}, err
 		}
+		item.AID, _ = domain.BVIDToAID(item.BVID)
 		list = append(list, item)
 	}
 	return domain.Page[domain.BilibiliPool]{Total: total, List: list}, rows.Err()
@@ -246,6 +255,7 @@ func (p *Postgres) BilibiliKeywords(ctx context.Context) ([]domain.BilibiliKeywo
 		if err := rows.Scan(&item.ID, &item.PoolID, &item.PoolBVID, &item.PoolPage, &item.PoolCID, &item.Keyword, &item.CreateTime); err != nil {
 			return nil, err
 		}
+		item.PoolAID, _ = domain.BVIDToAID(item.PoolBVID)
 		result = append(result, item)
 	}
 	return result, rows.Err()
@@ -280,6 +290,7 @@ func (p *Postgres) CreateBilibiliKeyword(ctx context.Context, poolID *int, keywo
 			return nil, err
 		}
 		item.PoolBVID, item.PoolPage, item.PoolCID = pool.BVID, pool.Page, pool.CID
+		item.PoolAID = pool.AID
 	}
 	return &item, nil
 }
@@ -338,12 +349,14 @@ const bilibiliBindingSelect = `SELECT b."Id",b."Vid",b."PoolId",COALESCE(p."BVID
 func scanBilibiliPool(row pgx.Row) (*domain.BilibiliPool, error) {
 	var item domain.BilibiliPool
 	err := row.Scan(&item.ID, &item.BVID, &item.Page, &item.CID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime)
+	item.AID, _ = domain.BVIDToAID(item.BVID)
 	return &item, err
 }
 
 func scanBilibiliBinding(row pgx.Row) (*domain.BilibiliBinding, error) {
 	var item domain.BilibiliBinding
 	err := row.Scan(&item.ID, &item.Vid, &item.PoolID, &item.BVID, &item.Page, &item.CID, &item.Offset, &item.CreateTime, &item.UpdateTime)
+	item.AID, _ = domain.BVIDToAID(item.BVID)
 	return &item, err
 }
 

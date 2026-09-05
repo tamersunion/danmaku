@@ -45,6 +45,11 @@ func (s *Server) serveVideoAdmin(w http.ResponseWriter, r *http.Request, path st
 	case len(parts) == 3 && parts[1] == "bilibili-bindings" && r.Method == http.MethodDelete:
 		bindingID, _ := strconv.Atoi(parts[2])
 		s.deleteVideoBilibiliBinding(w, r, videoID, bindingID)
+	case len(parts) == 2 && parts[1] == "iqiyi-bindings" && r.Method == http.MethodPost:
+		s.upsertVideoIqiyiBinding(w, r, videoID)
+	case len(parts) == 3 && parts[1] == "iqiyi-bindings" && r.Method == http.MethodDelete:
+		bindingID, _ := strconv.Atoi(parts[2])
+		s.deleteVideoIqiyiBinding(w, r, videoID, bindingID)
 	default:
 		http.NotFound(w, r)
 	}
@@ -200,6 +205,51 @@ func (s *Server) deleteVideoBilibiliBinding(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	ok, err := s.repository.DeleteVideoBilibiliBinding(r.Context(), videoID, bindingID)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	if !ok {
+		s.writeVideoAdminFailure(w, "弹幕池关联不存在")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, success(nil))
+}
+
+func (s *Server) upsertVideoIqiyiBinding(w http.ResponseWriter, r *http.Request, videoID int) {
+	var request struct {
+		PoolID int     `json:"poolId"`
+		Offset float64 `json:"offset"`
+	}
+	if !s.decodeJSON(w, r, &request) {
+		return
+	}
+	if request.PoolID < 1 || math.IsNaN(request.Offset) || math.IsInf(request.Offset, 0) || math.Abs(request.Offset) > math.MaxFloat32 {
+		s.writeVideoAdminFailure(w, "请输入有效的弹幕池和偏移量")
+		return
+	}
+	data, err := s.repository.UpsertVideoIqiyiBinding(r.Context(), videoID, request.PoolID, request.Offset)
+	if errors.Is(err, store.ErrVideoDeleted) {
+		s.writeVideoAdminFailure(w, "已删除的视频不能修改弹幕池关联")
+		return
+	}
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	if data == nil {
+		s.writeVideoAdminFailure(w, "视频不存在")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, success(data))
+}
+
+func (s *Server) deleteVideoIqiyiBinding(w http.ResponseWriter, r *http.Request, videoID, bindingID int) {
+	if bindingID < 1 {
+		s.writeVideoAdminFailure(w, "弹幕池关联 ID 无效")
+		return
+	}
+	ok, err := s.repository.DeleteVideoIqiyiBinding(r.Context(), videoID, bindingID)
 	if err != nil {
 		s.writeError(w, err)
 		return

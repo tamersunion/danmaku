@@ -34,7 +34,7 @@ type Bilibili struct {
 
 type bilibiliQuery struct {
 	CID    int64
-	AID    int
+	AID    int64
 	BVID   string
 	Page   int
 	Dates  []string
@@ -64,7 +64,7 @@ type bilibiliDimension struct {
 type bilibiliArchiveResponse struct {
 	Code int `json:"code"`
 	Data struct {
-		AID  int    `json:"aid"`
+		AID  int64  `json:"aid"`
 		BVID string `json:"bvid"`
 	} `json:"data"`
 }
@@ -192,35 +192,36 @@ func (b *Bilibili) BoundData(ctx context.Context, vid string) ([]domain.DanmakuD
 	return result, nil
 }
 
-func (b *Bilibili) Archive(ctx context.Context, bvid string, aid int) (bilibiliArchiveResponse, error) {
+func (b *Bilibili) Archive(_ context.Context, bvid string, aid int64) (bilibiliArchiveResponse, error) {
 	if bvid != "" && aid != 0 {
 		var response bilibiliArchiveResponse
 		response.Code, response.Data.AID, response.Data.BVID = 0, aid, bvid
 		return response, nil
 	}
-	query := ""
 	if bvid != "" {
-		query = "bvid=" + url.QueryEscape(bvid)
-	} else {
-		query = "aid=" + strconv.Itoa(aid)
+		converted, ok := domain.BVIDToAID(bvid)
+		if !ok {
+			return bilibiliArchiveResponse{Code: 1}, nil
+		}
+		var response bilibiliArchiveResponse
+		response.Code, response.Data.AID, response.Data.BVID = 0, converted, bvid
+		return response, nil
 	}
-	raw, err := b.fetch(ctx, b.baseURL+"/x/web-interface/archive/stat?"+query, false, time.Duration(b.settings.CIDCacheSeconds)*time.Second)
-	if err != nil {
-		return bilibiliArchiveResponse{}, err
-	}
-	var response bilibiliArchiveResponse
-	if len(raw) == 0 || json.Unmarshal(raw, &response) != nil || response.Code != 0 {
+	converted, ok := domain.AIDToBVID(aid)
+	if !ok {
 		return bilibiliArchiveResponse{Code: 1}, nil
 	}
+	var response bilibiliArchiveResponse
+	response.Code, response.Data.AID, response.Data.BVID = 0, aid, converted
 	return response, nil
 }
 
-func (b *Bilibili) Pages(ctx context.Context, bvid string, aid int) ([]bilibiliPage, error) {
+func (b *Bilibili) Pages(ctx context.Context, bvid string, aid int64) ([]bilibiliPage, error) {
 	query := ""
 	if bvid != "" {
 		query = "bvid=" + url.QueryEscape(bvid)
 	} else {
-		query = "aid=" + strconv.Itoa(aid)
+		query = "aid=" + strconv.FormatInt(aid, 10)
 	}
 	raw, err := b.fetch(ctx, b.baseURL+"/x/player/pagelist?"+query, false, time.Duration(b.settings.CIDCacheSeconds)*time.Second)
 	if err != nil {
@@ -347,7 +348,7 @@ func parseBilibiliXML(raw []byte) ([]domain.DanmakuData, error) {
 
 func bilibiliQueryFromRequest(r *http.Request) bilibiliQuery {
 	return bilibiliQuery{
-		CID: queryInt64(foldQuery(r, "cid")), AID: queryInt(foldQuery(r, "aid"), 0),
+		CID: queryInt64(foldQuery(r, "cid")), AID: queryInt64(foldQuery(r, "aid")),
 		BVID: foldQuery(r, "bvid"), Page: queryInt(foldQuery(r, "p"), 0), Dates: foldQueryValues(r, "date"),
 		Offset: queryFloat(foldQuery(r, "offset"), 0),
 	}
@@ -397,7 +398,7 @@ func offsetDanmaku(data []domain.DanmakuData, offset float64) []domain.DanmakuDa
 
 func (s *Server) queryAID(w http.ResponseWriter, r *http.Request) {
 	bvid := foldQuery(r, "bvid")
-	aid := queryInt(foldQuery(r, "aid"), 0)
+	aid := queryInt64(foldQuery(r, "aid"))
 	archive, err := s.bilibili.Archive(r.Context(), bvid, aid)
 	if err != nil {
 		s.writeError(w, err)

@@ -14,29 +14,31 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"git.hanada.info/tamersunion/danmaku/internal/config"
 	"git.hanada.info/tamersunion/danmaku/internal/domain"
+	"git.hanada.info/tamersunion/danmaku/internal/store"
 	"github.com/andybalholm/brotli"
 )
 
 const (
-	defaultIqiyiDecodeAPIBase    = "https://pcw-api.iq.com/api/decode"
-	defaultIqiyiVideoInfoAPIBase = "https://pcw-api.iqiyi.com/video/video/baseinfo"
-	defaultIqiyiDanmakuAPIBase   = "https://cmts.iqiyi.com/bullet"
-	iqiyiSegmentSeconds          = 60
-	iqiyiSegmentConcurrency      = 8
-	iqiyiUserAgent               = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-	maxIqiyiVideoSeconds         = 24 * 60 * 60
-	maxIqiyiMetadataBytes        = 1 << 20
-	maxIqiyiSegmentBytes         = 8 << 20
-	maxIqiyiPayloadBytes         = 32 << 20
+	iqiyiSegmentSeconds     = 60
+	iqiyiSegmentConcurrency = 8
+	iqiyiUserAgent          = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	maxIqiyiVideoSeconds    = 24 * 60 * 60
+	maxIqiyiMetadataBytes   = 1 << 20
+	maxIqiyiSegmentBytes    = 8 << 20
+	maxIqiyiPayloadBytes    = 32 << 20
 )
 
 type Iqiyi struct {
+	repository       store.Repository
+	settings         config.IqiyiSettings
 	client           *http.Client
 	decodeAPIBase    string
 	videoInfoAPIBase string
@@ -54,16 +56,46 @@ type iqiyiProtoField struct {
 	bytes  []byte
 }
 
-func NewIqiyi() *Iqiyi {
+func NewIqiyi(repository store.Repository, settings config.IqiyiSettings) *Iqiyi {
+	if settings.DecodeAPIBase == "" {
+		settings.DecodeAPIBase = config.DefaultIqiyiDecodeAPIBase
+	}
+	if settings.VideoInfoAPIBase == "" {
+		settings.VideoInfoAPIBase = config.DefaultIqiyiVideoInfoAPIBase
+	}
+	if settings.DanmakuAPIBase == "" {
+		settings.DanmakuAPIBase = config.DefaultIqiyiDanmakuAPIBase
+	}
+	if settings.SyncIntervalSeconds <= 0 {
+		settings.SyncIntervalSeconds = config.DefaultIqiyiSyncIntervalSeconds
+	}
 	return &Iqiyi{
+		repository:       repository,
+		settings:         settings,
 		client:           &http.Client{Timeout: 60 * time.Second},
-		decodeAPIBase:    defaultIqiyiDecodeAPIBase,
-		videoInfoAPIBase: defaultIqiyiVideoInfoAPIBase,
-		danmakuAPIBase:   defaultIqiyiDanmakuAPIBase,
+		decodeAPIBase:    strings.TrimRight(settings.DecodeAPIBase, "/"),
+		videoInfoAPIBase: strings.TrimRight(settings.VideoInfoAPIBase, "/"),
+		danmakuAPIBase:   strings.TrimRight(settings.DanmakuAPIBase, "/"),
 	}
 }
 
 func (i *Iqiyi) Data(ctx context.Context, vid string) ([]domain.DanmakuData, error) {
+	return i.DataWithOffset(ctx, vid, 0)
+}
+
+func (i *Iqiyi) DataWithOffset(ctx context.Context, vid string, offset float64) ([]domain.DanmakuData, error) {
+	pool, _, err := i.ensurePool(ctx, vid, false, true)
+	if err != nil || pool == nil {
+		return []domain.DanmakuData{}, err
+	}
+	data, err := i.repository.IqiyiPoolData(ctx, pool.ID)
+	if err != nil {
+		return nil, err
+	}
+	return offsetDanmaku(data, offset), nil
+}
+
+func (i *Iqiyi) fetchData(ctx context.Context, vid string) ([]domain.DanmakuData, error) {
 	vid = strings.TrimSpace(vid)
 	if vid == "" {
 		return []domain.DanmakuData{}, nil
@@ -99,6 +131,70 @@ func (i *Iqiyi) Data(ctx context.Context, vid string) ([]domain.DanmakuData, err
 
 	segmentCount := int(math.Ceil(info.Duration / iqiyiSegmentSeconds))
 	return i.fetchSegments(ctx, selectedVID, segmentCount)
+}
+
+func (i *Iqiyi) ensurePool(ctx context.Context, vid string, force, staleOnError bool) (*domain.IqiyiPool, int, error) {
+	vid = strings.TrimSpace(vid)
+	if vid == "" {
+		return nil, 0, nil
+	}
+	pool, err := i.repository.EnsureIqiyiPool(ctx, vid)
+	if err != nil {
+		return nil, 0, err
+	}
+	claimed, err := i.repository.ClaimIqiyiPoolSync(ctx, pool.ID, time.Duration(i.settings.SyncIntervalSeconds)*time.Second, force)
+	if err != nil || !claimed {
+		return pool, 0, err
+	}
+	data, err := i.fetchData(ctx, vid)
+	if err != nil {
+		if staleOnError {
+			return pool, 0, nil
+		}
+		return pool, 0, err
+	}
+	inserted, err := i.repository.MergeIqiyiDanmaku(ctx, pool.ID, data)
+	if err != nil {
+		return pool, 0, err
+	}
+	refreshed, err := i.repository.IqiyiPool(ctx, pool.ID)
+	return refreshed, inserted, err
+}
+
+func (i *Iqiyi) PreparePool(ctx context.Context, vid string) (*domain.IqiyiPool, int, error) {
+	return i.ensurePool(ctx, vid, true, false)
+}
+
+func (i *Iqiyi) SyncPool(ctx context.Context, id int) (*domain.IqiyiPool, int, error) {
+	pool, err := i.repository.IqiyiPool(ctx, id)
+	if err != nil || pool == nil {
+		return pool, 0, err
+	}
+	return i.ensurePool(ctx, pool.VID, true, false)
+}
+
+func (i *Iqiyi) BoundData(ctx context.Context, vid string) ([]domain.DanmakuData, error) {
+	bindings, err := i.repository.IqiyiBindingsByVID(ctx, vid)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.DanmakuData, 0)
+	for _, binding := range bindings {
+		pool, _, err := i.ensurePool(ctx, binding.PoolVID, false, true)
+		if err != nil {
+			return nil, err
+		}
+		if pool == nil {
+			continue
+		}
+		data, err := i.repository.IqiyiPoolData(ctx, pool.ID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, offsetDanmaku(data, binding.Offset)...)
+	}
+	sort.SliceStable(result, func(left, right int) bool { return result[left].Time < result[right].Time })
+	return result, nil
 }
 
 func (i *Iqiyi) decodeVID(ctx context.Context, vid string) (string, error) {

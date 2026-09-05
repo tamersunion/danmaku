@@ -25,6 +25,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
 import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,14 +51,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -79,14 +72,14 @@ type CreatePoolInput = {
   p: number;
 };
 
-function poolLabel(pool: Pick<BilibiliPool, "bvid" | "cid" | "p">): string {
+function poolLabel(pool: Pick<BilibiliPool, "bvid" | "aid" | "cid" | "p">): string {
   if (!pool.bvid) return `CID ${pool.cid} / P${pool.p}`;
-  return `${pool.bvid} / P${pool.p}`;
+  return `${pool.bvid} / AID ${pool.aid} / P${pool.p}`;
 }
 
 function keywordPoolLabel(keyword: BilibiliKeyword): string {
   if (!keyword.poolBvid) return `CID ${keyword.poolCid} / P${keyword.poolP}`;
-  return `${keyword.poolBvid} / P${keyword.poolP}`;
+  return `${keyword.poolBvid} / AID ${keyword.poolAid} / P${keyword.poolP}`;
 }
 
 export function BilibiliPage() {
@@ -105,7 +98,7 @@ export function BilibiliPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Library"
-        title="bilibili 弹幕库"
+        title="bilibili"
         description="持久化管理 bilibili 弹幕池和过滤规则。"
       />
       <Tabs defaultValue="pools">
@@ -169,9 +162,11 @@ function PoolPanel() {
         label: "弹幕池",
         render: (pool) => (
           <div>
-            <p className="font-medium">{poolLabel(pool)}</p>
+            <p className="font-medium">
+              {pool.bvid || `CID ${pool.cid}`}
+            </p>
             <p className="font-mono text-xs text-muted-foreground">
-              CID {pool.cid}
+              AID {pool.aid || "—"} · CID {pool.cid} · P{pool.p}
             </p>
           </div>
         ),
@@ -279,7 +274,7 @@ function PoolPanel() {
         <CardHeader>
           <CardTitle>弹幕池</CardTitle>
           <CardDescription>
-            上次获取后的 10 分钟内只返回缓存；超过后由下一次请求触发增量更新，也可手动立即更新。
+            配置的同步窗口内只返回缓存；超过后由下一次请求触发增量更新，也可手动立即更新。
           </CardDescription>
           <CardAction>
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -293,9 +288,9 @@ function PoolPanel() {
             <FieldGroup>
               <Field orientation="horizontal">
                 <Input
-                  aria-label="搜索 BVID 或 CID"
+                  aria-label="搜索 BVID、AID 或 CID"
                   value={draftQuery}
-                  placeholder="搜索 BVID 或 CID"
+                  placeholder="搜索 BVID、AID 或 CID"
                   onChange={(event) => setDraftQuery(event.target.value)}
                 />
                 <Button type="submit" variant="outline">
@@ -345,25 +340,19 @@ function PoolPanel() {
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="pool-identifier-type">标识类型</FieldLabel>
-                <Select
+                <SearchableSelect
+                  id="pool-identifier-type"
+                  options={[
+                    { value: "bvid", label: "BVID" },
+                    { value: "aid", label: "AID" },
+                    { value: "cid", label: "CID" },
+                  ]}
                   value={identifierType}
                   onValueChange={(value) =>
-                    setIdentifierType(
-                      (value as PoolIdentifierType | null) ?? "bvid",
-                    )
+                    setIdentifierType(value as PoolIdentifierType)
                   }
-                >
-                  <SelectTrigger id="pool-identifier-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="bvid">BVID</SelectItem>
-                      <SelectItem value="aid">AID</SelectItem>
-                      <SelectItem value="cid">CID</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder="搜索标识类型"
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="pool-identifier">
@@ -495,8 +484,9 @@ function PoolVideoBindingDialog({
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="pool-binding-video">视频</FieldLabel>
-                <Select
-                  items={(videos.data ?? []).map((video) => ({
+                <SearchableSelect
+                  id="pool-binding-video"
+                  options={(videos.data ?? []).map((video) => ({
                     value: String(video.id),
                     label: video.name
                       ? `${video.name} (${video.vid})`
@@ -504,27 +494,10 @@ function PoolVideoBindingDialog({
                   }))}
                   value={videoID}
                   disabled={videos.isPending}
-                  onValueChange={(value) => setVideoID(value ?? "")}
-                >
-                  <SelectTrigger id="pool-binding-video" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        videos.isPending ? "正在加载视频" : "选择视频"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {(videos.data ?? []).map((video) => (
-                        <SelectItem key={video.id} value={String(video.id)}>
-                          {video.name
-                            ? `${video.name} (${video.vid})`
-                            : video.vid}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  placeholder={videos.isPending ? "正在加载视频" : "选择视频"}
+                  searchPlaceholder="搜索视频"
+                  onValueChange={setVideoID}
+                />
                 {!videos.isPending && videos.data?.length === 0 ? (
                   <FieldDescription>
                     暂无可关联的视频，请先在视频管理中添加。
@@ -687,29 +660,20 @@ function PoolDanmakuDialog({
                 placeholder="搜索弹幕内容"
                 onChange={(event) => setDraftQuery(event.target.value)}
               />
-              <Select
-                items={[
+              <SearchableSelect
+                options={[
                   { value: "all", label: "全部状态" },
                   { value: "false", label: "正常" },
                   { value: "true", label: "已屏蔽" },
                 ]}
                 value={blocked}
                 onValueChange={(value) => {
-                  setBlocked(value ?? "all");
+                  setBlocked(value);
                   setPage(1);
                 }}
-              >
-                <SelectTrigger className="w-full sm:w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="false">正常</SelectItem>
-                    <SelectItem value="true">已屏蔽</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                className="sm:w-36"
+                searchPlaceholder="搜索状态"
+              />
               <Button type="submit" variant="outline">
                 <SearchIcon data-icon="inline-start" />
                 查询
@@ -856,8 +820,9 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
           <FieldGroup className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
             <Field>
               <FieldLabel htmlFor="keyword-scope">作用范围</FieldLabel>
-              <Select
-                items={[
+              <SearchableSelect
+                id="keyword-scope"
+                options={[
                   { value: "global", label: "全部弹幕池" },
                   ...pools.map((pool) => ({
                     value: String(pool.id),
@@ -865,22 +830,9 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
                   })),
                 ]}
                 value={scope}
-                onValueChange={(value) => setScope(value ?? "global")}
-              >
-                <SelectTrigger id="keyword-scope" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="global">全部弹幕池</SelectItem>
-                    {pools.map((pool) => (
-                      <SelectItem key={pool.id} value={String(pool.id)}>
-                        {poolLabel(pool)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                onValueChange={setScope}
+                searchPlaceholder="搜索弹幕池"
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="keyword-value">关键词</FieldLabel>

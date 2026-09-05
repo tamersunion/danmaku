@@ -70,6 +70,9 @@ type BilibiliDanmakuFilter struct {
 	Blocked *bool
 }
 
+type IqiyiPoolFilter = BilibiliPoolFilter
+type IqiyiDanmakuFilter = BilibiliDanmakuFilter
+
 type VideoFilter struct {
 	Page      int
 	Size      int
@@ -120,5 +123,20 @@ type Repository interface {
 	VideoBilibiliBindings(context.Context, int) ([]domain.BilibiliBinding, error)
 	UpsertVideoBilibiliBinding(context.Context, int, int, float64) (*domain.BilibiliBinding, error)
 	DeleteVideoBilibiliBinding(context.Context, int, int) (bool, error)
+	IqiyiPool(context.Context, int) (*domain.IqiyiPool, error)
+	EnsureIqiyiPool(context.Context, string) (*domain.IqiyiPool, error)
+	ClaimIqiyiPoolSync(context.Context, int, time.Duration, bool) (bool, error)
+	MergeIqiyiDanmaku(context.Context, int, []domain.DanmakuData) (int, error)
+	IqiyiPoolData(context.Context, int) ([]domain.DanmakuData, error)
+	IqiyiPools(context.Context, IqiyiPoolFilter) (domain.Page[domain.IqiyiPool], error)
+	IqiyiDanmaku(context.Context, IqiyiDanmakuFilter) (domain.Page[domain.IqiyiDanmaku], error)
+	SetIqiyiDanmakuBlocked(context.Context, int64, bool) (bool, error)
+	IqiyiKeywords(context.Context) ([]domain.IqiyiKeyword, error)
+	CreateIqiyiKeyword(context.Context, *int, string) (*domain.IqiyiKeyword, error)
+	DeleteIqiyiKeyword(context.Context, int) (bool, error)
+	IqiyiBindingsByVID(context.Context, string) ([]domain.IqiyiBinding, error)
+	VideoIqiyiBindings(context.Context, int) ([]domain.IqiyiBinding, error)
+	UpsertVideoIqiyiBinding(context.Context, int, int, float64) (*domain.IqiyiBinding, error)
+	DeleteVideoIqiyiBinding(context.Context, int, int) (bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
 }

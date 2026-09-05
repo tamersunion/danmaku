@@ -51,6 +51,7 @@ export type Danmaku = {
 export type BilibiliPool = {
   id: number;
   bvid: string;
+  aid: number;
   p: number;
   cid: number;
   danmakuCount: number;
@@ -76,6 +77,7 @@ export type BilibiliKeyword = {
   id: number;
   poolId?: number | null;
   poolBvid: string;
+  poolAid: number;
   poolP: number;
   poolCid: number;
   keyword: string;
@@ -87,8 +89,49 @@ export type BilibiliBinding = {
   vid: string;
   poolId: number;
   bvid: string;
+  aid: number;
   p: number;
   cid: number;
+  offset: number;
+  createTime: string;
+  updateTime: string;
+};
+
+export type IqiyiPool = {
+  id: number;
+  vid: string;
+  danmakuCount: number;
+  blockedCount: number;
+  bindingCount: number;
+  lastAttemptTime?: string | null;
+  lastSyncTime?: string | null;
+  createTime: string;
+  updateTime: string;
+};
+
+export type IqiyiPoolDanmaku = {
+  id: number;
+  poolId: number;
+  data: DanmakuData;
+  isBlocked: boolean;
+  manuallyBlocked: boolean;
+  createTime: string;
+  updateTime: string;
+};
+
+export type IqiyiKeyword = {
+  id: number;
+  poolId?: number | null;
+  poolVid: string;
+  keyword: string;
+  createTime: string;
+};
+
+export type IqiyiBinding = {
+  id: number;
+  vid: string;
+  poolId: number;
+  poolVid: string;
   offset: number;
   createTime: string;
   updateTime: string;
@@ -103,6 +146,8 @@ export type ManagedVideo = {
   danmakuCount: number;
   bilibiliPoolCount: number;
   bilibiliBindings?: BilibiliBinding[];
+  iqiyiPoolCount: number;
+  iqiyiBindings?: IqiyiBinding[];
   createTime: string;
   updateTime: string;
 };

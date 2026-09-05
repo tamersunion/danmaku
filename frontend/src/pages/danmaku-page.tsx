@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   EraserIcon,
   PencilIcon,
@@ -16,6 +17,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
 import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,14 +37,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,8 +85,10 @@ function modeLabel(mode: number): string {
 }
 
 export function DanmakuPage() {
-  const [draft, setDraft] = useState<Filters>(emptyFilters);
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialFilters = { ...emptyFilters, vid: searchParams.get("vid") ?? "" };
+  const [draft, setDraft] = useState<Filters>(initialFilters);
+  const [filters, setFilters] = useState<Filters>(initialFilters);
   const [page, setPage] = useState(1);
   const [editingID, setEditingID] = useState<string | null>(null);
   const vids = useQuery({
@@ -224,11 +220,22 @@ export function DanmakuPage() {
     event.preventDefault();
     setPage(1);
     setFilters({ ...draft });
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (draft.vid) next.set("vid", draft.vid);
+      else next.delete("vid");
+      return next;
+    });
   }
   function reset() {
     setDraft(emptyFilters);
     setFilters(emptyFilters);
     setPage(1);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("vid");
+      return next;
+    });
   }
 
   const data = danmaku.data;
@@ -248,20 +255,22 @@ export function DanmakuPage() {
             <FieldGroup className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field>
                 <FieldLabel htmlFor="filter-vid">视频 ID</FieldLabel>
-                <Input
+                <SearchableSelect
                   id="filter-vid"
-                  list="danmaku-vids"
+                  options={[
+                    { value: "", label: "全部视频" },
+                    ...(vids.data ?? []).map((vid) => ({
+                      value: vid,
+                      label: vid,
+                    })),
+                  ]}
                   value={draft.vid}
                   placeholder="全部视频"
-                  onChange={(event) =>
-                    setDraft({ ...draft, vid: event.target.value })
+                  searchPlaceholder="搜索视频 ID"
+                  onValueChange={(value) =>
+                    setDraft({ ...draft, vid: value })
                   }
                 />
-                <datalist id="danmaku-vids">
-                  {vids.data?.map((vid) => (
-                    <option key={vid} value={vid} />
-                  ))}
-                </datalist>
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-key">内容关键词</FieldLabel>
@@ -287,26 +296,15 @@ export function DanmakuPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-mode">弹幕类型</FieldLabel>
-                <Select
-                  items={modes}
+                <SearchableSelect
+                  id="filter-mode"
+                  options={modes}
                   value={draft.mode}
+                  searchPlaceholder="搜索弹幕类型"
                   onValueChange={(value) =>
-                    setDraft({ ...draft, mode: value ?? "all" })
+                    setDraft({ ...draft, mode: value })
                   }
-                >
-                  <SelectTrigger id="filter-mode" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {modes.map((mode) => (
-                        <SelectItem key={mode.value} value={mode.value}>
-                          {mode.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-start">开始时间</FieldLabel>
@@ -332,26 +330,18 @@ export function DanmakuPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-order">排序</FieldLabel>
-                <Select
-                  items={[
+                <SearchableSelect
+                  id="filter-order"
+                  options={[
                     { value: "true", label: "最新在前" },
                     { value: "false", label: "最早在前" },
                   ]}
                   value={draft.descending}
+                  searchPlaceholder="搜索排序方式"
                   onValueChange={(value) =>
-                    setDraft({ ...draft, descending: value ?? "true" })
+                    setDraft({ ...draft, descending: value })
                   }
-                >
-                  <SelectTrigger id="filter-order" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="true">最新在前</SelectItem>
-                      <SelectItem value="false">最早在前</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                />
               </Field>
             </FieldGroup>
             <div className="flex flex-wrap gap-2">
@@ -521,24 +511,13 @@ function DanmakuEditor({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="danmaku-mode">类型</FieldLabel>
-                  <Select
-                    items={editableModes}
+                  <SearchableSelect
+                    id="danmaku-mode"
+                    options={editableModes}
                     value={mode}
-                    onValueChange={(value) => setMode(value ?? "1")}
-                  >
-                    <SelectTrigger id="danmaku-mode" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {editableModes.map((entry) => (
-                          <SelectItem key={entry.value} value={entry.value}>
-                            {entry.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder="搜索弹幕类型"
+                    onValueChange={setMode}
+                  />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="danmaku-size">字号</FieldLabel>

@@ -1,7 +1,7 @@
 {
   "name": "danmaku-frontend",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Modern shadcn/ui console for Danmaku Server",
   "type": "module",
   "scripts": {

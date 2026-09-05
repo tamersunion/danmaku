@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"git.hanada.info/tamersunion/danmaku/internal/config"
+	"git.hanada.info/tamersunion/danmaku/internal/domain"
 	"github.com/andybalholm/brotli"
 )
 
@@ -60,6 +62,96 @@ func TestIqiyiDataFetchesSignedBrotliSegments(t *testing.T) {
 		if requested[endpoint] != 1 {
 			t.Fatalf("request count for %s = %d", endpoint, requested[endpoint])
 		}
+	}
+}
+
+func TestIqiyiPoolKeepsCachedDanmakuWhenLaterSyncIsEmpty(t *testing.T) {
+	payload := brotliPayload(t, `<danmu><data><entry><list><bulletInfo><content>cached</content><showTime>1.25</showTime></bulletInfo></list></entry></data></danmu>`)
+	empty := false
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/decode/"):
+			_, _ = io.WriteString(w, `{"code":"0","data":"1078946400"}`)
+		case strings.HasPrefix(r.URL.Path, "/video/"):
+			_, _ = io.WriteString(w, `{"code":"A00000","data":{"durationSec":60,"displayBarrage":true}}`)
+		case strings.HasPrefix(r.URL.Path, "/bullet/"):
+			if empty {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write(payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{}
+	client := NewIqiyi(repository, config.IqiyiSettings{SyncIntervalSeconds: 600})
+	client.decodeAPIBase = upstream.URL + "/decode"
+	client.videoInfoAPIBase = upstream.URL + "/video"
+	client.danmakuAPIBase = upstream.URL + "/bullet"
+	pool, inserted, err := client.PreparePool(context.Background(), "source-vid")
+	if err != nil || pool == nil || inserted != 1 {
+		t.Fatalf("initial sync pool=%#v inserted=%d err=%v", pool, inserted, err)
+	}
+	empty = true
+	pool, inserted, err = client.SyncPool(context.Background(), pool.ID)
+	if err != nil || pool == nil || inserted != 0 {
+		t.Fatalf("empty sync pool=%#v inserted=%d err=%v", pool, inserted, err)
+	}
+	data, err := client.Data(context.Background(), "source-vid")
+	if err != nil || len(data) != 1 || data[0].Text == nil || *data[0].Text != "cached" {
+		t.Fatalf("cached data=%#v err=%v", data, err)
+	}
+}
+
+func TestIqiyiAdminPoolCanBindAndMergeIntoVideo(t *testing.T) {
+	payload := brotliPayload(t, `<danmu><data><entry><list><bulletInfo><content>linked</content><showTime>1.25</showTime></bulletInfo></list></entry></data></danmu>`)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/decode/"):
+			_, _ = io.WriteString(w, `{"code":"0","data":"1078946400"}`)
+		case strings.HasPrefix(r.URL.Path, "/video/"):
+			_, _ = io.WriteString(w, `{"code":"A00000","data":{"durationSec":60,"displayBarrage":true}}`)
+		case strings.HasPrefix(r.URL.Path, "/bullet/"):
+			_, _ = w.Write(payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{videos: []domain.Video{{ID: 1, Vid: "local-video", DefaultPool: true}}}
+	server := testServer(t, repository)
+	server.iqiyi.decodeAPIBase = upstream.URL + "/decode"
+	server.iqiyi.videoInfoAPIBase = upstream.URL + "/video"
+	server.iqiyi.danmakuAPIBase = upstream.URL + "/bullet"
+
+	create := httptest.NewRecorder()
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/iqiyi/pools", strings.NewReader(`{"vid":"source-vid"}`))
+	server.serveIqiyiAdmin(create, createRequest, "/api/admin/iqiyi/pools")
+	if create.Code != http.StatusOK || len(repository.iqiyiPools) != 1 || len(repository.iqiyiData[1]) != 1 {
+		t.Fatalf("create pool = %d %s pools=%#v data=%#v", create.Code, create.Body.String(), repository.iqiyiPools, repository.iqiyiData)
+	}
+
+	bind := httptest.NewRecorder()
+	bindRequest := httptest.NewRequest(http.MethodPost, "/api/admin/videos/1/iqiyi-bindings", strings.NewReader(`{"poolId":1,"offset":2.5}`))
+	server.serveVideoAdmin(bind, bindRequest, "/api/admin/videos/1/iqiyi-bindings")
+	if bind.Code != http.StatusOK || len(repository.iqiyiBindings) != 1 {
+		t.Fatalf("bind pool = %d %s bindings=%#v", bind.Code, bind.Body.String(), repository.iqiyiBindings)
+	}
+
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/dplayer/v3?id=local-video", nil))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `3.75`) || !strings.Contains(response.Body.String(), `linked`) {
+		t.Fatalf("merged response = %d %s", response.Code, response.Body.String())
+	}
+
+	detail := httptest.NewRecorder()
+	server.serveVideoAdmin(detail, httptest.NewRequest(http.MethodGet, "/api/admin/videos/1", nil), "/api/admin/videos/1")
+	if !strings.Contains(detail.Body.String(), `"iqiyiPoolCount":1`) || !strings.Contains(detail.Body.String(), `"iqiyiBindings":[`) {
+		t.Fatalf("video detail = %s", detail.Body.String())
 	}
 }
 
@@ -151,7 +243,7 @@ func TestParseIqiyiProtoDanmaku(t *testing.T) {
 }
 
 func TestIqiyiSegmentURL(t *testing.T) {
-	client := NewIqiyi()
+	client := NewIqiyi(&fakeRepository{}, config.IqiyiSettings{})
 	got := client.segmentURL("1078946400", 1)
 	want := "https://cmts.iqiyi.com/bullet/64/00/1078946400_60_1_fc5e9d5c.br"
 	if got != want {
@@ -166,7 +258,7 @@ func TestIqiyiLive(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	client := NewIqiyi()
+	client := NewIqiyi(&fakeRepository{}, config.IqiyiSettings{})
 	data, err := client.Data(ctx, vid)
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +270,7 @@ func TestIqiyiLive(t *testing.T) {
 }
 
 func testIqiyiClient(baseURL string) *Iqiyi {
-	client := NewIqiyi()
+	client := NewIqiyi(&fakeRepository{}, config.IqiyiSettings{})
 	client.decodeAPIBase = baseURL + "/decode"
 	client.videoInfoAPIBase = baseURL + "/video"
 	client.danmakuAPIBase = baseURL + "/bullet"

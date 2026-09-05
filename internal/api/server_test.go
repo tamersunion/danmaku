@@ -43,6 +43,11 @@ type fakeRepository struct {
 	bilibiliInterval time.Duration
 	bilibiliKeywords []domain.BilibiliKeyword
 	bilibiliBindings []domain.BilibiliBinding
+	iqiyiPools       []domain.IqiyiPool
+	iqiyiData        map[int][]domain.DanmakuData
+	iqiyiClaims      map[int]time.Time
+	iqiyiKeywords    []domain.IqiyiKeyword
+	iqiyiBindings    []domain.IqiyiBinding
 }
 
 func (f *fakeRepository) Initialize(context.Context) error { return nil }
@@ -89,6 +94,8 @@ func (f *fakeRepository) Video(_ context.Context, id int) (*domain.Video, error)
 			value := f.videos[index]
 			value.BilibiliBindings, _ = f.VideoBilibiliBindings(context.Background(), id)
 			value.BilibiliPoolCount = len(value.BilibiliBindings)
+			value.IqiyiBindings, _ = f.VideoIqiyiBindings(context.Background(), id)
+			value.IqiyiPoolCount = len(value.IqiyiBindings)
 			return &value, nil
 		}
 	}
@@ -201,6 +208,7 @@ func (f *fakeRepository) EnsureBilibiliPool(_ context.Context, bvid string, page
 		}
 	}
 	value := domain.BilibiliPool{ID: len(f.bilibiliPools) + 1, BVID: bvid, Page: page, CID: cid}
+	value.AID, _ = domain.BVIDToAID(bvid)
 	f.bilibiliPools = append(f.bilibiliPools, value)
 	return &value, nil
 }
@@ -330,6 +338,145 @@ func (f *fakeRepository) DeleteVideoBilibiliBinding(_ context.Context, videoID, 
 	}
 	return false, nil
 }
+func (f *fakeRepository) IqiyiPool(_ context.Context, id int) (*domain.IqiyiPool, error) {
+	for index := range f.iqiyiPools {
+		if f.iqiyiPools[index].ID == id {
+			value := f.iqiyiPools[index]
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) EnsureIqiyiPool(_ context.Context, vid string) (*domain.IqiyiPool, error) {
+	for index := range f.iqiyiPools {
+		if f.iqiyiPools[index].VID == vid {
+			value := f.iqiyiPools[index]
+			return &value, nil
+		}
+	}
+	value := domain.IqiyiPool{ID: len(f.iqiyiPools) + 1, VID: vid}
+	f.iqiyiPools = append(f.iqiyiPools, value)
+	return &value, nil
+}
+func (f *fakeRepository) ClaimIqiyiPoolSync(_ context.Context, id int, interval time.Duration, force bool) (bool, error) {
+	if f.iqiyiClaims == nil {
+		f.iqiyiClaims = map[int]time.Time{}
+	}
+	last, exists := f.iqiyiClaims[id]
+	if !force && exists && time.Since(last) <= interval {
+		return false, nil
+	}
+	f.iqiyiClaims[id] = time.Now()
+	return true, nil
+}
+func (f *fakeRepository) MergeIqiyiDanmaku(_ context.Context, poolID int, data []domain.DanmakuData) (int, error) {
+	if f.iqiyiData == nil {
+		f.iqiyiData = map[int][]domain.DanmakuData{}
+	}
+	inserted := 0
+	for _, candidate := range data {
+		duplicate := false
+		for _, existing := range f.iqiyiData[poolID] {
+			candidateText, existingText := "", ""
+			if candidate.Text != nil {
+				candidateText = *candidate.Text
+			}
+			if existing.Text != nil {
+				existingText = *existing.Text
+			}
+			if candidate.Time == existing.Time && candidateText == existingText {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			f.iqiyiData[poolID] = append(f.iqiyiData[poolID], candidate)
+			inserted++
+		}
+	}
+	return inserted, nil
+}
+func (f *fakeRepository) IqiyiPoolData(_ context.Context, poolID int) ([]domain.DanmakuData, error) {
+	return append([]domain.DanmakuData(nil), f.iqiyiData[poolID]...), nil
+}
+func (f *fakeRepository) IqiyiPools(context.Context, store.IqiyiPoolFilter) (domain.Page[domain.IqiyiPool], error) {
+	return domain.Page[domain.IqiyiPool]{Total: len(f.iqiyiPools), List: append([]domain.IqiyiPool{}, f.iqiyiPools...)}, nil
+}
+func (f *fakeRepository) IqiyiDanmaku(context.Context, store.IqiyiDanmakuFilter) (domain.Page[domain.IqiyiDanmaku], error) {
+	return domain.Page[domain.IqiyiDanmaku]{List: []domain.IqiyiDanmaku{}}, nil
+}
+func (f *fakeRepository) SetIqiyiDanmakuBlocked(context.Context, int64, bool) (bool, error) {
+	return true, nil
+}
+func (f *fakeRepository) IqiyiKeywords(context.Context) ([]domain.IqiyiKeyword, error) {
+	return f.iqiyiKeywords, nil
+}
+func (f *fakeRepository) CreateIqiyiKeyword(_ context.Context, poolID *int, keyword string) (*domain.IqiyiKeyword, error) {
+	value := domain.IqiyiKeyword{ID: len(f.iqiyiKeywords) + 1, PoolID: poolID, Keyword: keyword}
+	f.iqiyiKeywords = append(f.iqiyiKeywords, value)
+	return &value, nil
+}
+func (f *fakeRepository) DeleteIqiyiKeyword(_ context.Context, id int) (bool, error) {
+	for index := range f.iqiyiKeywords {
+		if f.iqiyiKeywords[index].ID == id {
+			f.iqiyiKeywords = append(f.iqiyiKeywords[:index], f.iqiyiKeywords[index+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (f *fakeRepository) IqiyiBindingsByVID(_ context.Context, vid string) ([]domain.IqiyiBinding, error) {
+	result := make([]domain.IqiyiBinding, 0)
+	for _, item := range f.iqiyiBindings {
+		if item.Vid == vid {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+func (f *fakeRepository) VideoIqiyiBindings(_ context.Context, videoID int) ([]domain.IqiyiBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return []domain.IqiyiBinding{}, nil
+	}
+	return f.IqiyiBindingsByVID(context.Background(), video.Vid)
+}
+func (f *fakeRepository) UpsertVideoIqiyiBinding(_ context.Context, videoID, poolID int, offset float64) (*domain.IqiyiBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return nil, nil
+	}
+	if video.IsDeleted {
+		return nil, store.ErrVideoDeleted
+	}
+	pool, _ := f.IqiyiPool(context.Background(), poolID)
+	if pool == nil {
+		return nil, nil
+	}
+	for index := range f.iqiyiBindings {
+		if f.iqiyiBindings[index].Vid == video.Vid && f.iqiyiBindings[index].PoolID == poolID {
+			f.iqiyiBindings[index].Offset = offset
+			f.iqiyiBindings[index].PoolVID = pool.VID
+			return &f.iqiyiBindings[index], nil
+		}
+	}
+	value := domain.IqiyiBinding{ID: len(f.iqiyiBindings) + 1, Vid: video.Vid, PoolID: poolID, PoolVID: pool.VID, Offset: offset}
+	f.iqiyiBindings = append(f.iqiyiBindings, value)
+	return &f.iqiyiBindings[len(f.iqiyiBindings)-1], nil
+}
+func (f *fakeRepository) DeleteVideoIqiyiBinding(_ context.Context, videoID, id int) (bool, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return false, nil
+	}
+	for index := range f.iqiyiBindings {
+		if f.iqiyiBindings[index].ID == id && f.iqiyiBindings[index].Vid == video.Vid {
+			f.iqiyiBindings = append(f.iqiyiBindings[:index], f.iqiyiBindings[index+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
 func (f *fakeRepository) Cache(ctx context.Context, _ string, _ time.Duration, factory func(context.Context) ([]byte, error)) ([]byte, error) {
 	return factory(ctx)
 }
@@ -342,6 +489,7 @@ func testServer(t *testing.T, repository store.Repository) *Server {
 		AdminWithOrigins: []string{"http://localhost:5000"},
 		Admin:            config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
 		Bilibili:         config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
+		Iqiyi:            config.IqiyiSettings{SyncIntervalSeconds: 60},
 	}
 	server, err := New(context.Background(), cfg, repository, nil)
 	if err != nil {
@@ -1006,7 +1154,7 @@ func TestPrepareBilibiliPoolAcceptsBVIDAIDAndCID(t *testing.T) {
 		cid   int64
 	}{
 		{name: "BVID", query: bilibiliQuery{BVID: "BVdirect", Page: 2}, bvid: "BVdirect", page: 2, cid: 222},
-		{name: "AID", query: bilibiliQuery{AID: 42}, bvid: "BVAID", page: 1, cid: 111},
+		{name: "AID", query: bilibiliQuery{AID: 42}, bvid: "BV1xx411c7UL", page: 1, cid: 111},
 		{name: "CID", query: bilibiliQuery{CID: 333}, bvid: "", page: 1, cid: 333},
 	}
 	for _, test := range tests {
@@ -1020,8 +1168,44 @@ func TestPrepareBilibiliPoolAcceptsBVIDAIDAndCID(t *testing.T) {
 			}
 		})
 	}
-	if metadataRequests != 3 || danmakuRequests != 3 {
+	if metadataRequests != 2 || danmakuRequests != 3 {
 		t.Fatalf("metadata requests=%d danmaku requests=%d", metadataRequests, danmakuRequests)
+	}
+}
+
+func TestDPlayerBilibiliAIDUsesLocalConversion(t *testing.T) {
+	requests := make([]string, 0, 2)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.URL.RequestURI())
+		switch r.URL.Path {
+		case "/x/player/pagelist":
+			if got := r.URL.Query().Get("bvid"); got != "BV1EJ411r7kH" {
+				t.Fatalf("converted bvid = %q", got)
+			}
+			_, _ = io.WriteString(w, `{"code":0,"data":[{"cid":136352344,"page":1}]}`)
+		case "/x/v1/dm/list.so":
+			if got := r.URL.Query().Get("oid"); got != "136352344" {
+				t.Fatalf("danmaku cid = %q", got)
+			}
+			_, _ = io.WriteString(w, `<i><d p="1,1,25,16777215,123,0,author,1">cached</d></i>`)
+		default:
+			t.Fatalf("unexpected upstream request: %s", r.URL.RequestURI())
+		}
+	}))
+	defer upstream.Close()
+
+	server := testServer(t, &fakeRepository{})
+	server.bilibili.baseURL = upstream.URL
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/danmaku/dplayer/v3/bilibili/?aid=79671692", nil)
+	server.Handler().ServeHTTP(response, request)
+
+	const want = "{\"code\":0,\"data\":[[1,0,16777215,\"author\",\"cached\"]]}\n"
+	if response.Code != http.StatusOK || response.Body.String() != want {
+		t.Fatalf("response = %d %q, want %d %q", response.Code, response.Body.String(), http.StatusOK, want)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("upstream requests = %#v", requests)
 	}
 }
 

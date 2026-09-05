@@ -8,12 +8,15 @@ import {
   SearchIcon,
   Trash2Icon,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/api/client";
 import type {
   ApiResponse,
   BilibiliBinding,
   BilibiliPool,
+  IqiyiBinding,
+  IqiyiPool,
   ManagedVideo,
 } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
@@ -22,6 +25,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
 import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,24 +51,15 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 import { formatDateTime } from "@/lib/format";
 
 type Paged<T> = { total: number; list: T[] };
 
-function poolLabel(pool: Pick<BilibiliPool, "bvid" | "cid" | "p">): string {
+function poolLabel(pool: Pick<BilibiliPool, "bvid" | "aid" | "cid" | "p">): string {
   return pool.bvid
-    ? `${pool.bvid} / P${pool.p}`
+    ? `${pool.bvid} / AID ${pool.aid} / P${pool.p}`
     : `CID ${pool.cid} / P${pool.p}`;
 }
 
@@ -93,7 +88,7 @@ export function VideosPage() {
         })
       ).data,
   });
-  const pools = useQuery({
+  const bilibiliPools = useQuery({
     queryKey: ["bilibili-pool-options"],
     queryFn: async () =>
       (
@@ -101,6 +96,16 @@ export function VideosPage() {
           "/api/admin/bilibili/pools",
           { page: 1, size: 500 },
         )
+      ).data.list,
+  });
+  const iqiyiPools = useQuery({
+    queryKey: ["iqiyi-pool-options"],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<Paged<IqiyiPool>>>("/api/admin/iqiyi/pools", {
+          page: 1,
+          size: 500,
+        })
       ).data.list,
   });
   const create = useApiMutation<
@@ -152,6 +157,7 @@ export function VideosPage() {
             <Badge variant="outline">
               bilibili {video.bilibiliPoolCount} 个
             </Badge>
+            <Badge variant="outline">爱奇艺 {video.iqiyiPoolCount} 个</Badge>
           </div>
         ),
       },
@@ -275,29 +281,20 @@ export function VideosPage() {
                   placeholder="搜索视频名称或视频 ID"
                   onChange={(event) => setDraftQuery(event.target.value)}
                 />
-                <Select
-                  items={[
+                <SearchableSelect
+                  options={[
                     { value: "all", label: "全部状态" },
                     { value: "false", label: "正常" },
                     { value: "true", label: "已删除" },
                   ]}
                   value={deleted}
                   onValueChange={(value) => {
-                    setDeleted(value ?? "false");
+                    setDeleted(value);
                     setPage(1);
                   }}
-                >
-                  <SelectTrigger className="w-full sm:w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="false">正常</SelectItem>
-                      <SelectItem value="true">已删除</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  className="sm:w-36"
+                  searchPlaceholder="搜索状态"
+                />
                 <Button type="submit" variant="outline">
                   <SearchIcon data-icon="inline-start" />
                   查询
@@ -382,7 +379,8 @@ export function VideosPage() {
       </Dialog>
       <VideoDialog
         video={selected}
-        pools={pools.data ?? []}
+        bilibiliPools={bilibiliPools.data ?? []}
+        iqiyiPools={iqiyiPools.data ?? []}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
@@ -393,14 +391,18 @@ export function VideosPage() {
 
 function VideoDialog({
   video,
-  pools,
+  bilibiliPools,
+  iqiyiPools,
   onOpenChange,
 }: {
   video: ManagedVideo | null;
-  pools: BilibiliPool[];
+  bilibiliPools: BilibiliPool[];
+  iqiyiPools: IqiyiPool[];
   onOpenChange: (open: boolean) => void;
 }) {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [source, setSource] = useState<"bilibili" | "iqiyi">("bilibili");
   const [poolID, setPoolID] = useState("");
   const [offset, setOffset] = useState("0");
   const detail = useQuery({
@@ -422,55 +424,95 @@ function VideoDialog({
     invalidate: [["videos"], ["video"]],
   });
   const bind = useApiMutation<
-    { poolId: number; offset: number },
-    ApiResponse<BilibiliBinding>
+    { source: "bilibili" | "iqiyi"; poolId: number; offset: number },
+    ApiResponse<BilibiliBinding | IqiyiBinding>
   >({
-    mutationFn: (body) =>
-      apiPost(`/api/admin/videos/${video?.id}/bilibili-bindings`, body),
+    mutationFn: ({ source: targetSource, ...body }) =>
+      apiPost(`/api/admin/videos/${video?.id}/${targetSource}-bindings`, body),
     successMessage: "弹幕池关联已保存",
-    invalidate: [["videos"], ["video"], ["bilibili-pools"]],
+    invalidate: [
+      ["videos"],
+      ["video"],
+      ["bilibili-pools"],
+      ["iqiyi-pools"],
+    ],
   });
-  const remove = useApiMutation<number, ApiResponse<null>>({
-    mutationFn: (bindingID) =>
+  const remove = useApiMutation<
+    { source: "bilibili" | "iqiyi"; id: number },
+    ApiResponse<null>
+  >({
+    mutationFn: ({ source: targetSource, id }) =>
       apiDelete(
-        `/api/admin/videos/${video?.id}/bilibili-bindings/${bindingID}`,
+        `/api/admin/videos/${video?.id}/${targetSource}-bindings/${id}`,
       ),
     successMessage: "弹幕池关联已删除",
-    invalidate: [["videos"], ["video"], ["bilibili-pools"]],
+    invalidate: [
+      ["videos"],
+      ["video"],
+      ["bilibili-pools"],
+      ["iqiyi-pools"],
+    ],
   });
-  const bindings = detail.data?.bilibiliBindings ?? [];
-  const columns: DataColumn<BilibiliBinding>[] = [
+  type ThirdPartyBinding =
+    | { source: "bilibili"; binding: BilibiliBinding }
+    | { source: "iqiyi"; binding: IqiyiBinding };
+  const bindings: ThirdPartyBinding[] = [
+    ...(detail.data?.bilibiliBindings ?? []).map((binding) => ({
+      source: "bilibili" as const,
+      binding,
+    })),
+    ...(detail.data?.iqiyiBindings ?? []).map((binding) => ({
+      source: "iqiyi" as const,
+      binding,
+    })),
+  ];
+  const columns: DataColumn<ThirdPartyBinding>[] = [
+    {
+      key: "source",
+      label: "来源",
+      render: (item) => (
+        <Badge variant="outline">
+          {item.source === "bilibili" ? "bilibili" : "爱奇艺"}
+        </Badge>
+      ),
+    },
     {
       key: "pool",
-      label: "bilibili 弹幕池",
-      render: (binding) => (
+      label: "第三方弹幕池",
+      render: (item) => (
         <div>
-          <p className="font-medium">{poolLabel(binding)}</p>
-          <p className="font-mono text-xs text-muted-foreground">
-            CID {binding.cid}
+          <p className="font-medium">
+            {item.source === "bilibili"
+              ? poolLabel(item.binding)
+              : item.binding.poolVid}
           </p>
+          {item.source === "bilibili" ? (
+            <p className="font-mono text-xs text-muted-foreground">
+              CID {item.binding.cid}
+            </p>
+          ) : null}
         </div>
       ),
     },
     {
       key: "offset",
       label: "时间偏移",
-      render: (binding) => (
-        <Badge variant="outline">{offsetLabel(binding.offset)}</Badge>
+      render: (item) => (
+        <Badge variant="outline">{offsetLabel(item.binding.offset)}</Badge>
       ),
     },
     {
       key: "actions",
       label: "操作",
       className: "w-16 text-right",
-      render: (binding) => (
+      render: (item) => (
         <ConfirmAction
           trigger={
             <Button
               type="button"
               size="icon-sm"
               variant="destructive"
-              aria-label="删除 bilibili 弹幕池关联"
+              aria-label={`删除 ${item.source} 弹幕池关联`}
               title="删除关联"
               disabled={detail.data?.isDelete}
             >
@@ -478,10 +520,12 @@ function VideoDialog({
             </Button>
           }
           title="删除这个弹幕池关联？"
-          description="系统自带弹幕池不受影响，只有这个 bilibili 弹幕池会停止合并。"
+          description="删除后，这个第三方弹幕池会停止合并到视频弹幕。"
           destructive
           pending={remove.isPending}
-          onConfirm={() => remove.mutate(binding.id)}
+          onConfirm={() =>
+            remove.mutate({ source: item.source, id: item.binding.id })
+          }
         />
       ),
     },
@@ -495,7 +539,7 @@ function VideoDialog({
   function submitBinding(event: FormEvent) {
     event.preventDefault();
     bind.mutate(
-      { poolId: Number(poolID), offset: Number(offset) },
+      { source, poolId: Number(poolID), offset: Number(offset) },
       {
         onSuccess: () => {
           setPoolID("");
@@ -553,14 +597,21 @@ function VideoDialog({
               <CardHeader>
                 <CardTitle>系统自带弹幕池</CardTitle>
                 <CardDescription>
-                  每个视频固定关联系统自带弹幕池，不能取消。
+                  管理这个视频由系统直接接收的弹幕。
                 </CardDescription>
                 <CardAction>
-                  <Switch
-                    aria-label="系统自带弹幕池固定关联"
-                    checked
-                    disabled
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (!video) return;
+                      onOpenChange(false);
+                      navigate(`/danmaku?vid=${encodeURIComponent(video.vid)}`);
+                    }}
+                  >
+                    <SearchIcon data-icon="inline-start" />
+                    管理弹幕
+                  </Button>
                 </CardAction>
               </CardHeader>
               <CardContent>
@@ -571,43 +622,56 @@ function VideoDialog({
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>bilibili 弹幕池</CardTitle>
+                <CardTitle>第三方弹幕池</CardTitle>
                 <CardDescription>
-                  可关联多个弹幕池，偏移量为正时延后、为负时提前。
+                  可关联 bilibili 或爱奇艺弹幕池；偏移量为正时延后、为负时提前。
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={submitBinding}>
-                  <FieldGroup className="grid gap-4 md:grid-cols-2">
+                  <FieldGroup className="grid gap-4 md:grid-cols-3">
+                    <Field data-disabled={detail.data?.isDelete}>
+                      <FieldLabel htmlFor="video-binding-source">
+                        弹幕来源
+                      </FieldLabel>
+                      <SearchableSelect
+                        id="video-binding-source"
+                        options={[
+                          { value: "bilibili", label: "bilibili" },
+                          { value: "iqiyi", label: "爱奇艺" },
+                        ]}
+                        value={source}
+                        disabled={detail.data?.isDelete}
+                        searchPlaceholder="搜索弹幕来源"
+                        onValueChange={(value) => {
+                          setSource(value as "bilibili" | "iqiyi");
+                          setPoolID("");
+                        }}
+                      />
+                    </Field>
                     <Field data-disabled={detail.data?.isDelete}>
                       <FieldLabel htmlFor="video-binding-pool">
                         弹幕池
                       </FieldLabel>
-                      <Select
-                        items={pools.map((pool) => ({
-                          value: String(pool.id),
-                          label: poolLabel(pool),
-                        }))}
+                      <SearchableSelect
+                        id="video-binding-pool"
+                        options={
+                          source === "bilibili"
+                            ? bilibiliPools.map((pool) => ({
+                                value: String(pool.id),
+                                label: poolLabel(pool),
+                              }))
+                            : iqiyiPools.map((pool) => ({
+                                value: String(pool.id),
+                                label: pool.vid,
+                              }))
+                        }
                         value={poolID}
                         disabled={detail.data?.isDelete}
-                        onValueChange={(value) => setPoolID(value ?? "")}
-                      >
-                        <SelectTrigger
-                          id="video-binding-pool"
-                          className="w-full"
-                        >
-                          <SelectValue placeholder="选择 bilibili 弹幕池" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {pools.map((pool) => (
-                              <SelectItem key={pool.id} value={String(pool.id)}>
-                                {poolLabel(pool)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                        placeholder={`选择${source === "bilibili" ? " bilibili" : "爱奇艺"}弹幕池`}
+                        searchPlaceholder="搜索弹幕池"
+                        onValueChange={setPoolID}
+                      />
                     </Field>
                     <Field data-disabled={detail.data?.isDelete}>
                       <FieldLabel htmlFor="video-binding-offset">
@@ -652,9 +716,9 @@ function VideoDialog({
                 <DataTable
                   rows={bindings}
                   columns={columns}
-                  rowKey={(binding) => String(binding.id)}
+                  rowKey={(item) => `${item.source}-${item.binding.id}`}
                   emptyTitle="暂无第三方弹幕池"
-                  emptyDescription="系统自带弹幕池仍保持固定关联。"
+                  emptyDescription="选择来源和弹幕池后即可关联。"
                 />
               </CardContent>
             </Card>

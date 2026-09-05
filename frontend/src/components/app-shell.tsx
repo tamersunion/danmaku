@@ -50,7 +50,8 @@ import { initials, sessionRoleLabel } from "@/lib/format";
 const titles: Array<[RegExp, string]> = [
   [/^\/videos/, "视频管理"],
   [/^\/danmaku/, "弹幕管理"],
-  [/^\/bilibili/, "bilibili 弹幕库"],
+  [/^\/bilibili/, "bilibili"],
+  [/^\/iqiyi/, "爱奇艺"],
   [/^\/users/, "用户管理"],
   [/^\/profile/, "个人资料"],
 ];
@@ -133,12 +134,22 @@ function AppShellContent() {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      tooltip="bilibili 弹幕库"
+                      tooltip="bilibili"
                       isActive={location.pathname.startsWith("/bilibili")}
                       render={<NavLink to="/bilibili" />}
                     >
                       <DatabaseIcon />
-                      <span>bilibili 弹幕库</span>
+                      <span>bilibili</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="爱奇艺"
+                      isActive={location.pathname.startsWith("/iqiyi")}
+                      render={<NavLink to="/iqiyi" />}
+                    >
+                      <DatabaseIcon />
+                      <span>爱奇艺</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>

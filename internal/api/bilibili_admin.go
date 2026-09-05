@@ -47,7 +47,7 @@ func (s *Server) listBilibiliPools(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createBilibiliPool(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		BVID string `json:"bvid"`
-		AID  int    `json:"aid"`
+		AID  int64  `json:"aid"`
 		CID  int64  `json:"cid"`
 		Page int    `json:"p"`
 	}

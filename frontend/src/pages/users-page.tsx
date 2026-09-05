@@ -19,6 +19,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
 import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -53,14 +54,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useApiMutation } from "@/hooks/use-api-mutation";
@@ -311,27 +304,16 @@ export function UsersPage() {
                 <FieldLabel className="sr-only" htmlFor="user-role">
                   角色
                 </FieldLabel>
-                <Select
-                  items={filterRoles}
+                <SearchableSelect
+                  id="user-role"
+                  options={filterRoles}
                   value={role}
                   onValueChange={(value) => {
-                    setRole(value ?? "all");
+                    setRole(value);
                     setPage(1);
                   }}
-                >
-                  <SelectTrigger id="user-role" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {filterRoles.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder="搜索角色"
+                />
               </Field>
               <Button type="submit" variant="outline">
                 搜索
@@ -504,8 +486,9 @@ function UserEditor({
               )}
               <Field data-disabled={roleLocked || undefined}>
                 <FieldLabel htmlFor="managed-role">角色</FieldLabel>
-                <Select
-                  items={roleOptions}
+                <SearchableSelect
+                  id="managed-role"
+                  options={roleOptions}
                   value={role}
                   disabled={roleLocked}
                   onValueChange={(value) => {
@@ -517,20 +500,8 @@ function UserEditor({
                       setRole(value);
                     }
                   }}
-                >
-                  <SelectTrigger id="managed-role" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {roleOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder="搜索角色"
+                />
                 {roleLocked ? (
                   <FieldDescription>
                     为避免锁定管理入口，不能修改自己的角色。
