@@ -33,7 +33,7 @@ export function ColorPicker({ id, value, onChange, disabled = false }: { id: str
         <Field data-invalid={!normalizeHex(hex)}>
           <FieldLabel htmlFor={`${id}-hex`}>HEX 颜色值</FieldLabel>
           <Input id={`${id}-hex`} value={hex} maxLength={7} aria-invalid={!normalizeHex(hex)} spellCheck={false} onChange={event => { setHex(event.target.value); if (/^#?[\da-f]{6}$/i.test(event.target.value)) onChange(normalizeHex(event.target.value)!); }} onBlur={() => { const next = normalizeHex(hex); choose(next ?? color); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); const next = normalizeHex(hex); if (next) choose(next); } }} />
-          {!normalizeHex(hex) ? <FieldDescription>请输入 3 位或 6 位十六进制颜色值。</FieldDescription> : null}
+          {!normalizeHex(hex) ? <FieldDescription>请输入 3 位或 6 位十六进制颜色值</FieldDescription> : null}
         </Field>
       </FieldGroup>
       <Button type="button" className="self-end" onClick={() => setOpen(false)}>完成</Button>

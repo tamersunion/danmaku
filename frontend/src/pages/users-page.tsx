@@ -194,7 +194,7 @@ export function UsersPage() {
             render={
               <Button
                 size="icon-sm"
-                variant="ghost"
+                variant="secondary"
                 aria-label={`管理 ${user.name}`}
               />
             }
@@ -229,8 +229,8 @@ export function UsersPage() {
                 title={`删除用户 ${user.name}？`}
                 description={
                   user.provider === "cas"
-                    ? "该 CAS 用户下次登录时可能重新自动建档；如需阻止登录，请停用该账户。"
-                    : "用户资料将被永久删除。"
+                    ? "该 CAS 用户下次登录时可能重新自动建档；如需阻止登录，请停用该账户"
+                    : "用户资料将被永久删除"
                 }
                 destructive
                 pending={remove.isPending}
@@ -247,9 +247,9 @@ export function UsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="平台管理"
         title="用户管理"
-        description="区分普通用户、弹幕管理员与管理员，并维护账户状态和身份来源。"
+        description="区分普通用户、弹幕管理员与管理员，并维护账户状态和身份来源"
         action={
           !session.casEnabled ? (
             <UserEditor
@@ -263,16 +263,6 @@ export function UsersPage() {
           ) : null
         }
       />
-      {session.casEnabled ? (
-        <Alert>
-          <ShieldCheckIcon />
-          <AlertTitle>用户资料由 CAS 管理</AlertTitle>
-          <AlertDescription>
-            新用户首次通过 CAS
-            登录时自动创建；本页只能调整角色、启停或删除账户，用户名、显示名、邮箱和头像会在每次登录时同步。
-          </AlertDescription>
-        </Alert>
-      ) : null}
       <Card>
         <CardContent className="flex flex-col gap-4 p-0">
           <form
@@ -335,7 +325,7 @@ export function UsersPage() {
               columns={columns}
               rowKey={(user) => String(user.id)}
               emptyTitle="暂无用户"
-              emptyDescription="CAS 用户会在首次成功登录后显示在这里。"
+              emptyDescription="CAS 用户会在首次成功登录后显示在这里"
             />
           )}
         </CardContent>
@@ -415,8 +405,8 @@ function UserEditor({
             <DialogTitle>{user ? "编辑用户" : "添加用户"}</DialogTitle>
             <DialogDescription>
               {profileMutable
-                ? "维护本地账户资料、登录密码和角色。"
-                : "CAS 负责同步用户资料，本页仅维护系统内角色。"}
+                ? "维护本地账户资料、登录密码和角色"
+                : "CAS 负责同步用户资料，本页仅维护系统内角色"}
             </DialogDescription>
           </DialogHeader>
           {detail.isPending && user ? (
@@ -428,7 +418,7 @@ function UserEditor({
                   <ShieldCheckIcon />
                   <AlertTitle>CAS 同步资料</AlertTitle>
                   <AlertDescription>
-                    用户名、显示名、邮箱和头像不可在此修改。
+                    用户名、显示名、邮箱和头像不可在此修改
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -478,8 +468,8 @@ function UserEditor({
                     </InputGroup>
                     <FieldDescription>
                       {user
-                        ? "留空表示保持当前密码。"
-                        : "至少 6 位，可一键生成随机密码。"}
+                        ? "留空表示保持当前密码"
+                        : "至少 6 位，可一键生成随机密码"}
                     </FieldDescription>
                   </Field>
                 </>
@@ -504,11 +494,11 @@ function UserEditor({
                 />
                 {roleLocked ? (
                   <FieldDescription>
-                    为避免锁定管理入口，不能修改自己的角色。
+                    为避免锁定管理入口，不能修改自己的角色
                   </FieldDescription>
                 ) : (
                   <FieldDescription>
-                    管理员可管理弹幕和用户；弹幕管理员只能管理弹幕；普通用户只能查看个人资料。
+                    管理员可管理弹幕和用户；弹幕管理员只能管理弹幕；普通用户只能查看个人资料
                   </FieldDescription>
                 )}
               </Field>

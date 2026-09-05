@@ -98,7 +98,7 @@ export function LoginPage() {
             <DanmakuLogo className="size-8" />
           </span>
           <CardTitle>弹幕控制台</CardTitle>
-          <CardDescription>登录后管理弹幕数据与用户权限。</CardDescription>
+          <CardDescription>登录后管理弹幕数据与用户权限</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-5" onSubmit={submit}>
@@ -130,7 +130,7 @@ export function LoginPage() {
                   required
                   onChange={(event) => setPassword(event.target.value)}
                 />
-                <FieldDescription>使用本地账号密码登录。</FieldDescription>
+                <FieldDescription>使用本地账号密码登录</FieldDescription>
               </Field>
             </FieldGroup>
             <Button type="submit" disabled={pending}>

@@ -1,5 +1,5 @@
 variables:
-  DANMAKU_VERSION: 2.9.2
+  DANMAKU_VERSION: 2.9.3
 
 stages:
   - build

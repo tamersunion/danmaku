@@ -83,7 +83,7 @@ export function ExternalPage() {
         label: "弹幕池",
         render: (pool) => (
           <div>
-            <p className="font-medium">{pool.name}</p>
+            <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setDetailPool(pool)}><span className="truncate">{pool.name}</span></Button>
             <p className="font-mono text-xs text-muted-foreground">
               {pool.id}
             </p>
@@ -120,7 +120,7 @@ export function ExternalPage() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="查看外部弹幕池"
               title="查看弹幕"
               onClick={() => setDetailPool(pool)}
@@ -130,7 +130,7 @@ export function ExternalPage() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="重新导入"
               title="重新导入"
               onClick={() => setImportPool(pool)}
@@ -140,7 +140,7 @@ export function ExternalPage() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="关联视频"
               title="关联视频"
               onClick={() => setBindingPool(pool)}
@@ -163,9 +163,9 @@ export function ExternalPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Library"
+        eyebrow="第三方弹幕库"
         title="外部导入"
-        description="将不同平台或播放器格式统一导入为可关联的视频弹幕池。"
+        description="将不同平台或播放器格式统一导入为可关联的视频弹幕池"
       />
       <Tabs defaultValue="pools">
       <TabsList><TabsTrigger value="pools">弹幕池</TabsTrigger><TabsTrigger value="keywords">关键词过滤</TabsTrigger></TabsList>
@@ -174,7 +174,7 @@ export function ExternalPage() {
         <CardHeader>
           <CardTitle>弹幕池</CardTitle>
           <CardDescription>
-            每个弹幕池使用独立 ID；重新导入会原子覆盖池内原有弹幕。
+            每个弹幕池使用独立 ID；重新导入会原子覆盖池内原有弹幕
           </CardDescription>
           <CardAction>
             <Button type="button" onClick={() => setImportPool(null)}>
@@ -212,7 +212,7 @@ export function ExternalPage() {
               columns={columns}
               rowKey={(pool) => pool.id}
               emptyTitle="暂无外部弹幕池"
-              emptyDescription="导入一个支持格式的弹幕文件后即可关联视频。"
+              emptyDescription="导入一个支持格式的弹幕文件后即可关联视频"
             />
           )}
         </CardContent>
@@ -307,7 +307,7 @@ function ImportDialog({
           <DialogHeader>
             <DialogTitle>{pool ? "重新导入弹幕池" : "导入外部弹幕池"}</DialogTitle>
             <DialogDescription>
-              {pool ? "新文件解析成功后会完整覆盖旧弹幕，弹幕池 ID 与视频关联保持不变。" : "选择来源格式后在浏览器内统一解析，再保存为新的弹幕池。"}
+              {pool ? "新文件解析成功后会完整覆盖旧弹幕，弹幕池 ID 与视频关联保持不变" : "选择来源格式后在浏览器内统一解析，再保存为新的弹幕池"}
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
@@ -381,7 +381,7 @@ function ExternalDetailDialog({ pool, onOpenChange }: { pool: ExternalPool | nul
           <DialogDescription className="font-mono">{pool?.id}</DialogDescription>
         </DialogHeader>
         <div className="overflow-hidden rounded-xl border">
-          {danmaku.isError ? <div className="p-6"><QueryError error={danmaku.error} retry={() => void danmaku.refetch()} /></div> : danmaku.isPending ? <LoadingTable /> : <DataTable rows={danmaku.data?.list ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="这个弹幕池为空" emptyDescription="可通过重新导入写入弹幕。" />}
+          {danmaku.isError ? <div className="p-6"><QueryError error={danmaku.error} retry={() => void danmaku.refetch()} /></div> : danmaku.isPending ? <LoadingTable /> : <DataTable rows={danmaku.data?.list ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="这个弹幕池为空" emptyDescription="可通过重新导入写入弹幕" />}
           {danmaku.data ? <ListPagination variant="inline" meta={{ page, pageSize: 20, total: danmaku.data.total }} onPageChange={setPage} /> : null}
         </div>
       </DialogContent>
@@ -419,7 +419,7 @@ function ExternalBindingDialog({ pool, onOpenChange }: { pool: ExternalPool | nu
         <form className="flex flex-col gap-5" onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>关联视频</DialogTitle>
-            <DialogDescription>将“{pool?.name}”合并到指定视频，偏移量单位为秒。</DialogDescription>
+            <DialogDescription>将“{pool?.name}”合并到指定视频，偏移量单位为秒</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>

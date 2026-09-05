@@ -9,6 +9,7 @@ import {
 
 type Theme = "light" | "dark" | "system";
 type ThemeContextValue = {
+  theme: Theme;
   resolvedTheme: "light" | "dark";
   setTheme: (theme: Theme) => void;
 };
@@ -44,13 +45,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      theme,
       resolvedTheme,
       setTheme: (next: Theme) => {
         localStorage.setItem("danmaku-theme", next);
         setThemeState(next);
       },
     }),
-    [resolvedTheme],
+    [resolvedTheme, theme],
   );
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

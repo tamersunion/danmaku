@@ -50,7 +50,7 @@ export function ExternalKeywordPanel({ pools }: { pools: ExternalPool[] }) {
         <ConfirmAction
           trigger={<Button type="button" size="icon-sm" variant="destructive" aria-label="删除关键词过滤规则"><Trash2Icon /></Button>}
           title="删除这条关键词过滤规则？"
-          description="删除后，匹配的弹幕将不再因这条规则被自动屏蔽。"
+          description="删除后，匹配的弹幕将不再因这条规则被自动屏蔽"
           destructive
           pending={remove.isPending}
           onConfirm={() => remove.mutate(item.id)}
@@ -63,7 +63,7 @@ export function ExternalKeywordPanel({ pools }: { pools: ExternalPool[] }) {
     <Card>
       <CardHeader>
         <CardTitle>关键词过滤</CardTitle>
-        <CardDescription>全局规则作用于所有外部导入弹幕池；池级规则只作用于指定弹幕池。弹幕数据仍会完整保留。</CardDescription>
+        <CardDescription>全局规则作用于所有外部导入弹幕池；池级规则只作用于指定弹幕池。弹幕数据仍会完整保留</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -109,7 +109,7 @@ export function ExternalKeywordPanel({ pools }: { pools: ExternalPool[] }) {
         ) : keywords.isPending ? (
           <LoadingTable />
         ) : (
-          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无关键词过滤规则" emptyDescription="添加全局或弹幕池级关键词规则。" />
+          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无关键词过滤规则" emptyDescription="添加全局或弹幕池级关键词规则" />
         )}
       </CardContent>
     </Card>

@@ -5,8 +5,6 @@ import {
   EllipsisVerticalIcon,
   ListFilterIcon,
   LogOutIcon,
-  MoonIcon,
-  SunIcon,
   UploadIcon,
   UserRoundIcon,
   UsersIcon,
@@ -15,10 +13,9 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useSession } from "@/auth/session-context";
 import { DanmakuLogo } from "@/components/danmaku-logo";
-import { useTheme } from "@/components/theme-provider";
+import { ThemeToggle, ThemeMenuItems } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,7 +66,6 @@ export function AppShell() {
 function AppShellContent() {
   const session = useSession();
   const location = useLocation();
-  const { resolvedTheme, setTheme } = useTheme();
   const { setOpenMobile } = useSidebar();
 
   useEffect(() => {
@@ -227,15 +223,9 @@ function AppShellContent() {
                   <UserRoundIcon />
                   个人资料
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                  }
-                >
-                  {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-                  {resolvedTheme === "dark" ? "切换到浅色" : "切换到深色"}
-                </DropdownMenuItem>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <ThemeMenuItems />
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem
@@ -256,19 +246,7 @@ function AppShellContent() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="my-auto h-4" />
           <span className="text-sm font-medium">{title}</span>
-          <Button
-            className="ml-auto"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={
-              resolvedTheme === "dark" ? "切换到浅色主题" : "切换到深色主题"
-            }
-            onClick={() =>
-              setTheme(resolvedTheme === "dark" ? "light" : "dark")
-            }
-          >
-            {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </Button>
+          <ThemeToggle />
         </header>
         <main className="flex-1 bg-muted/20 px-4 py-6 md:px-6 md:py-8">
           <div className="mx-auto w-full max-w-[1500px]">

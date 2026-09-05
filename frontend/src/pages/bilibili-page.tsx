@@ -97,9 +97,9 @@ export function BilibiliPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Library"
+        eyebrow="第三方弹幕库"
         title="bilibili"
-        description="持久化管理 bilibili 弹幕池和过滤规则。"
+        description="持久化管理 bilibili 弹幕池和过滤规则"
       />
       <Tabs defaultValue="pools">
         <TabsList>
@@ -162,9 +162,9 @@ function PoolPanel() {
         label: "弹幕池",
         render: (pool) => (
           <div>
-            <p className="font-medium">
+            <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}>
               {pool.bvid || `CID ${pool.cid}`}
-            </p>
+            </Button>
             <p className="font-mono text-xs text-muted-foreground">
               AID {pool.aid || "—"} · CID {pool.cid} · P{pool.p}
             </p>
@@ -204,7 +204,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="查看弹幕池"
               title="查看弹幕"
               onClick={() => setSelectedPool(pool)}
@@ -214,7 +214,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="关联视频"
               title="关联视频"
               onClick={() => setBindingPool(pool)}
@@ -224,7 +224,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="outline"
+              variant="secondary"
               aria-label="立即同步弹幕池"
               title="立即同步"
               disabled={sync.isPending}
@@ -274,7 +274,7 @@ function PoolPanel() {
         <CardHeader>
           <CardTitle>弹幕池</CardTitle>
           <CardDescription>
-            配置的同步窗口内只返回缓存；超过后由下一次请求触发增量更新，也可手动立即更新。
+            配置的同步窗口内只返回缓存；超过后由下一次请求触发增量更新，也可手动立即更新
           </CardDescription>
           <CardAction>
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -317,7 +317,7 @@ function PoolPanel() {
               columns={columns}
               rowKey={(pool) => String(pool.id)}
               emptyTitle="暂无 bilibili 弹幕池"
-              emptyDescription="输入 BVID、AID 或 CID 与分 P 后开始缓存弹幕。"
+              emptyDescription="输入 BVID、AID 或 CID 与分 P 后开始缓存弹幕"
             />
           )}
         </CardContent>
@@ -334,7 +334,7 @@ function PoolPanel() {
             <DialogHeader>
               <DialogTitle>添加 bilibili 弹幕池</DialogTitle>
               <DialogDescription>
-                输入任一视频标识，系统会创建弹幕池并立即从上游执行第一次增量同步。
+                输入任一视频标识，系统会创建弹幕池并立即从上游执行第一次增量同步
               </DialogDescription>
             </DialogHeader>
             <FieldGroup>
@@ -472,7 +472,7 @@ function PoolVideoBindingDialog({
           <DialogHeader>
             <DialogTitle>关联视频</DialogTitle>
             <DialogDescription>
-              将 {pool ? poolLabel(pool) : "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量。
+              将 {pool ? poolLabel(pool) : "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
             </DialogDescription>
           </DialogHeader>
           {videos.isError ? (
@@ -500,7 +500,7 @@ function PoolVideoBindingDialog({
                 />
                 {!videos.isPending && videos.data?.length === 0 ? (
                   <FieldDescription>
-                    暂无可关联的视频，请先在视频管理中添加。
+                    暂无可关联的视频，请先在视频管理中添加
                   </FieldDescription>
                 ) : null}
               </Field>
@@ -516,7 +516,7 @@ function PoolVideoBindingDialog({
                   required
                   onChange={(event) => setOffset(event.target.value)}
                 />
-                <FieldDescription>正数延后，负数提前。</FieldDescription>
+                <FieldDescription>正数延后，负数提前</FieldDescription>
               </Field>
             </FieldGroup>
           )}
@@ -648,7 +648,7 @@ function PoolDanmakuDialog({
         <DialogHeader>
           <DialogTitle>{pool ? poolLabel(pool) : "弹幕池详情"}</DialogTitle>
           <DialogDescription>
-            关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整。
+            关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={search}>
@@ -697,7 +697,7 @@ function PoolDanmakuDialog({
               columns={columns}
               rowKey={(item) => String(item.id)}
               emptyTitle="没有匹配的弹幕"
-              emptyDescription="调整内容或屏蔽状态后重新查询。"
+              emptyDescription="调整内容或屏蔽状态后重新查询"
             />
           )}
           {danmaku.data ? (
@@ -788,7 +788,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
             </Button>
           }
           title="删除这条关键词过滤规则？"
-          description="删除后，只有因该关键词而隐藏的弹幕会恢复为可见。"
+          description="删除后，只有因该关键词而隐藏的弹幕会恢复为可见"
           destructive
           pending={remove.isPending}
           onConfirm={() => remove.mutate(item.id)}
@@ -813,7 +813,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
       <CardHeader>
         <CardTitle>关键词过滤</CardTitle>
         <CardDescription>
-          全局规则作用于所有弹幕池；池级规则只作用于指定 CID 弹幕池。弹幕数据仍会完整保留。
+          全局规则作用于所有弹幕池；池级规则只作用于指定 CID 弹幕池。弹幕数据仍会完整保留
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -856,7 +856,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
                 </Button>
               </div>
               <FieldDescription>
-                匹配不区分大小写，命中后默认从公开返回中隐藏。
+                匹配不区分大小写，命中后默认从公开返回中隐藏
               </FieldDescription>
             </Field>
           </FieldGroup>
@@ -878,7 +878,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
             columns={columns}
             rowKey={(item) => String(item.id)}
             emptyTitle="暂无关键词过滤规则"
-            emptyDescription="添加全局或弹幕池级关键词后，命中的弹幕会自动隐藏。"
+            emptyDescription="添加全局或弹幕池级关键词后，命中的弹幕会自动隐藏"
           />
         )}
       </CardContent>

@@ -191,7 +191,7 @@ export function DanmakuPage() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="查看并编辑弹幕"
               title="查看并编辑"
               onClick={() => setEditingID(item.id)}
@@ -211,7 +211,7 @@ export function DanmakuPage() {
                 </Button>
               }
               title="删除这条弹幕？"
-              description="弹幕会被标记为已删除，并立即从公开查询结果中隐藏。"
+              description="弹幕会被标记为已删除，并立即从公开查询结果中隐藏"
               destructive
               pending={remove.isPending}
               onConfirm={() => remove.mutate(item.id)}
@@ -249,9 +249,9 @@ export function DanmakuPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Moderation"
+        eyebrow="视频与弹幕库"
         title="弹幕管理"
-        description="快速检索、审阅并维护所有播放器产生的弹幕数据。"
+        description="快速检索、审阅并维护所有播放器产生的弹幕数据"
         action={
           <div className="flex items-center gap-3">
             {data ? <Badge variant="outline">共 {data.total} 条</Badge> : null}
@@ -261,7 +261,7 @@ export function DanmakuPage() {
       />
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent>
-          <DialogHeader><DialogTitle>添加弹幕</DialogTitle><DialogDescription>向指定视频的系统弹幕池添加弹幕。</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>添加弹幕</DialogTitle><DialogDescription>向指定视频的系统弹幕池添加弹幕</DialogDescription></DialogHeader>
           {adding ? <AddDanmakuForm initialVid={filters.vid} onSuccess={() => setAdding(false)} /> : null}
         </DialogContent>
       </Dialog>
@@ -410,7 +410,7 @@ export function DanmakuPage() {
               columns={columns}
               rowKey={(item) => item.id}
               emptyTitle="没有匹配的弹幕"
-              emptyDescription="请调整筛选条件后重新查询。"
+              emptyDescription="请调整筛选条件后重新查询"
             />
           )}
         </CardContent>
@@ -499,7 +499,7 @@ function DanmakuEditor({
           <DialogHeader>
             <DialogTitle>查看并编辑弹幕</DialogTitle>
             <DialogDescription>
-              修改展示参数、内容和软删除状态。
+              修改展示参数、内容和软删除状态
             </DialogDescription>
           </DialogHeader>
           {detail.isError ? (
@@ -573,7 +573,7 @@ function DanmakuEditor({
                   onChange={(event) => setText(event.target.value)}
                 />
                 <FieldDescription>
-                  公开查询会返回这里保存的文本。
+                  公开查询会返回这里保存的文本
                 </FieldDescription>
               </Field>
               <Field
@@ -585,7 +585,7 @@ function DanmakuEditor({
                     标记为已删除
                   </FieldLabel>
                   <FieldDescription>
-                    启用后，公开播放器接口将隐藏此弹幕。
+                    启用后，公开播放器接口将隐藏此弹幕
                   </FieldDescription>
                 </FieldContent>
                 <Switch

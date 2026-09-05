@@ -29,7 +29,7 @@ export function DataTable<T>({
   columns,
   rowKey,
   emptyTitle = "暂无数据",
-  emptyDescription = "调整筛选条件后重试。",
+  emptyDescription = "调整筛选条件后重试",
 }: {
   rows: T[];
   columns: DataColumn<T>[];

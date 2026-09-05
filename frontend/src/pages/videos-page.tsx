@@ -176,21 +176,24 @@ export function VideosPage() {
         key: "name",
         label: "视频",
         render: (video) => (
-          <Button
-            type="button"
-            variant="link"
-            className="h-auto max-w-80 justify-start p-0 text-left"
-            onClick={() => setSelected(video)}
-          >
-            <span className="truncate">{video.name || "未命名视频"}</span>
-          </Button>
+          <div className="flex max-w-80 flex-col gap-1">
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto max-w-80 justify-start p-0 text-left"
+              onClick={() => setSelected(video)}
+            >
+              <span className="truncate">{video.name || "未命名视频"}</span>
+            </Button>
+            <span className="truncate font-mono text-xs text-muted-foreground" title={video.vid}>{video.vid}</span>
+          </div>
         ),
       },
       {
-        key: "vid",
-        label: "视频 ID",
+        key: "total",
+        label: "总弹幕",
         render: (video) => (
-          <span className="font-mono text-xs">{video.vid}</span>
+          <span className="tabular-nums">{video.danmakuCount + video.thirdPartyDanmakuCount} 条</span>
         ),
       },
       {
@@ -198,7 +201,7 @@ export function VideosPage() {
         label: "弹幕池",
         render: (video) => (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">系统弹幕 {video.danmakuCount} 条</Badge>
+            <Badge variant="secondary">系统弹幕池 {video.danmakuCount} 条</Badge>
             <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
           </div>
         ),
@@ -227,7 +230,7 @@ export function VideosPage() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="编辑视频"
               title="编辑"
               onClick={() => setSelected(video)}
@@ -238,7 +241,7 @@ export function VideosPage() {
               <Button
                 type="button"
                 size="icon-sm"
-                variant="outline"
+                variant="secondary"
                 aria-label="恢复视频"
                 title="恢复"
                 disabled={status.isPending}
@@ -260,7 +263,7 @@ export function VideosPage() {
                   </Button>
                 }
                 title="删除这个视频？"
-                description="视频只会被标记为删除，原有弹幕和第三方弹幕池关联仍会保留。"
+                description="视频只会被标记为删除，原有弹幕和第三方弹幕池关联仍会保留"
                 destructive
                 pending={status.isPending}
                 onConfirm={() => status.mutate({ id: video.id, deleted: true })}
@@ -296,15 +299,15 @@ export function VideosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Library"
+        eyebrow="视频与弹幕库"
         title="视频管理"
-        description="管理视频名称、状态以及系统和第三方弹幕池关联。"
+        description="管理视频名称、状态以及系统和第三方弹幕池关联"
       />
       <Card>
         <CardHeader>
           <CardTitle>视频</CardTitle>
           <CardDescription>
-            外部弹幕请求会自动创建仅包含视频 ID 的记录，名称可在此补充。
+            外部弹幕请求会自动创建仅包含视频 ID 的记录，名称可在此补充
           </CardDescription>
           <CardAction>
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -361,7 +364,7 @@ export function VideosPage() {
               columns={columns}
               rowKey={(video) => String(video.id)}
               emptyTitle="暂无视频"
-              emptyDescription="添加视频，或通过外部弹幕接口自动创建。"
+              emptyDescription="添加视频，或通过外部弹幕接口自动创建"
             />
           )}
         </CardContent>
@@ -378,7 +381,7 @@ export function VideosPage() {
             <DialogHeader>
               <DialogTitle>添加视频</DialogTitle>
               <DialogDescription>
-                视频 ID 创建后不可修改，名称可以留空。
+                视频 ID 创建后不可修改，名称可以留空
               </DialogDescription>
             </DialogHeader>
             <FieldGroup>
@@ -591,7 +594,7 @@ function VideoDialog({
             </Button>
           }
           title="删除这个弹幕池关联？"
-          description="删除后，这个第三方弹幕池会停止合并到视频弹幕。"
+          description="删除后，这个第三方弹幕池会停止合并到视频弹幕"
           destructive
           pending={remove.isPending}
           onConfirm={() =>
@@ -643,7 +646,7 @@ function VideoDialog({
               <CardHeader>
                 <CardTitle>基本信息</CardTitle>
                 <CardDescription>
-                  视频 ID 不可修改，视频名称可以留空。
+                  视频 ID 不可修改，视频名称可以留空
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -672,7 +675,7 @@ function VideoDialog({
               <CardHeader>
                 <CardTitle>弹幕热力图</CardTitle>
                 <CardDescription>
-                  按秒统计系统弹幕与全部已关联第三方弹幕，峰值越高表示该时段越密集。
+                  按秒统计系统弹幕与全部已关联第三方弹幕，峰值越高表示该时段越密集
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -718,16 +721,16 @@ function VideoDialog({
                   </ChartContainer>
                 ) : (
                   <p className="py-12 text-center text-sm text-muted-foreground">
-                    暂无弹幕，添加或关联弹幕池后会显示热力图。
+                    暂无弹幕，添加或关联弹幕池后会显示热力图
                   </p>
                 )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>系统自带弹幕池</CardTitle>
+                <CardTitle>系统弹幕池</CardTitle>
                 <CardDescription>
-                  管理这个视频由系统直接接收的弹幕。
+                  管理这个视频由系统直接接收的弹幕
                 </CardDescription>
                 <CardAction>
                   <Button
@@ -756,7 +759,7 @@ function VideoDialog({
               <CardHeader>
                 <CardTitle>第三方弹幕池</CardTitle>
                 <CardDescription>
-                  可关联 bilibili、爱奇艺或外部导入弹幕池；偏移量为正时延后、为负时提前。
+                  可关联 bilibili、爱奇艺或外部导入弹幕池；偏移量为正时延后、为负时提前
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -843,7 +846,7 @@ function VideoDialog({
                       </div>
                       {detail.data?.isDelete ? (
                         <FieldDescription>
-                          请先恢复视频，再修改弹幕池关联。
+                          请先恢复视频，再修改弹幕池关联
                         </FieldDescription>
                       ) : null}
                     </Field>
@@ -856,7 +859,7 @@ function VideoDialog({
                   columns={columns}
                   rowKey={(item) => `${item.source}-${item.binding.id}`}
                   emptyTitle="暂无第三方弹幕池"
-                  emptyDescription="选择来源和弹幕池后即可关联。"
+                  emptyDescription="选择来源和弹幕池后即可关联"
                 />
               </CardContent>
             </Card>
@@ -864,7 +867,7 @@ function VideoDialog({
               <CardHeader>
                 <CardTitle>导出弹幕</CardTitle>
                 <CardDescription>
-                  导出当前视频已合并的系统与第三方弹幕，可额外通过 API 设置 offset。
+                  导出当前视频已合并的系统与第三方弹幕，可额外通过 API 设置 offset
                 </CardDescription>
               </CardHeader>
               <CardContent>

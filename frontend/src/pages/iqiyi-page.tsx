@@ -74,9 +74,9 @@ export function IqiyiPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Library"
+        eyebrow="第三方弹幕库"
         title="爱奇艺"
-        description="持久化管理爱奇艺弹幕池、视频关联和过滤规则。"
+        description="持久化管理爱奇艺弹幕池、视频关联和过滤规则"
       />
       <Tabs defaultValue="pools">
         <TabsList>
@@ -135,7 +135,7 @@ function PoolPanel() {
       {
         key: "pool",
         label: "弹幕池",
-        render: (pool) => <p className="font-mono text-xs">{pool.vid}</p>,
+        render: (pool) => <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}><span className="truncate font-mono">{pool.vid}</span></Button>,
       },
       {
         key: "data",
@@ -170,7 +170,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="查看爱奇艺弹幕池"
               title="查看弹幕"
               onClick={() => setSelectedPool(pool)}
@@ -180,7 +180,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="ghost"
+              variant="secondary"
               aria-label="关联视频"
               title="关联视频"
               onClick={() => setBindingPool(pool)}
@@ -190,7 +190,7 @@ function PoolPanel() {
             <Button
               type="button"
               size="icon-sm"
-              variant="outline"
+              variant="secondary"
               aria-label="立即同步爱奇艺弹幕池"
               title="立即同步"
               disabled={sync.isPending}
@@ -211,7 +211,7 @@ function PoolPanel() {
         <CardHeader>
           <CardTitle>弹幕池</CardTitle>
           <CardDescription>
-            同步窗口内直接返回缓存；超过窗口后由下一次请求被动增量更新，也可手动立即更新。
+            同步窗口内直接返回缓存；超过窗口后由下一次请求被动增量更新，也可手动立即更新
           </CardDescription>
           <CardAction>
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -256,7 +256,7 @@ function PoolPanel() {
               columns={columns}
               rowKey={(pool) => String(pool.id)}
               emptyTitle="暂无爱奇艺弹幕池"
-              emptyDescription="输入爱奇艺 VID 后创建并缓存弹幕。"
+              emptyDescription="输入爱奇艺 VID 后创建并缓存弹幕"
             />
           )}
         </CardContent>
@@ -287,7 +287,7 @@ function PoolPanel() {
             <DialogHeader>
               <DialogTitle>添加爱奇艺弹幕池</DialogTitle>
               <DialogDescription>
-                输入 VID 后立即从爱奇艺获取弹幕并建立本地缓存。
+                输入 VID 后立即从爱奇艺获取弹幕并建立本地缓存
               </DialogDescription>
             </DialogHeader>
             <Field>
@@ -359,7 +359,7 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
           <DialogHeader>
             <DialogTitle>关联视频</DialogTitle>
             <DialogDescription>
-              将 {pool?.vid ?? "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量。
+              将 {pool?.vid ?? "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
             </DialogDescription>
           </DialogHeader>
           {videos.isError ? (
@@ -381,7 +381,7 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
                   onValueChange={setVideoID}
                 />
                 {!videos.isPending && videos.data?.length === 0 ? (
-                  <FieldDescription>暂无可关联的视频，请先在视频管理中添加。</FieldDescription>
+                  <FieldDescription>暂无可关联的视频，请先在视频管理中添加</FieldDescription>
                 ) : null}
               </Field>
               <Field>
@@ -468,7 +468,7 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{pool?.vid ?? "弹幕池详情"}</DialogTitle>
-          <DialogDescription>关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整。</DialogDescription>
+          <DialogDescription>关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整</DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(event) => {
@@ -504,7 +504,7 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
           ) : danmaku.isPending ? (
             <LoadingTable />
           ) : (
-            <DataTable rows={danmaku.data?.list ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="没有匹配的弹幕" emptyDescription="请调整筛选条件后重试。" />
+            <DataTable rows={danmaku.data?.list ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="没有匹配的弹幕" emptyDescription="请调整筛选条件后重试" />
           )}
           {danmaku.data ? <ListPagination meta={{ page, pageSize: 20, total: danmaku.data.total }} onPageChange={setPage} variant="inline" /> : null}
         </div>
@@ -545,7 +545,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
         <ConfirmAction
           trigger={<Button type="button" size="icon-sm" variant="destructive" aria-label="删除关键词过滤规则"><Trash2Icon /></Button>}
           title="删除这条关键词过滤规则？"
-          description="删除后，匹配的弹幕将不再因这条规则被自动屏蔽。"
+          description="删除后，匹配的弹幕将不再因这条规则被自动屏蔽"
           destructive
           pending={remove.isPending}
           onConfirm={() => remove.mutate(item.id)}
@@ -558,7 +558,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
     <Card>
       <CardHeader>
         <CardTitle>关键词过滤</CardTitle>
-        <CardDescription>全局规则作用于所有爱奇艺弹幕池；池级规则只作用于指定 VID。弹幕数据仍会完整保留。</CardDescription>
+        <CardDescription>全局规则作用于所有爱奇艺弹幕池；池级规则只作用于指定 VID。弹幕数据仍会完整保留</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -604,7 +604,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
         ) : keywords.isPending ? (
           <LoadingTable />
         ) : (
-          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无关键词过滤规则" emptyDescription="添加全局或弹幕池级关键词规则。" />
+          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无关键词过滤规则" emptyDescription="添加全局或弹幕池级关键词规则" />
         )}
       </CardContent>
     </Card>

@@ -64,15 +64,15 @@ export function ProfilePage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Account"
+        eyebrow="平台管理"
         title="个人资料"
-        description="查看当前账户、身份来源和可用的安全设置。"
+        description="查看当前账户、身份来源和可用的安全设置"
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>账户信息</CardTitle>
-            <CardDescription>当前会话对应的身份资料。</CardDescription>
+            <CardDescription>当前会话对应的身份资料</CardDescription>
           </CardHeader>
           <CardContent>
             {profile.isError ? (
@@ -120,7 +120,7 @@ export function ProfilePage() {
             <CardHeader>
               <CardTitle>CAS 同步已启用</CardTitle>
               <CardDescription>
-                账户资料和登录凭据由统一身份服务维护。
+                账户资料和登录凭据由统一身份服务维护
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -129,7 +129,7 @@ export function ProfilePage() {
                 <AlertTitle>本页为只读</AlertTitle>
                 <AlertDescription>
                   用户名、显示名、邮箱与头像会在每次 CAS
-                  登录时自动同步；密码也不能在本系统修改。如需变更，请前往统一账户中心。
+                  登录时自动同步；密码也不能在本系统修改。如需变更，请前往统一账户中心
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -138,7 +138,7 @@ export function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>账户设置</CardTitle>
-              <CardDescription>维护本地资料和登录密码。</CardDescription>
+              <CardDescription>维护本地资料和登录密码</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <ProfileEditor profile={user ?? undefined} />
@@ -150,7 +150,7 @@ export function ProfilePage() {
             <CardHeader>
               <CardTitle>账户设置</CardTitle>
               <CardDescription>
-                当前身份来源不允许修改本地资料。
+                当前身份来源不允许修改本地资料
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -158,7 +158,7 @@ export function ProfilePage() {
                 <LockKeyholeIcon />
                 <AlertTitle>资料不可修改</AlertTitle>
                 <AlertDescription>
-                  请联系管理员或身份服务维护账户资料。
+                  请联系管理员或身份服务维护账户资料
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -207,7 +207,7 @@ function ProfileEditor({ profile }: { profile?: UserProfile }) {
           <DialogHeader>
             <DialogTitle>编辑个人资料</DialogTitle>
             <DialogDescription>
-              修改本地账户的名称和联系信息。
+              修改本地账户的名称和联系信息
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
@@ -308,7 +308,7 @@ function PasswordEditor({ uid }: { uid: number }) {
           <DialogHeader>
             <DialogTitle>修改登录密码</DialogTitle>
             <DialogDescription>
-              保存成功后会退出当前会话，请使用新密码重新登录。
+              保存成功后会退出当前会话，请使用新密码重新登录
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
@@ -334,7 +334,7 @@ function PasswordEditor({ uid }: { uid: number }) {
                 required
                 onChange={(event) => setNewPassword(event.target.value)}
               />
-              <FieldDescription>密码长度不能低于 6 位。</FieldDescription>
+              <FieldDescription>密码长度不能低于 6 位</FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="confirm-password">确认新密码</FieldLabel>
