@@ -9,14 +9,14 @@
 要求 Go 1.25 或更高版本和 PostgreSQL 13 或更高版本。
 
 ```bash
-go run ./cmd/danmaku -config appsettings.yml
+go run ./cmd/danmaku -config appsettings.json
 ```
 
 程序每次启动都会在事务中检查数据库结构。已有 `"Danmu"` 表会自动重命名为 `"Danmaku"`，相关外键和索引同步重命名，并为 `"User"` 补齐 CAS 账户字段；2.2.0 起还会自动创建 bilibili 弹幕池、关键词和视频关联表；2.3.0 起会补齐视频名称与软删除字段、合并重复视频记录并建立唯一视频 ID。迁移失败时服务不会开始监听。若新旧表同时存在，程序会中止并要求人工确认，避免错误合并数据。
 
-配置文件仍使用原来的 ASP.NET 风格层级，数据库节点是 `DanmakuSql`，bilibili 上游由 `BiliBiliSetting.ApiBase` 配置，默认为 `https://api.bilibili.com`。bilibili 持久化弹幕池采用固定 10 分钟缓存窗口：窗口内只返回数据库缓存，超过窗口后由下一次外部请求被动执行增量更新，后台“立即更新”可绕过窗口；服务不会定时主动刷新。`DanmakuCacheTime` 及旧的 `DanmuCacheTime` 仍保留配置读取兼容，但不改变该固定窗口。完整示例见 [appsettings.yml](appsettings.yml)，也可通过 `DANMAKU_CONFIG` 指定配置路径。
+2.4.0 起配置仅支持 JSON，全部字段使用 `snake_case`，未知字段会直接导致启动失败。所有配置中的时间值统一使用秒：本地会话 `admin.max_age_seconds`、CAS 会话 `cas.session_max_age_seconds`、CAS 请求超时 `cas.request_timeout_seconds`、bilibili 元数据缓存 `bilibili_setting.cid_cache_seconds` 和弹幕池同步窗口 `bilibili_setting.sync_interval_seconds`。弹幕池同步窗口默认 600 秒；窗口内返回缓存，超过后由下一次请求被动增量更新，后台“立即更新”仍可绕过窗口，服务不会定时主动刷新。完整示例见 [appsettings.json](appsettings.json)，也可通过 `DANMAKU_CONFIG` 指定配置路径；环境覆盖文件使用 `DANMAKU_ENVIRONMENT` 选择，例如 `appsettings.Production.json`。
 
-CAS 默认接管登录流程，入口为 `/cas/login`，回调为 `/cas/callback`，退出为 `/cas/logout`；旧入口 `/cas/auth` 继续作为原生 CAS 组合入口。紧急情况下可访问 `/login?skipsso=true` 使用本地账号。CAS 用户首次登录会自动建档，默认以普通用户（`CAS.DefaultRole: 3`）加入；管理员可在用户管理中提升角色。CAS 开启时，用户名、显示名、邮箱和头像以 CAS 返回内容为准，前端及 API 均禁止修改资料和密码。
+CAS 默认接管登录流程，入口为 `/cas/login`，回调为 `/cas/callback`，退出为 `/cas/logout`；旧入口 `/cas/auth` 继续作为原生 CAS 组合入口。紧急情况下可访问 `/login?skipsso=true` 使用本地账号。CAS 用户首次登录会自动建档，默认以普通用户（`cas.default_role: 3`）加入；管理员可在用户管理中提升角色。CAS 开启时，用户名、显示名、邮箱和头像以 CAS 返回内容为准，前端及 API 均禁止修改资料和密码。
 
 权限分为三级：管理员可管理弹幕和用户，弹幕管理员只能管理弹幕，普通用户只能查看自己的资料。数据库角色值仍分别为 `1`、`2`、`3`。
 
@@ -43,7 +43,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`，使用与 dnsmgr-frontend 一致的 React 19、Vite、Tailwind CSS v4、shadcn/ui Base UI Nova 预设和 Geist 字体。容器构建会先生成前端静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.3.0 -t danmaku:2.3.0 .
+docker build --build-arg DANMAKU_VERSION=2.4.0 -t danmaku:2.4.0 .
 docker compose up -d
 ```
 

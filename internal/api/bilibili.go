@@ -41,8 +41,6 @@ type bilibiliQuery struct {
 	Offset float64
 }
 
-const bilibiliSyncInterval = 10 * time.Minute
-
 type bilibiliPageResponse struct {
 	Code int            `json:"code"`
 	Data []bilibiliPage `json:"data"`
@@ -75,6 +73,12 @@ func NewBilibili(repository store.Repository, settings config.BilibiliSettings) 
 	baseURL := strings.TrimRight(strings.TrimSpace(settings.APIBase), "/")
 	if baseURL == "" {
 		baseURL = config.DefaultBilibiliAPIBase
+	}
+	if settings.CIDCacheSeconds <= 0 {
+		settings.CIDCacheSeconds = config.DefaultBilibiliCIDCacheSeconds
+	}
+	if settings.SyncIntervalSeconds <= 0 {
+		settings.SyncIntervalSeconds = config.DefaultBilibiliSyncIntervalSeconds
 	}
 	return &Bilibili{repository: repository, settings: settings, client: &http.Client{Timeout: 60 * time.Second}, baseURL: baseURL}
 }
@@ -135,7 +139,7 @@ func (b *Bilibili) ensurePool(ctx context.Context, query bilibiliQuery, force, s
 	if err != nil {
 		return nil, 0, err
 	}
-	claimed, err := b.repository.ClaimBilibiliPoolSync(ctx, pool.ID, bilibiliSyncInterval, force)
+	claimed, err := b.repository.ClaimBilibiliPoolSync(ctx, pool.ID, time.Duration(b.settings.SyncIntervalSeconds)*time.Second, force)
 	if err != nil || !claimed {
 		return pool, 0, err
 	}
@@ -200,7 +204,7 @@ func (b *Bilibili) Archive(ctx context.Context, bvid string, aid int) (bilibiliA
 	} else {
 		query = "aid=" + strconv.Itoa(aid)
 	}
-	raw, err := b.fetch(ctx, b.baseURL+"/x/web-interface/archive/stat?"+query, false, time.Duration(b.settings.CIDCacheMinutes)*time.Minute)
+	raw, err := b.fetch(ctx, b.baseURL+"/x/web-interface/archive/stat?"+query, false, time.Duration(b.settings.CIDCacheSeconds)*time.Second)
 	if err != nil {
 		return bilibiliArchiveResponse{}, err
 	}
@@ -218,7 +222,7 @@ func (b *Bilibili) Pages(ctx context.Context, bvid string, aid int) ([]bilibiliP
 	} else {
 		query = "aid=" + strconv.Itoa(aid)
 	}
-	raw, err := b.fetch(ctx, b.baseURL+"/x/player/pagelist?"+query, false, time.Duration(b.settings.CIDCacheMinutes)*time.Minute)
+	raw, err := b.fetch(ctx, b.baseURL+"/x/player/pagelist?"+query, false, time.Duration(b.settings.CIDCacheSeconds)*time.Second)
 	if err != nil {
 		return nil, err
 	}

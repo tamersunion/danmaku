@@ -27,7 +27,7 @@ RUN apt-get update \
 
 COPY --from=backend-builder /output/danmaku ./danmaku
 COPY --from=frontend-builder /src/frontend/dist/ ./wwwroot/
-COPY appsettings.yml ./appsettings.yml
+COPY appsettings.json ./appsettings.json
 
 EXPOSE 80
 

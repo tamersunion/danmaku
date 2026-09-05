@@ -91,7 +91,7 @@ func (s *Server) casCallback(w http.ResponseWriter, r *http.Request, callbackPat
 		UID: user.ID, User: user.Name, Role: user.Role, Email: identity.Email,
 		DisplayName: identity.DisplayName, Avatar: identity.Avatar, Provider: "cas",
 	}
-	if err := s.setSession(w, value, time.Duration(s.config.CAS.SessionMaxAgeMinutes)*time.Minute); err != nil {
+	if err := s.setSession(w, value, time.Duration(s.config.CAS.SessionMaxAgeSeconds)*time.Second); err != nil {
 		s.writeError(w, err)
 		return
 	}

@@ -24,7 +24,9 @@
 
 2.3.0 新增独立视频管理。外部弹幕查询或提交首次遇到视频 ID 时只创建该 ID 对应的视频记录，不写入名称或来源资料；系统自带弹幕池始终固定关联且不能取消。后台可从视频详情或 bilibili 弹幕池列表双向发起视频关联并设置各自偏移量，上一版 `/api/admin/bilibili/bindings` 管理接口同步下线。视频删除为软删除：外部查询返回空弹幕，提交返回原有业务失败响应，外部请求不会恢复视频；管理员可在视频管理中恢复。
 
-bilibili 上游 API 基址由 `BiliBiliSetting.ApiBase` 配置，默认使用 `https://api.bilibili.com`；末尾斜杠会在加载时移除。
+2.4.0 将配置切换为仅支持 JSON 的 `snake_case` 结构，并删除 YAML、PascalCase、`danmu_sql`、`danmu_cache_time` 等旧配置兼容。配置解析会拒绝未知字段，避免拼写错误静默回落到默认值。所有配置时间统一为秒；此前固定为 10 分钟的 bilibili 弹幕池缓存窗口改由 `bilibili_setting.sync_interval_seconds` 控制，默认值为 600。
+
+bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 `https://api.bilibili.com`；末尾斜杠会在加载时移除。CID 元数据缓存时间由 `bilibili_setting.cid_cache_seconds` 配置。
 
 | 方法 | 路径 | 兼容行为 |
 | --- | --- | --- |

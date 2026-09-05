@@ -5,7 +5,6 @@ go 1.25.0
 require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/philippseith/signalr v0.11.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

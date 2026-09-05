@@ -40,6 +40,7 @@ type fakeRepository struct {
 	bilibiliPools    []domain.BilibiliPool
 	bilibiliData     map[int][]domain.DanmakuData
 	bilibiliClaims   map[int]time.Time
+	bilibiliInterval time.Duration
 	bilibiliKeywords []domain.BilibiliKeyword
 	bilibiliBindings []domain.BilibiliBinding
 }
@@ -204,6 +205,7 @@ func (f *fakeRepository) EnsureBilibiliPool(_ context.Context, bvid string, page
 	return &value, nil
 }
 func (f *fakeRepository) ClaimBilibiliPoolSync(_ context.Context, id int, interval time.Duration, force bool) (bool, error) {
+	f.bilibiliInterval = interval
 	if f.bilibiliClaims == nil {
 		f.bilibiliClaims = map[int]time.Time{}
 	}
@@ -338,8 +340,8 @@ func testServer(t *testing.T, repository store.Repository) *Server {
 		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
 		WithOrigins:     []string{"*"}, LiveWithOrigins: []string{"http://localhost"},
 		AdminWithOrigins: []string{"http://localhost:5000"},
-		Admin:            config.AdminSettings{Password: "secret", MaxAge: 60},
-		Bilibili:         config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		Admin:            config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
+		Bilibili:         config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
 	}
 	server, err := New(context.Background(), cfg, repository, nil)
 	if err != nil {
@@ -571,11 +573,11 @@ func TestNativeCASAuthCreatesSessionAndRestoresProfile(t *testing.T) {
 	repository := &fakeRepository{casUser: &domain.User{ID: 9, Name: "hanada", Role: 1}, casCreated: true}
 	cfg := config.Config{
 		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
-		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
-		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		Admin:           config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
+		Bilibili:        config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
 		CAS: config.CASSettings{
 			Enabled: true, BaseURL: casServer.URL + "/cas/application", PublicURL: "https://danmaku.example",
-			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeSeconds: 3600, RequestTimeoutSeconds: 2,
 		},
 	}
 	server := testServerWithConfig(t, repository, cfg)
@@ -632,11 +634,11 @@ func TestCASLoginRejectsExternalReturnURL(t *testing.T) {
 	repository := &fakeRepository{}
 	cfg := config.Config{
 		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
-		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
-		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		Admin:           config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
+		Bilibili:        config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
 		CAS: config.CASSettings{
 			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
-			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+			AutoCreateUsers: true, DefaultRole: 1, SessionMaxAgeSeconds: 3600, RequestTimeoutSeconds: 2,
 		},
 	}
 	response := httptest.NewRecorder()
@@ -784,11 +786,11 @@ func TestCASEnabledDisablesLocalProfileMutations(t *testing.T) {
 	repository := &fakeRepository{verifyOK: true, verifyUID: 2, verifyRole: 2}
 	cfg := config.Config{
 		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
-		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
-		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		Admin:           config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
+		Bilibili:        config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
 		CAS: config.CASSettings{
 			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
-			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeSeconds: 3600, RequestTimeoutSeconds: 2,
 		},
 	}
 	server := testServerWithConfig(t, repository, cfg)
@@ -817,11 +819,11 @@ func TestCASEnabledManagedUserAllowsRoleOnly(t *testing.T) {
 	}
 	cfg := config.Config{
 		KestrelSettings: config.ListenerSettings{Host: "127.0.0.1", Port: 8080},
-		Admin:           config.AdminSettings{Password: "secret", MaxAge: 60},
-		Bilibili:        config.BilibiliSettings{CIDCacheMinutes: 1, DataCacheMinutes: 1},
+		Admin:           config.AdminSettings{Password: "secret", MaxAgeSeconds: 3600},
+		Bilibili:        config.BilibiliSettings{CIDCacheSeconds: 60, SyncIntervalSeconds: 60},
 		CAS: config.CASSettings{
 			Enabled: true, BaseURL: "https://cas.example/cas/application", PublicURL: "https://danmaku.example",
-			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeMinutes: 60, RequestTimeoutSeconds: 2,
+			AutoCreateUsers: true, DefaultRole: 3, SessionMaxAgeSeconds: 3600, RequestTimeoutSeconds: 2,
 		},
 	}
 	server := testServerWithConfig(t, repository, cfg)
@@ -920,15 +922,18 @@ func TestBilibiliPoolRefreshIsIncrementalAndSurvivesEmptyUpstream(t *testing.T) 
 	defer upstream.Close()
 
 	repository := &fakeRepository{}
-	bilibili := NewBilibili(repository, config.BilibiliSettings{})
+	bilibili := NewBilibili(repository, config.BilibiliSettings{SyncIntervalSeconds: 37})
 	bilibili.baseURL = upstream.URL
 	data, err := bilibili.Data(context.Background(), bilibiliQuery{CID: 99, Offset: 2})
 	if err != nil || len(data) != 1 || data[0].Time != 3.25 {
 		t.Fatalf("first fetch = %#v, %v", data, err)
 	}
+	if repository.bilibiliInterval != 37*time.Second {
+		t.Fatalf("sync interval = %s", repository.bilibiliInterval)
+	}
 	data, err = bilibili.Data(context.Background(), bilibiliQuery{CID: 99})
 	if err != nil || len(data) != 1 || requests != 1 {
-		t.Fatalf("ten-minute cache was bypassed: data=%#v requests=%d err=%v", data, requests, err)
+		t.Fatalf("configured sync cache was bypassed: data=%#v requests=%d err=%v", data, requests, err)
 	}
 	_, inserted, err := bilibili.SyncPool(context.Background(), 1)
 	if err != nil || inserted != 1 {
@@ -949,10 +954,11 @@ func TestBilibiliPoolRefreshIsIncrementalAndSurvivesEmptyUpstream(t *testing.T) 
 }
 
 func TestBilibiliSyncIntervalAndOffsetQuery(t *testing.T) {
-	if bilibiliSyncInterval != 10*time.Minute {
-		t.Fatalf("fixed sync interval = %s", bilibiliSyncInterval)
+	bilibili := NewBilibili(&fakeRepository{}, config.BilibiliSettings{SyncIntervalSeconds: 37})
+	if got := time.Duration(bilibili.settings.SyncIntervalSeconds) * time.Second; got != 37*time.Second {
+		t.Fatalf("configured sync interval = %s", got)
 	}
-	if got := NewBilibili(&fakeRepository{}, config.BilibiliSettings{}).baseURL; got != config.DefaultBilibiliAPIBase {
+	if got := bilibili.baseURL; got != config.DefaultBilibiliAPIBase {
 		t.Fatalf("default Bilibili API base = %q", got)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/danmaku/v1/bilibili/danmaku.json?BVID=BV1example&P=2&OFFSET=-3.5", nil)

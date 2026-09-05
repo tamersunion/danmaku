@@ -2,15 +2,15 @@ version: "3"
 
 services:
   danmaku:
-    image: registry.hanada.info/tamersunion/danmaku:2.3.0
+    image: registry.hanada.info/tamersunion/danmaku:2.4.0
     build:
       context: .
       args:
-        DANMAKU_VERSION: 2.3.0
+        DANMAKU_VERSION: 2.4.0
     container_name: danmaku
     restart: unless-stopped
     volumes:
-      - "/usr/local/danmaku/appsettings.yml:/usr/local/danmaku/appsettings.yml"
+      - "/usr/local/danmaku/appsettings.json:/usr/local/danmaku/appsettings.json"
     ports:
       - "127.0.0.1:13009:80"
     depends_on:

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,77 +11,83 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	KestrelSettings  ListenerSettings  `json:"KestrelSettings" yaml:"KestrelSettings"`
-	WithOrigins      []string          `json:"WithOrigins" yaml:"WithOrigins"`
-	LiveWithOrigins  []string          `json:"LiveWithOrigins" yaml:"LiveWithOrigins"`
-	AdminWithOrigins []string          `json:"AdminWithOrigins" yaml:"AdminWithOrigins"`
-	DanmakuSQL       DatabaseSettings  `json:"DanmakuSql" yaml:"DanmakuSql"`
-	LegacyDanmakuSQL *DatabaseSettings `json:"DanmuSql,omitempty" yaml:"DanmuSql,omitempty"`
-	Admin            AdminSettings     `json:"Admin" yaml:"Admin"`
-	Bilibili         BilibiliSettings  `json:"BiliBiliSetting" yaml:"BiliBiliSetting"`
-	CAS              CASSettings       `json:"CAS" yaml:"CAS"`
+	KestrelSettings  ListenerSettings `json:"kestrel_settings"`
+	WithOrigins      []string         `json:"with_origins"`
+	LiveWithOrigins  []string         `json:"live_with_origins"`
+	AdminWithOrigins []string         `json:"admin_with_origins"`
+	DanmakuSQL       DatabaseSettings `json:"danmaku_sql"`
+	Admin            AdminSettings    `json:"admin"`
+	Bilibili         BilibiliSettings `json:"bilibili_setting"`
+	CAS              CASSettings      `json:"cas"`
 }
 
 type ListenerSettings struct {
-	Host           string `json:"Host" yaml:"Host"`
-	Port           int    `json:"Port" yaml:"Port"`
-	UnixSocketPath string `json:"UnixSocketPath" yaml:"UnixSocketPath"`
+	Host           string `json:"host"`
+	Port           int    `json:"port"`
+	UnixSocketPath string `json:"unix_socket_path"`
 }
 
 type DatabaseSettings struct {
-	Host     string `json:"Host" yaml:"Host"`
-	Port     int    `json:"Port" yaml:"Port"`
-	UserName string `json:"UserName" yaml:"UserName"`
-	Password string `json:"PassWord" yaml:"PassWord"`
-	Database string `json:"DataBase" yaml:"DataBase"`
-	PoolSize int32  `json:"PoolSize" yaml:"PoolSize"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	UserName string `json:"user_name"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+	PoolSize int32  `json:"pool_size"`
 }
 
 type AdminSettings struct {
-	User     string `json:"User" yaml:"User"`
-	Password string `json:"Password" yaml:"Password"`
-	MaxAge   int    `json:"MaxAge" yaml:"MaxAge"`
+	User          string `json:"user"`
+	Password      string `json:"password"`
+	MaxAgeSeconds int    `json:"max_age_seconds"`
 }
 
 type BilibiliSettings struct {
-	Cookie                 string `json:"Cookie" yaml:"Cookie"`
-	APIBase                string `json:"ApiBase" yaml:"ApiBase"`
-	CIDCacheMinutes        int    `json:"CidCacheTime" yaml:"CidCacheTime"`
-	DataCacheMinutes       int    `json:"DanmakuCacheTime" yaml:"DanmakuCacheTime"`
-	LegacyDanmakuCacheTime *int   `json:"DanmuCacheTime,omitempty" yaml:"DanmuCacheTime,omitempty"`
+	Cookie              string `json:"cookie"`
+	APIBase             string `json:"api_base"`
+	CIDCacheSeconds     int    `json:"cid_cache_seconds"`
+	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
 }
 
-const DefaultBilibiliAPIBase = "https://api.bilibili.com"
+const (
+	DefaultBilibiliAPIBase             = "https://api.bilibili.com"
+	DefaultBilibiliCIDCacheSeconds     = 72 * 60
+	DefaultBilibiliSyncIntervalSeconds = 10 * 60
+	DefaultCASSessionMaxAgeSeconds     = 7 * 24 * 60 * 60
+	DefaultCASRequestTimeoutSeconds    = 10
+	DefaultAdminSessionMaxAgeSeconds   = 60
+)
 
 type CASSettings struct {
-	Enabled               bool   `json:"Enabled" yaml:"Enabled"`
-	DefaultLogin          bool   `json:"DefaultLogin" yaml:"DefaultLogin"`
-	BaseURL               string `json:"BaseURL" yaml:"BaseURL"`
-	ValidationURL         string `json:"ValidationURL" yaml:"ValidationURL"`
-	ValidationHost        string `json:"ValidationHost" yaml:"ValidationHost"`
-	PublicURL             string `json:"PublicURL" yaml:"PublicURL"`
-	AutoCreateUsers       bool   `json:"AutoCreateUsers" yaml:"AutoCreateUsers"`
-	DefaultRole           int    `json:"DefaultRole" yaml:"DefaultRole"`
-	SessionMaxAgeMinutes  int    `json:"SessionMaxAge" yaml:"SessionMaxAge"`
-	RequestTimeoutSeconds int    `json:"RequestTimeout" yaml:"RequestTimeout"`
-	CookieSecure          bool   `json:"CookieSecure" yaml:"CookieSecure"`
+	Enabled               bool   `json:"enabled"`
+	DefaultLogin          bool   `json:"default_login"`
+	BaseURL               string `json:"base_url"`
+	ValidationURL         string `json:"validation_url"`
+	ValidationHost        string `json:"validation_host"`
+	PublicURL             string `json:"public_url"`
+	AutoCreateUsers       bool   `json:"auto_create_users"`
+	DefaultRole           int    `json:"default_role"`
+	SessionMaxAgeSeconds  int    `json:"session_max_age_seconds"`
+	RequestTimeoutSeconds int    `json:"request_timeout_seconds"`
+	CookieSecure          bool   `json:"cookie_secure"`
 }
 
 func defaults() Config {
 	return Config{
 		KestrelSettings: ListenerSettings{Host: "127.0.0.1", Port: 80},
 		DanmakuSQL:      DatabaseSettings{Host: "127.0.0.1", Port: 5432, PoolSize: 8},
-		Admin:           AdminSettings{MaxAge: 1},
-		Bilibili:        BilibiliSettings{APIBase: DefaultBilibiliAPIBase, CIDCacheMinutes: 72, DataCacheMinutes: 5},
+		Admin:           AdminSettings{MaxAgeSeconds: DefaultAdminSessionMaxAgeSeconds},
+		Bilibili: BilibiliSettings{
+			APIBase: DefaultBilibiliAPIBase, CIDCacheSeconds: DefaultBilibiliCIDCacheSeconds,
+			SyncIntervalSeconds: DefaultBilibiliSyncIntervalSeconds,
+		},
 		CAS: CASSettings{
 			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 3,
-			SessionMaxAgeMinutes:  7 * 24 * 60,
-			RequestTimeoutSeconds: 10, CookieSecure: true,
+			SessionMaxAgeSeconds:  DefaultCASSessionMaxAgeSeconds,
+			RequestTimeoutSeconds: DefaultCASRequestTimeoutSeconds, CookieSecure: true,
 		},
 	}
 }
@@ -108,7 +115,7 @@ func Load(path string) (Config, error) {
 		cfg.KestrelSettings.Host = "127.0.0.1"
 	}
 	if cfg.KestrelSettings.Port == 0 && cfg.KestrelSettings.UnixSocketPath == "" {
-		return Config{}, errors.New("KestrelSettings.Port and UnixSocketPath cannot both be empty")
+		return Config{}, errors.New("kestrel_settings.port and unix_socket_path cannot both be empty")
 	}
 	if cfg.DanmakuSQL.Port == 0 {
 		cfg.DanmakuSQL.Port = 5432
@@ -116,34 +123,40 @@ func Load(path string) (Config, error) {
 	if cfg.DanmakuSQL.PoolSize <= 0 {
 		cfg.DanmakuSQL.PoolSize = 8
 	}
-	if cfg.Admin.MaxAge <= 0 {
-		cfg.Admin.MaxAge = 1
+	if cfg.Admin.MaxAgeSeconds <= 0 {
+		cfg.Admin.MaxAgeSeconds = DefaultAdminSessionMaxAgeSeconds
 	}
 	cfg.Bilibili.APIBase = strings.TrimRight(strings.TrimSpace(cfg.Bilibili.APIBase), "/")
 	if cfg.Bilibili.APIBase == "" {
 		cfg.Bilibili.APIBase = DefaultBilibiliAPIBase
 	}
-	if err := validateAbsoluteURL(cfg.Bilibili.APIBase, "BiliBiliSetting.ApiBase"); err != nil {
+	if err := validateAbsoluteURL(cfg.Bilibili.APIBase, "bilibili_setting.api_base"); err != nil {
 		return Config{}, err
 	}
-	if cfg.CAS.SessionMaxAgeMinutes <= 0 {
-		cfg.CAS.SessionMaxAgeMinutes = 7 * 24 * 60
+	if cfg.Bilibili.CIDCacheSeconds <= 0 {
+		return Config{}, errors.New("bilibili_setting.cid_cache_seconds must be greater than zero")
+	}
+	if cfg.Bilibili.SyncIntervalSeconds <= 0 {
+		return Config{}, errors.New("bilibili_setting.sync_interval_seconds must be greater than zero")
+	}
+	if cfg.CAS.SessionMaxAgeSeconds <= 0 {
+		cfg.CAS.SessionMaxAgeSeconds = DefaultCASSessionMaxAgeSeconds
 	}
 	if cfg.CAS.RequestTimeoutSeconds <= 0 {
-		cfg.CAS.RequestTimeoutSeconds = 10
+		cfg.CAS.RequestTimeoutSeconds = DefaultCASRequestTimeoutSeconds
 	}
 	if cfg.CAS.Enabled {
 		if cfg.CAS.DefaultRole != 1 && cfg.CAS.DefaultRole != 2 && cfg.CAS.DefaultRole != 3 {
-			return Config{}, errors.New("CAS.DefaultRole must be 1 (SuperAdmin), 2 (Admin), or 3 (GeneralUser)")
+			return Config{}, errors.New("cas.default_role must be 1 (SuperAdmin), 2 (Admin), or 3 (GeneralUser)")
 		}
-		if err := validateAbsoluteURL(cfg.CAS.BaseURL, "CAS.BaseURL"); err != nil {
+		if err := validateAbsoluteURL(cfg.CAS.BaseURL, "cas.base_url"); err != nil {
 			return Config{}, err
 		}
-		if err := validateAbsoluteURL(cfg.CAS.PublicURL, "CAS.PublicURL"); err != nil {
+		if err := validateAbsoluteURL(cfg.CAS.PublicURL, "cas.public_url"); err != nil {
 			return Config{}, err
 		}
 		if cfg.CAS.ValidationURL != "" {
-			if err := validateAbsoluteURL(cfg.CAS.ValidationURL, "CAS.ValidationURL"); err != nil {
+			if err := validateAbsoluteURL(cfg.CAS.ValidationURL, "cas.validation_url"); err != nil {
 				return Config{}, err
 			}
 		}
@@ -152,13 +165,10 @@ func Load(path string) (Config, error) {
 }
 
 func configCandidates() []string {
-	result := []string{"appsettings.json", "appsettings.yml"}
-	environment := os.Getenv("ASPNETCORE_ENVIRONMENT")
-	if environment == "" {
-		environment = os.Getenv("DOTNET_ENVIRONMENT")
-	}
+	result := []string{"appsettings.json"}
+	environment := strings.TrimSpace(os.Getenv("DANMAKU_ENVIRONMENT"))
 	if environment != "" {
-		result = append(result, "appsettings."+environment+".json", "appsettings."+environment+".yml")
+		result = append(result, "appsettings."+environment+".json")
 	}
 	return result
 }
@@ -168,24 +178,17 @@ func mergeFile(path string, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("read config %q: %w", path, err)
 	}
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".json":
-		err = json.Unmarshal(data, cfg)
-	case ".yml", ".yaml":
-		err = yaml.Unmarshal(data, cfg)
-	default:
+	if strings.ToLower(filepath.Ext(path)) != ".json" {
 		return fmt.Errorf("unsupported config format %q", filepath.Ext(path))
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	err = decoder.Decode(cfg)
+	if err == nil && len(bytes.TrimSpace(data[decoder.InputOffset():])) != 0 {
+		err = errors.New("unexpected data after JSON document")
 	}
 	if err != nil {
 		return fmt.Errorf("parse config %q: %w", path, err)
-	}
-	if cfg.LegacyDanmakuSQL != nil {
-		cfg.DanmakuSQL = *cfg.LegacyDanmakuSQL
-		cfg.LegacyDanmakuSQL = nil
-	}
-	if cfg.Bilibili.LegacyDanmakuCacheTime != nil {
-		cfg.Bilibili.DataCacheMinutes = *cfg.Bilibili.LegacyDanmakuCacheTime
-		cfg.Bilibili.LegacyDanmakuCacheTime = nil
 	}
 	return nil
 }

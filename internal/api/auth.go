@@ -56,7 +56,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.setSession(w, session{UID: uid, User: request.Name, Role: role, Provider: "local"}, time.Duration(s.config.Admin.MaxAge)*time.Minute); err != nil {
+	if err := s.setSession(w, session{UID: uid, User: request.Name, Role: role, Provider: "local"}, time.Duration(s.config.Admin.MaxAgeSeconds)*time.Second); err != nil {
 		s.writeError(w, err)
 		return
 	}
