@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,5 +37,48 @@ func TestCachedDanmakuUsesRedisAndInvalidatesByRevision(t *testing.T) {
 	third, err := repository.cachedDanmaku(context.Background(), "native", "video", loader)
 	if err != nil || loads != 2 || third[0].Time != 2 {
 		t.Fatalf("invalidated load = %#v, loads=%d, err=%v", third, loads, err)
+	}
+}
+
+func TestMergedCacheInvalidation(t *testing.T) {
+	for _, useRedis := range []bool{false, true} {
+		t.Run(fmt.Sprint("redis=", useRedis), func(t *testing.T) {
+			repository := &Postgres{cachePrefix: "merged-test", cacheTTL: time.Hour}
+			if useRedis {
+				server := miniredis.RunT(t)
+				repository.redis = redis.NewClient(&redis.Options{Addr: server.Addr()})
+				t.Cleanup(func() { _ = repository.redis.Close() })
+			}
+			loads := 0
+			loader := func(context.Context) ([]domain.DanmakuData, error) {
+				loads++
+				return []domain.DanmakuData{{Time: float32(loads)}}, nil
+			}
+			read := func(want int) {
+				t.Helper()
+				data, err := repository.CachedMergedDanmaku(context.Background(), "video-bindings-offsets", loader)
+				if err != nil || len(data) != 1 || data[0].Time != float32(want) || loads != want {
+					t.Fatalf("data=%v loads=%d want=%d err=%v", data, loads, want, err)
+				}
+				data[0].Time = 999
+			}
+			read(1)
+			read(1)
+			for i, namespace := range []string{"native", "bilibili", "iqiyi", "external"} {
+				repository.invalidateDanmakuCache(context.Background(), namespace)
+				read(i + 2)
+				read(i + 2)
+			}
+			// A write during a cache miss must prevent the old result becoming a hit.
+			repository.invalidateDanmakuCache(context.Background(), "native")
+			_, err := repository.CachedMergedDanmaku(context.Background(), "video-bindings-offsets", func(ctx context.Context) ([]domain.DanmakuData, error) {
+				repository.invalidateDanmakuCache(ctx, "external")
+				return []domain.DanmakuData{{Time: 999}}, nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			read(6)
+		})
 	}
 }

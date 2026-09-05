@@ -165,3 +165,9 @@ type ExternalRepository interface {
 	UpsertVideoExternalBinding(context.Context, int, string, float64) (*domain.ExternalBinding, error)
 	DeleteVideoExternalBinding(context.Context, int, int) (bool, error)
 }
+
+type ExternalKeywordRepository interface {
+	ExternalKeywords(context.Context) ([]domain.ExternalKeyword, error)
+	CreateExternalKeyword(context.Context, *string, string) (*domain.ExternalKeyword, error)
+	DeleteExternalKeyword(context.Context, int) (bool, error)
+}

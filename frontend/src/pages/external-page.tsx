@@ -18,6 +18,8 @@ import type {
 } from "@/api/types";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { ListPagination } from "@/components/list-pagination";
+import { ExternalKeywordPanel } from "@/components/external-keyword-panel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LoadingTable } from "@/components/loading-table";
 import { PageHeader } from "@/components/page-header";
 import { QueryError } from "@/components/query-error";
@@ -60,6 +62,10 @@ export function ExternalPage() {
   const [importPool, setImportPool] = useState<ExternalPool | null | undefined>();
   const [detailPool, setDetailPool] = useState<ExternalPool | null>(null);
   const [bindingPool, setBindingPool] = useState<ExternalPool | null>(null);
+  const poolOptions = useQuery({
+    queryKey: ["external-pool-options"],
+    queryFn: async () => (await apiGet<ApiResponse<Paged<ExternalPool>>>("/api/admin/external", {page: 1, size: 500})).data.list,
+  });
   const pools = useQuery({
     queryKey: ["external-pools", page, query],
     queryFn: async () =>
@@ -92,7 +98,7 @@ export function ExternalPage() {
       {
         key: "count",
         label: "弹幕",
-        render: (pool) => <Badge variant="secondary">{pool.danmakuCount} 条</Badge>,
+        render: (pool) => <div className="flex gap-2"><Badge variant="secondary">共 {pool.danmakuCount} 条</Badge><Badge variant={pool.blockedCount ? "destructive" : "outline"}>屏蔽 {pool.blockedCount} 条</Badge></div>,
       },
       {
         key: "binding",
@@ -161,6 +167,9 @@ export function ExternalPage() {
         title="外部导入"
         description="将不同平台或播放器格式统一导入为可关联的视频弹幕池。"
       />
+      <Tabs defaultValue="pools">
+      <TabsList><TabsTrigger value="pools">弹幕池</TabsTrigger><TabsTrigger value="keywords">过滤关键词</TabsTrigger></TabsList>
+      <TabsContent value="pools">
       <Card>
         <CardHeader>
           <CardTitle>弹幕池</CardTitle>
@@ -214,6 +223,9 @@ export function ExternalPage() {
           />
         ) : null}
       </Card>
+      </TabsContent>
+      <TabsContent value="keywords"><ExternalKeywordPanel pools={poolOptions.data ?? []} /></TabsContent>
+      </Tabs>
       <ImportDialog
         pool={importPool}
         open={importPool !== undefined}
@@ -261,7 +273,7 @@ function ImportDialog({
         ? apiPut(`/api/admin/external/${pool.id}`, body)
         : apiPost("/api/admin/external", body),
     successMessage: pool ? "弹幕池已覆盖导入" : "弹幕池已导入",
-    invalidate: [["external-pools"], ["external-pool-options"], ["videos"], ["video"]],
+    invalidate: [["external-pools"], ["external-pool-options"], ["external-pool-danmaku"], ["external-keywords"], ["videos"], ["video"], ["video-heatmap"]],
   });
 
   async function submit(event: FormEvent) {
@@ -357,6 +369,7 @@ function ExternalDetailDialog({ pool, onOpenChange }: { pool: ExternalPool | nul
     enabled: Boolean(pool),
   });
   const columns: DataColumn<ExternalPoolDanmaku>[] = [
+    { key: "blocked", label: "状态", render: item => <Badge variant={item.keywordBlocked ? "destructive" : "outline"}>{item.keywordBlocked ? "关键词屏蔽" : "可见"}</Badge> },
     { key: "time", label: "出现时间", render: (item) => `${item.data.time.toFixed(3)} 秒` },
     { key: "content", label: "内容", render: (item) => <span className="line-clamp-2 max-w-xl">{item.data.text}</span> },
   ];

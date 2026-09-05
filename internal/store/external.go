@@ -17,7 +17,8 @@ import (
 
 const externalPoolSelect = `SELECT p."Id"::text,p."Name",p."SourceFormat",p."CreateTime",p."UpdateTime",
 	(SELECT COUNT(*)::integer FROM "ExternalDanmaku" d WHERE d."PoolId"=p."Id"),
-	(SELECT COUNT(*)::integer FROM "ExternalDanmakuBinding" b WHERE b."PoolId"=p."Id")
+	(SELECT COUNT(*)::integer FROM "ExternalDanmakuBinding" b WHERE b."PoolId"=p."Id"),
+	(SELECT COUNT(*)::integer FROM "ExternalDanmaku" d WHERE d."PoolId"=p."Id" AND ` + externalKeywordBlockedSQL + `)
 	FROM "ExternalDanmakuPool" p`
 
 func (p *Postgres) ExternalPool(ctx context.Context, id string) (*domain.ExternalPool, error) {
@@ -161,7 +162,7 @@ func (p *Postgres) ExternalPoolData(ctx context.Context, poolID string) ([]domai
 		return []domain.DanmakuData{}, nil
 	}
 	return p.cachedDanmaku(ctx, "external", poolID, func(ctx context.Context) ([]domain.DanmakuData, error) {
-		rows, err := p.pool.Query(ctx, `SELECT "Data" FROM "ExternalDanmaku" WHERE "PoolId"=$1 ORDER BY "TimeMillis","Id"`, poolID)
+		rows, err := p.pool.Query(ctx, `SELECT d."Data" FROM "ExternalDanmaku" d WHERE d."PoolId"=$1 AND NOT `+externalKeywordBlockedSQL+` ORDER BY d."TimeMillis",d."Id"`, poolID)
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +199,7 @@ func (p *Postgres) ExternalDanmaku(ctx context.Context, filter ExternalDanmakuFi
 		return domain.Page[domain.ExternalDanmaku]{}, err
 	}
 	args = append(args, filter.Size, filter.Size*(filter.Page-1))
-	rows, err := p.pool.Query(ctx, `SELECT "Id","PoolId"::text,"Data","CreateTime","UpdateTime" FROM "ExternalDanmaku"`+where+fmt.Sprintf(` ORDER BY "TimeMillis","Id" LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
+	rows, err := p.pool.Query(ctx, `SELECT "Id","PoolId"::text,"Data","CreateTime","UpdateTime",`+externalKeywordBlockedSQL+` FROM "ExternalDanmaku" d`+where+fmt.Sprintf(` ORDER BY "TimeMillis","Id" LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return domain.Page[domain.ExternalDanmaku]{}, err
 	}
@@ -207,7 +208,7 @@ func (p *Postgres) ExternalDanmaku(ctx context.Context, filter ExternalDanmakuFi
 	for rows.Next() {
 		var item domain.ExternalDanmaku
 		var raw []byte
-		if err := rows.Scan(&item.ID, &item.PoolID, &raw, &item.CreateTime, &item.UpdateTime); err != nil {
+		if err := rows.Scan(&item.ID, &item.PoolID, &raw, &item.CreateTime, &item.UpdateTime, &item.KeywordBlocked); err != nil {
 			return domain.Page[domain.ExternalDanmaku]{}, err
 		}
 		if err := json.Unmarshal(raw, &item.Data); err != nil {
@@ -277,7 +278,7 @@ func (p *Postgres) DeleteVideoExternalBinding(ctx context.Context, videoID, bind
 
 func scanExternalPool(row pgx.Row) (*domain.ExternalPool, error) {
 	var item domain.ExternalPool
-	err := row.Scan(&item.ID, &item.Name, &item.SourceFormat, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BindingCount)
+	err := row.Scan(&item.ID, &item.Name, &item.SourceFormat, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BindingCount, &item.BlockedCount)
 	return &item, err
 }
 

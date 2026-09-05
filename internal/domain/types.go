@@ -72,21 +72,22 @@ type Referer struct {
 }
 
 type Video struct {
-	ID                int               `json:"id"`
-	Vid               string            `json:"vid"`
-	Name              string            `json:"name"`
-	IsDeleted         bool              `json:"isDelete"`
-	DefaultPool       bool              `json:"defaultPool"`
-	DanmakuCount      int               `json:"danmakuCount"`
-	BilibiliPoolCount int               `json:"bilibiliPoolCount"`
-	BilibiliBindings  []BilibiliBinding `json:"bilibiliBindings,omitempty"`
-	IqiyiPoolCount    int               `json:"iqiyiPoolCount"`
-	IqiyiBindings     []IqiyiBinding    `json:"iqiyiBindings,omitempty"`
-	ExternalPoolCount int               `json:"externalPoolCount"`
-	ExternalBindings  []ExternalBinding `json:"externalBindings,omitempty"`
-	Referer           *Referer          `json:"referer,omitempty"`
-	CreateTime        time.Time         `json:"createTime"`
-	UpdateTime        time.Time         `json:"updateTime"`
+	ThirdPartyDanmakuCount int               `json:"thirdPartyDanmakuCount"`
+	ID                     int               `json:"id"`
+	Vid                    string            `json:"vid"`
+	Name                   string            `json:"name"`
+	IsDeleted              bool              `json:"isDelete"`
+	DefaultPool            bool              `json:"defaultPool"`
+	DanmakuCount           int               `json:"danmakuCount"`
+	BilibiliPoolCount      int               `json:"bilibiliPoolCount"`
+	BilibiliBindings       []BilibiliBinding `json:"bilibiliBindings,omitempty"`
+	IqiyiPoolCount         int               `json:"iqiyiPoolCount"`
+	IqiyiBindings          []IqiyiBinding    `json:"iqiyiBindings,omitempty"`
+	ExternalPoolCount      int               `json:"externalPoolCount"`
+	ExternalBindings       []ExternalBinding `json:"externalBindings,omitempty"`
+	Referer                *Referer          `json:"referer,omitempty"`
+	CreateTime             time.Time         `json:"createTime"`
+	UpdateTime             time.Time         `json:"updateTime"`
 }
 
 // DanmakuVideo preserves the video object embedded in the existing danmaku
@@ -229,6 +230,7 @@ type IqiyiBinding struct {
 }
 
 type ExternalPool struct {
+	BlockedCount int               `json:"blockedCount"`
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
 	SourceFormat string            `json:"sourceFormat"`
@@ -240,11 +242,20 @@ type ExternalPool struct {
 }
 
 type ExternalDanmaku struct {
-	ID         int64       `json:"id"`
-	PoolID     string      `json:"poolId"`
-	Data       DanmakuData `json:"data"`
-	CreateTime time.Time   `json:"createTime"`
-	UpdateTime time.Time   `json:"updateTime"`
+	KeywordBlocked bool        `json:"keywordBlocked"`
+	ID             int64       `json:"id"`
+	PoolID         string      `json:"poolId"`
+	Data           DanmakuData `json:"data"`
+	CreateTime     time.Time   `json:"createTime"`
+	UpdateTime     time.Time   `json:"updateTime"`
+}
+
+type ExternalKeyword struct {
+	ID         int       `json:"id"`
+	PoolID     *string   `json:"poolId"`
+	PoolName   string    `json:"poolName"`
+	Keyword    string    `json:"keyword"`
+	CreateTime time.Time `json:"createTime"`
 }
 
 type ExternalBinding struct {

@@ -535,7 +535,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
   });
   const columns: DataColumn<IqiyiKeyword>[] = [
     { key: "keyword", label: "关键词", render: (item) => <span className="font-medium">{item.keyword}</span> },
-    { key: "scope", label: "作用范围", render: (item) => <Badge variant="outline">{item.poolId ? item.poolVid : "全部弹幕池"}</Badge> },
+    { key: "scope", label: "作用范围", render: (item) => <Badge variant={item.poolId ? "secondary" : "default"}>{item.poolId ? item.poolVid : "全局"}</Badge> },
     { key: "created", label: "创建时间", className: "whitespace-nowrap", render: (item) => formatDateTime(item.createTime) },
     {
       key: "actions",

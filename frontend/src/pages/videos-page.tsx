@@ -1,3 +1,4 @@
+import { AddDanmakuForm } from "@/components/add-danmaku-form";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -7,7 +8,6 @@ import {
   PlusIcon,
   RefreshCcwIcon,
   SearchIcon,
-  SendIcon,
   Trash2Icon,
 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
@@ -199,11 +199,7 @@ export function VideosPage() {
         render: (video) => (
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">系统弹幕 {video.danmakuCount} 条</Badge>
-            <Badge variant="outline">
-              bilibili {video.bilibiliPoolCount} 个
-            </Badge>
-            <Badge variant="outline">爱奇艺 {video.iqiyiPoolCount} 个</Badge>
-            <Badge variant="outline">外部导入 {video.externalPoolCount} 个</Badge>
+            <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
           </div>
         ),
       },
@@ -454,10 +450,6 @@ function VideoDialog({
   const [source, setSource] = useState<"bilibili" | "iqiyi" | "external">("bilibili");
   const [poolID, setPoolID] = useState("");
   const [offset, setOffset] = useState("0");
-  const [danmakuTime, setDanmakuTime] = useState("0");
-  const [danmakuType, setDanmakuType] = useState("0");
-  const [danmakuColor, setDanmakuColor] = useState("#ffffff");
-  const [danmakuText, setDanmakuText] = useState("");
   const [exportFormat, setExportFormat] = useState("danuni.json");
   const detail = useQuery({
     queryKey: ["video", video?.id],
@@ -497,6 +489,7 @@ function VideoDialog({
     invalidate: [
       ["videos"],
       ["video"],
+      ["video-heatmap"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
       ["external-pools"],
@@ -514,18 +507,11 @@ function VideoDialog({
     invalidate: [
       ["videos"],
       ["video"],
+      ["video-heatmap"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
       ["external-pools"],
     ],
-  });
-  const addDanmaku = useApiMutation<
-    { id: string; time: number; type: number; color: number; author: string; text: string },
-    ApiResponse<null>
-  >({
-    mutationFn: (body) => apiPost("/api/danmaku/dplayer/v3", body),
-    successMessage: "弹幕已添加",
-    invalidate: [["videos"], ["video"], ["video-heatmap"]],
   });
   type ThirdPartyBinding =
     | { source: "bilibili"; binding: BilibiliBinding }
@@ -638,24 +624,6 @@ function VideoDialog({
     );
   }
 
-  function submitDanmaku(event: FormEvent) {
-    event.preventDefault();
-    if (!video) return;
-    addDanmaku.mutate(
-      {
-        id: video.vid,
-        time: Number(danmakuTime),
-        type: Number(danmakuType),
-        color: Number.parseInt(danmakuColor.slice(1), 16),
-        author: "",
-        text: danmakuText.trim(),
-      },
-      {
-        onSuccess: () => setDanmakuText(""),
-      },
-    );
-  }
-
   return (
     <Dialog open={Boolean(video)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-4xl">
@@ -696,110 +664,6 @@ function VideoDialog({
                         保存名称
                       </Button>
                     </Field>
-                  </FieldGroup>
-                </form>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>系统自带弹幕池</CardTitle>
-                <CardDescription>
-                  管理这个视频由系统直接接收的弹幕。
-                </CardDescription>
-                <CardAction>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (!video) return;
-                      onOpenChange(false);
-                      navigate(`/danmaku?vid=${encodeURIComponent(video.vid)}`);
-                    }}
-                  >
-                    <SearchIcon data-icon="inline-start" />
-                    管理弹幕
-                  </Button>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={submitDanmaku}>
-                  <FieldGroup>
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge variant="secondary">
-                        {detail.data?.danmakuCount ?? 0} 条弹幕
-                      </Badge>
-                      {detail.data?.isDelete ? (
-                        <span className="text-xs text-muted-foreground">
-                          已删除的视频不能发送弹幕
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-[8rem_10rem_7rem_1fr_auto] md:items-end">
-                      <Field data-disabled={detail.data?.isDelete}>
-                        <FieldLabel htmlFor="native-danmaku-time">
-                          出现时间（秒）
-                        </FieldLabel>
-                        <Input
-                          id="native-danmaku-time"
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={danmakuTime}
-                          disabled={detail.data?.isDelete}
-                          required
-                          onChange={(event) => setDanmakuTime(event.target.value)}
-                        />
-                      </Field>
-                      <Field data-disabled={detail.data?.isDelete}>
-                        <FieldLabel htmlFor="native-danmaku-type">类型</FieldLabel>
-                        <SearchableSelect
-                          id="native-danmaku-type"
-                          options={[
-                            { value: "0", label: "滚动" },
-                            { value: "1", label: "顶部" },
-                            { value: "2", label: "底部" },
-                          ]}
-                          value={danmakuType}
-                          disabled={detail.data?.isDelete}
-                          searchPlaceholder="搜索类型"
-                          onValueChange={setDanmakuType}
-                        />
-                      </Field>
-                      <Field data-disabled={detail.data?.isDelete}>
-                        <FieldLabel htmlFor="native-danmaku-color">颜色</FieldLabel>
-                        <Input
-                          id="native-danmaku-color"
-                          type="color"
-                          value={danmakuColor}
-                          disabled={detail.data?.isDelete}
-                          className="h-9 p-1"
-                          onChange={(event) => setDanmakuColor(event.target.value)}
-                        />
-                      </Field>
-                      <Field data-disabled={detail.data?.isDelete}>
-                        <FieldLabel htmlFor="native-danmaku-text">弹幕内容</FieldLabel>
-                        <Input
-                          id="native-danmaku-text"
-                          value={danmakuText}
-                          maxLength={500}
-                          disabled={detail.data?.isDelete}
-                          required
-                          placeholder="输入要发送的弹幕"
-                          onChange={(event) => setDanmakuText(event.target.value)}
-                        />
-                      </Field>
-                      <Button
-                        type="submit"
-                        disabled={detail.data?.isDelete || addDanmaku.isPending || !danmakuText.trim()}
-                      >
-                        {addDanmaku.isPending ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : (
-                          <SendIcon data-icon="inline-start" />
-                        )}
-                        添加
-                      </Button>
-                    </div>
                   </FieldGroup>
                 </form>
               </CardContent>
@@ -861,30 +725,31 @@ function VideoDialog({
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>导出弹幕</CardTitle>
+                <CardTitle>系统自带弹幕池</CardTitle>
                 <CardDescription>
-                  导出当前视频已合并的系统与第三方弹幕，可额外通过 API 设置 offset。
+                  管理这个视频由系统直接接收的弹幕。
                 </CardDescription>
+                <CardAction>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (!video) return;
+                      onOpenChange(false);
+                      navigate(`/danmaku?vid=${encodeURIComponent(video.vid)}`);
+                    }}
+                  >
+                    <SearchIcon data-icon="inline-start" />
+                    管理弹幕
+                  </Button>
+                </CardAction>
               </CardHeader>
               <CardContent>
-                <Field orientation="horizontal">
-                  <SearchableSelect
-                    options={exportFormats}
-                    value={exportFormat}
-                    searchPlaceholder="搜索输出格式"
-                    onValueChange={setExportFormat}
-                  />
-                  <Button
-                    render={
-                      <a
-                        href={`/api/danmaku/export?id=${encodeURIComponent(video?.vid ?? "")}&format=${encodeURIComponent(exportFormat)}`}
-                      />
-                    }
-                  >
-                    <DownloadIcon data-icon="inline-start" />
-                    下载
-                  </Button>
-                </Field>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <Badge variant="secondary">{detail.data?.danmakuCount ?? 0} 条弹幕</Badge>
+                  {detail.data?.isDelete ? <span className="text-xs text-muted-foreground">已删除的视频不能发送弹幕</span> : null}
+                </div>
+                <AddDanmakuForm vid={video?.vid} disabled={detail.data?.isDelete} />
               </CardContent>
             </Card>
             <Card>
@@ -993,6 +858,34 @@ function VideoDialog({
                   emptyTitle="暂无第三方弹幕池"
                   emptyDescription="选择来源和弹幕池后即可关联。"
                 />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>导出弹幕</CardTitle>
+                <CardDescription>
+                  导出当前视频已合并的系统与第三方弹幕，可额外通过 API 设置 offset。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Field orientation="horizontal">
+                  <SearchableSelect
+                    options={exportFormats}
+                    value={exportFormat}
+                    searchPlaceholder="搜索输出格式"
+                    onValueChange={setExportFormat}
+                  />
+                  <Button
+                    render={
+                      <a
+                        href={`/api/danmaku/export?id=${encodeURIComponent(video?.vid ?? "")}&format=${encodeURIComponent(exportFormat)}`}
+                      />
+                    }
+                  >
+                    <DownloadIcon data-icon="inline-start" />
+                    下载
+                  </Button>
+                </Field>
               </CardContent>
             </Card>
           </div>

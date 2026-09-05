@@ -2,11 +2,11 @@ version: "3"
 
 services:
   danmaku:
-    image: registry.hanada.info/tamersunion/danmaku:2.7.0
+    image: registry.hanada.info/tamersunion/danmaku:2.8.0
     build:
       context: .
       args:
-        DANMAKU_VERSION: 2.7.0
+        DANMAKU_VERSION: 2.8.0
     container_name: danmaku
     restart: unless-stopped
     volumes:

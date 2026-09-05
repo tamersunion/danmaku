@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -18,6 +19,10 @@ func (s *Server) serveExternalAdmin(w http.ResponseWriter, r *http.Request, path
 		return
 	}
 	const base = "/api/admin/external"
+	if path == base+"/keywords" || strings.HasPrefix(path, base+"/keywords/") {
+		s.serveExternalKeywords(w, r, path)
+		return
+	}
 	suffix := strings.Trim(strings.TrimPrefix(path, base), "/")
 	if suffix == "" {
 		switch r.Method {
@@ -60,6 +65,72 @@ func (s *Server) serveExternalAdmin(w http.ResponseWriter, r *http.Request, path
 			return
 		}
 		s.writeJSON(w, http.StatusOK, success(data))
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (s *Server) serveExternalKeywords(w http.ResponseWriter, r *http.Request, path string) {
+	repo, ok := s.repository.(store.ExternalKeywordRepository)
+	if !ok {
+		s.writeExternalFailure(w, "外部关键词不可用")
+		return
+	}
+	const base = "/api/admin/external/keywords"
+	switch {
+	case path == base && r.Method == http.MethodGet:
+		data, err := repo.ExternalKeywords(r.Context())
+		if err != nil {
+			s.writeError(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, success(data))
+	case path == base && r.Method == http.MethodPost:
+		var input struct {
+			PoolID  *string `json:"poolId"`
+			Keyword string  `json:"keyword"`
+		}
+		if !s.decodeJSON(w, r, &input) {
+			return
+		}
+		input.Keyword = strings.TrimSpace(input.Keyword)
+		if input.Keyword == "" || utf8.RuneCountInString(input.Keyword) > 200 {
+			s.writeExternalFailure(w, "关键词长度应为 1 到 200 个字符")
+			return
+		}
+		if input.PoolID != nil {
+			pool, err := s.repository.(store.ExternalRepository).ExternalPool(r.Context(), *input.PoolID)
+			if err != nil {
+				s.writeError(w, err)
+				return
+			}
+			if pool == nil {
+				s.writeExternalFailure(w, "弹幕池不存在")
+				return
+			}
+		}
+		data, err := repo.CreateExternalKeyword(r.Context(), input.PoolID, input.Keyword)
+		if err != nil {
+			s.writeError(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, success(data))
+	case strings.HasPrefix(path, base+"/") && r.Method == http.MethodDelete:
+		id, err := strconv.Atoi(strings.TrimPrefix(path, base+"/"))
+		if err != nil || id < 1 {
+			s.writeExternalFailure(w, "关键词 ID 无效")
+			return
+		}
+		ok, err := repo.DeleteExternalKeyword(r.Context(), id)
+		if err != nil {
+			s.writeError(w, err)
+			return
+		}
+		if !ok {
+			s.writeExternalFailure(w, "关键词不存在")
+			return
+		}
+		s.writeJSON(w, http.StatusOK, success(nil))
 	default:
 		http.NotFound(w, r)
 	}

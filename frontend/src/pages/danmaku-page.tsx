@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import {
   EraserIcon,
+  PlusIcon,
   PencilIcon,
   RotateCcwIcon,
   SearchIcon,
@@ -12,6 +13,7 @@ import {
 import { apiGet, apiPost } from "@/api/client";
 import type { ApiResponse, Danmaku } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
+import { AddDanmakuForm } from "@/components/add-danmaku-form";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
@@ -85,6 +87,7 @@ function modeLabel(mode: number): string {
 }
 
 export function DanmakuPage() {
+  const [adding, setAdding] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialFilters = { ...emptyFilters, vid: searchParams.get("vid") ?? "" };
   const [draft, setDraft] = useState<Filters>(initialFilters);
@@ -246,9 +249,18 @@ export function DanmakuPage() {
         title="弹幕管理"
         description="快速检索、审阅并维护所有播放器产生的弹幕数据。"
         action={
-          data ? <Badge variant="outline">共 {data.total} 条</Badge> : null
+          <div className="flex items-center gap-3">
+            {data ? <Badge variant="outline">共 {data.total} 条</Badge> : null}
+            <Button onClick={() => setAdding(true)}><PlusIcon data-icon="inline-start" />添加弹幕</Button>
+          </div>
         }
       />
+      <Dialog open={adding} onOpenChange={setAdding}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>添加弹幕</DialogTitle><DialogDescription>向指定视频的系统弹幕池添加弹幕。</DialogDescription></DialogHeader>
+          {adding ? <AddDanmakuForm initialVid={filters.vid} onSuccess={() => setAdding(false)} /> : null}
+        </DialogContent>
+      </Dialog>
       <Card>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={submit}>

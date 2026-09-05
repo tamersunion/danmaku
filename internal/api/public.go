@@ -224,43 +224,7 @@ func (s *Server) queryDanmakuByVID(r *http.Request, vid string) ([]domain.Danmak
 	if video == nil || video.IsDeleted {
 		return []domain.DanmakuData{}, nil
 	}
-	local, err := s.repository.QueryByVid(r.Context(), vid)
-	if err != nil {
-		return nil, err
-	}
-	linked, err := s.bilibili.BoundData(r.Context(), vid)
-	if err != nil {
-		return nil, err
-	}
-	iqiyiLinked, err := s.iqiyi.BoundData(r.Context(), vid)
-	if err != nil {
-		return nil, err
-	}
-	externalLinked, err := s.externalBoundData(r, vid)
-	if err != nil {
-		return nil, err
-	}
-	return offsetDanmaku(append(append(append(local, linked...), iqiyiLinked...), externalLinked...), 0), nil
-}
-
-func (s *Server) externalBoundData(r *http.Request, vid string) ([]domain.DanmakuData, error) {
-	repository, ok := s.repository.(store.ExternalRepository)
-	if !ok {
-		return []domain.DanmakuData{}, nil
-	}
-	bindings, err := repository.ExternalBindingsByVID(r.Context(), vid)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]domain.DanmakuData, 0)
-	for _, binding := range bindings {
-		data, err := repository.ExternalPoolData(r.Context(), binding.PoolID)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, offsetDanmaku(data, binding.Offset)...)
-	}
-	return result, nil
+	return s.mergedVideoData(r, vid)
 }
 
 func requestIP(r *http.Request, fallback net.IP) net.IP {

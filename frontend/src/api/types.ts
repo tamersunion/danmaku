@@ -138,6 +138,7 @@ export type IqiyiBinding = {
 };
 
 export type ExternalPool = {
+  blockedCount: number;
   id: string;
   name: string;
   sourceFormat: string;
@@ -149,6 +150,7 @@ export type ExternalPool = {
 };
 
 export type ExternalPoolDanmaku = {
+  keywordBlocked: boolean;
   id: number;
   poolId: string;
   data: DanmakuData;
@@ -172,6 +174,7 @@ export type HeatmapPoint = {
 };
 
 export type ManagedVideo = {
+  thirdPartyDanmakuCount: number;
   id: number;
   vid: string;
   name: string;
