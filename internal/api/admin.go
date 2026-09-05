@@ -23,6 +23,8 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string,
 		s.serveBilibiliAdmin(w, r, path)
 	case path == "/api/admin/iqiyi" || strings.HasPrefix(path, "/api/admin/iqiyi/"):
 		s.serveIqiyiAdmin(w, r, path)
+	case path == "/api/admin/external" || strings.HasPrefix(path, "/api/admin/external/"):
+		s.serveExternalAdmin(w, r, path)
 	case path == "/api/admin/users" || strings.HasPrefix(path, "/api/admin/users/"):
 		s.serveUsers(w, r, path, current)
 	case path == "/api/admin/danmakulist" && r.Method == http.MethodGet:

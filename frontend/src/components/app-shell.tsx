@@ -7,6 +7,7 @@ import {
   LogOutIcon,
   MoonIcon,
   SunIcon,
+  UploadIcon,
   UserRoundIcon,
   UsersIcon,
 } from "lucide-react";
@@ -52,6 +53,7 @@ const titles: Array<[RegExp, string]> = [
   [/^\/danmaku/, "弹幕管理"],
   [/^\/bilibili/, "bilibili"],
   [/^\/iqiyi/, "爱奇艺"],
+  [/^\/external/, "外部导入"],
   [/^\/users/, "用户管理"],
   [/^\/profile/, "个人资料"],
 ];
@@ -150,6 +152,16 @@ function AppShellContent() {
                     >
                       <DatabaseIcon />
                       <span>爱奇艺</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="外部导入"
+                      isActive={location.pathname.startsWith("/external")}
+                      render={<NavLink to="/external" />}
+                    >
+                      <UploadIcon />
+                      <span>外部导入</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>

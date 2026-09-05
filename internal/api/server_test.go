@@ -48,6 +48,9 @@ type fakeRepository struct {
 	iqiyiClaims      map[int]time.Time
 	iqiyiKeywords    []domain.IqiyiKeyword
 	iqiyiBindings    []domain.IqiyiBinding
+	externalPools    []domain.ExternalPool
+	externalData     map[string][]domain.DanmakuData
+	externalBindings []domain.ExternalBinding
 }
 
 func (f *fakeRepository) Initialize(context.Context) error { return nil }
@@ -96,6 +99,8 @@ func (f *fakeRepository) Video(_ context.Context, id int) (*domain.Video, error)
 			value.BilibiliPoolCount = len(value.BilibiliBindings)
 			value.IqiyiBindings, _ = f.VideoIqiyiBindings(context.Background(), id)
 			value.IqiyiPoolCount = len(value.IqiyiBindings)
+			value.ExternalBindings, _ = f.VideoExternalBindings(context.Background(), id)
+			value.ExternalPoolCount = len(value.ExternalBindings)
 			return &value, nil
 		}
 	}
@@ -472,6 +477,93 @@ func (f *fakeRepository) DeleteVideoIqiyiBinding(_ context.Context, videoID, id 
 	for index := range f.iqiyiBindings {
 		if f.iqiyiBindings[index].ID == id && f.iqiyiBindings[index].Vid == video.Vid {
 			f.iqiyiBindings = append(f.iqiyiBindings[:index], f.iqiyiBindings[index+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (f *fakeRepository) ExternalPool(_ context.Context, id string) (*domain.ExternalPool, error) {
+	for index := range f.externalPools {
+		if f.externalPools[index].ID == id {
+			value := f.externalPools[index]
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) ExternalPools(context.Context, store.ExternalPoolFilter) (domain.Page[domain.ExternalPool], error) {
+	return domain.Page[domain.ExternalPool]{Total: len(f.externalPools), List: append([]domain.ExternalPool{}, f.externalPools...)}, nil
+}
+func (f *fakeRepository) CreateExternalPool(_ context.Context, name, format string, data []domain.DanmakuData) (*domain.ExternalPool, error) {
+	id := "00000000-0000-4000-8000-000000000001"
+	value := domain.ExternalPool{ID: id, Name: name, SourceFormat: format, DanmakuCount: len(data)}
+	f.externalPools = append(f.externalPools, value)
+	if f.externalData == nil {
+		f.externalData = map[string][]domain.DanmakuData{}
+	}
+	f.externalData[id] = append([]domain.DanmakuData{}, data...)
+	return &f.externalPools[len(f.externalPools)-1], nil
+}
+func (f *fakeRepository) ReplaceExternalPool(_ context.Context, id, name, format string, data []domain.DanmakuData) (*domain.ExternalPool, error) {
+	for index := range f.externalPools {
+		if f.externalPools[index].ID == id {
+			f.externalPools[index].Name = name
+			f.externalPools[index].SourceFormat = format
+			f.externalPools[index].DanmakuCount = len(data)
+			f.externalData[id] = append([]domain.DanmakuData{}, data...)
+			return &f.externalPools[index], nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) ExternalPoolData(_ context.Context, id string) ([]domain.DanmakuData, error) {
+	return append([]domain.DanmakuData{}, f.externalData[id]...), nil
+}
+func (f *fakeRepository) ExternalDanmaku(_ context.Context, filter store.ExternalDanmakuFilter) (domain.Page[domain.ExternalDanmaku], error) {
+	data := f.externalData[filter.PoolID]
+	list := make([]domain.ExternalDanmaku, 0, len(data))
+	for index, item := range data {
+		list = append(list, domain.ExternalDanmaku{ID: int64(index + 1), PoolID: filter.PoolID, Data: item})
+	}
+	return domain.Page[domain.ExternalDanmaku]{Total: len(list), List: list}, nil
+}
+func (f *fakeRepository) ExternalBindingsByVID(_ context.Context, vid string) ([]domain.ExternalBinding, error) {
+	result := make([]domain.ExternalBinding, 0)
+	for _, item := range f.externalBindings {
+		if item.Vid == vid {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+func (f *fakeRepository) VideoExternalBindings(_ context.Context, videoID int) ([]domain.ExternalBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return []domain.ExternalBinding{}, nil
+	}
+	return f.ExternalBindingsByVID(context.Background(), video.Vid)
+}
+func (f *fakeRepository) UpsertVideoExternalBinding(_ context.Context, videoID int, poolID string, offset float64) (*domain.ExternalBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	pool, _ := f.ExternalPool(context.Background(), poolID)
+	if video == nil || pool == nil {
+		return nil, nil
+	}
+	if video.IsDeleted {
+		return nil, store.ErrVideoDeleted
+	}
+	value := domain.ExternalBinding{ID: len(f.externalBindings) + 1, Vid: video.Vid, PoolID: poolID, PoolName: pool.Name, Offset: offset}
+	f.externalBindings = append(f.externalBindings, value)
+	return &f.externalBindings[len(f.externalBindings)-1], nil
+}
+func (f *fakeRepository) DeleteVideoExternalBinding(_ context.Context, videoID, id int) (bool, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return false, nil
+	}
+	for index := range f.externalBindings {
+		if f.externalBindings[index].ID == id && f.externalBindings[index].Vid == video.Vid {
+			f.externalBindings = append(f.externalBindings[:index], f.externalBindings[index+1:]...)
 			return true, nil
 		}
 	}
@@ -1288,6 +1380,85 @@ func TestVIDQueryMergesBoundBilibiliPoolWithBindingOffset(t *testing.T) {
 	}
 	if response.Code != http.StatusOK || body.Code != 0 || len(body.Data) != 2 || body.Data[0].Time != 0.5 || body.Data[1].Time != 1 {
 		t.Fatalf("unexpected merged response: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestExpandedExportFormats(t *testing.T) {
+	text := "exported"
+	repository := &fakeRepository{data: []domain.DanmakuData{{Time: 1.25, Mode: 5, Size: 25, Color: 0xffffff, Timestamp: 123, Author: "alice", Text: &text}}}
+	server := testServer(t, repository)
+	tests := []struct {
+		format      string
+		contentType string
+		contains    string
+	}{
+		{"common.json", "application/json", `"text":"exported"`},
+		{"danuni.json", "application/json", `"progress":1250`},
+		{"danuni.pb", "application/x-protobuf", ""},
+		{"bilibili.xml", "application/xml", "exported"},
+		{"dplayer.json", "application/json", `"data":[[1.25,1`},
+		{"artplayer.json", "application/json", `"color":"#FFFFFF"`},
+		{"ddplay.json", "application/json", `"comments"`},
+		{"vod.json", "application/json", `"danmuku"`},
+		{"baha.json", "application/json", `"totalCount":1`},
+		{"ass", "text/x-ssa", ";RawPb: "},
+	}
+	for _, test := range tests {
+		t.Run(test.format, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/export?id=video&format="+url.QueryEscape(test.format), nil))
+			if response.Code != http.StatusOK || !strings.Contains(response.Header().Get("Content-Type"), test.contentType) || response.Body.Len() == 0 {
+				t.Fatalf("export = %d %q %q", response.Code, response.Header().Get("Content-Type"), response.Body.String())
+			}
+			if test.contains != "" && !strings.Contains(response.Body.String(), test.contains) {
+				t.Fatalf("export body = %q", response.Body.String())
+			}
+		})
+	}
+}
+
+func TestExternalPoolImportBindingAndMergedRead(t *testing.T) {
+	repository := &fakeRepository{videos: []domain.Video{{ID: 1, Vid: "video", DefaultPool: true}}}
+	server := testServer(t, repository)
+	create := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/external", strings.NewReader(`{"name":"manual","sourceFormat":"dplayer.json","danmaku":[{"time":2,"mode":1,"size":25,"color":16777215,"timeStamp":123,"pool":0,"author":"alice","authorId":0,"text":"external"}]}`))
+	request.Header.Set("Content-Type", "application/json")
+	server.serveExternalAdmin(create, request, "/api/admin/external")
+	if create.Code != http.StatusOK || len(repository.externalPools) != 1 || repository.externalPools[0].DanmakuCount != 1 {
+		t.Fatalf("create external pool = %d %s pools=%#v", create.Code, create.Body.String(), repository.externalPools)
+	}
+	bind := httptest.NewRecorder()
+	bindRequest := httptest.NewRequest(http.MethodPost, "/api/admin/videos/1/external-bindings", strings.NewReader(`{"poolId":"00000000-0000-4000-8000-000000000001","offset":-0.5}`))
+	bindRequest.Header.Set("Content-Type", "application/json")
+	server.serveVideoAdmin(bind, bindRequest, "/api/admin/videos/1/external-bindings")
+	if bind.Code != http.StatusOK || len(repository.externalBindings) != 1 {
+		t.Fatalf("bind external pool = %d %s bindings=%#v", bind.Code, bind.Body.String(), repository.externalBindings)
+	}
+	read := httptest.NewRecorder()
+	server.Handler().ServeHTTP(read, httptest.NewRequest(http.MethodGet, "/api/danmaku/v1?id=video", nil))
+	var body ApiResponseForTest[[]domain.DanmakuData]
+	if err := json.Unmarshal(read.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if read.Code != http.StatusOK || len(body.Data) != 1 || body.Data[0].Time != 1.5 || pointerValue(body.Data[0].Text) != "external" {
+		t.Fatalf("merged external response = %d %s", read.Code, read.Body.String())
+	}
+}
+
+func TestVideoHeatmapUsesOneSecondBuckets(t *testing.T) {
+	one, two := "one", "two"
+	repository := &fakeRepository{
+		videos: []domain.Video{{ID: 1, Vid: "video", DefaultPool: true}},
+		data:   []domain.DanmakuData{{Time: 1.1, Text: &one}, {Time: 1.9, Text: &two}, {Time: 3, Text: &one}},
+	}
+	response := httptest.NewRecorder()
+	testServer(t, repository).serveVideoAdmin(response, httptest.NewRequest(http.MethodGet, "/api/admin/videos/1/heatmap", nil), "/api/admin/videos/1/heatmap")
+	var body ApiResponseForTest[[]heatmapPoint]
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || len(body.Data) != 4 || body.Data[1].Count != 2 || body.Data[3].Count != 1 {
+		t.Fatalf("heatmap = %d %s", response.Code, response.Body.String())
 	}
 }
 

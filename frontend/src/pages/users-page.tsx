@@ -338,13 +338,13 @@ export function UsersPage() {
               emptyDescription="CAS 用户会在首次成功登录后显示在这里。"
             />
           )}
-          {data ? (
-            <ListPagination
-              meta={{ page, pageSize: 20, total: data.total }}
-              onPageChange={setPage}
-            />
-          ) : null}
         </CardContent>
+        {data ? (
+          <ListPagination
+            meta={{ page, pageSize: 20, total: data.total }}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
     </div>
   );

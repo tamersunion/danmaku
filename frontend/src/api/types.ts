@@ -137,6 +137,40 @@ export type IqiyiBinding = {
   updateTime: string;
 };
 
+export type ExternalPool = {
+  id: string;
+  name: string;
+  sourceFormat: string;
+  danmakuCount: number;
+  bindingCount: number;
+  bindings?: ExternalBinding[];
+  createTime: string;
+  updateTime: string;
+};
+
+export type ExternalPoolDanmaku = {
+  id: number;
+  poolId: string;
+  data: DanmakuData;
+  createTime: string;
+  updateTime: string;
+};
+
+export type ExternalBinding = {
+  id: number;
+  vid: string;
+  poolId: string;
+  poolName: string;
+  offset: number;
+  createTime: string;
+  updateTime: string;
+};
+
+export type HeatmapPoint = {
+  time: number;
+  count: number;
+};
+
 export type ManagedVideo = {
   id: number;
   vid: string;
@@ -148,6 +182,8 @@ export type ManagedVideo = {
   bilibiliBindings?: BilibiliBinding[];
   iqiyiPoolCount: number;
   iqiyiBindings?: IqiyiBinding[];
+  externalPoolCount: number;
+  externalBindings?: ExternalBinding[];
   createTime: string;
   updateTime: string;
 };

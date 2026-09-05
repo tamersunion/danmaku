@@ -15,6 +15,7 @@ const managedVideoSelect = `SELECT v."Id",v."Vid",COALESCE(v."Name",''),v."IsDel
 	(SELECT COUNT(*)::integer FROM "Danmaku" d WHERE d."VideoId"=v."Id" AND NOT d."IsDelete"),
 	(SELECT COUNT(*)::integer FROM "BilibiliDanmakuBinding" b WHERE b."Vid"=v."Vid"),
 	(SELECT COUNT(*)::integer FROM "IqiyiDanmakuBinding" i WHERE i."Vid"=v."Vid"),
+	(SELECT COUNT(*)::integer FROM "ExternalDanmakuBinding" e WHERE e."Vid"=v."Vid"),
 	v."CreateTime",v."UpdateTime" FROM "Video" v`
 
 func (p *Postgres) EnsureVideo(ctx context.Context, vid string) (*domain.Video, error) {
@@ -80,6 +81,10 @@ func (p *Postgres) Video(ctx context.Context, id int) (*domain.Video, error) {
 		return nil, err
 	}
 	item.IqiyiBindings, err = p.VideoIqiyiBindings(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	item.ExternalBindings, err = p.VideoExternalBindings(ctx, id)
 	return item, err
 }
 
@@ -131,6 +136,6 @@ func (p *Postgres) findOrInsertVideo(ctx context.Context, tx pgx.Tx, vid string)
 
 func scanManagedVideo(row pgx.Row) (*domain.Video, error) {
 	var item domain.Video
-	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.CreateTime, &item.UpdateTime)
+	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.ExternalPoolCount, &item.CreateTime, &item.UpdateTime)
 	return &item, err
 }

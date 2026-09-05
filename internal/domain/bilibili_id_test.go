@@ -33,3 +33,10 @@ func TestBilibiliIDConversionsRejectInvalidInput(t *testing.T) {
 		t.Fatal("invalid BVID was accepted")
 	}
 }
+
+func TestBVIDToAIDAcceptsLegacyValueWithoutPrefix(t *testing.T) {
+	aid, ok := BVIDToAID("1EJ411r7kH")
+	if !ok || aid != 79671692 {
+		t.Fatalf("BVIDToAID legacy value = %d, %v", aid, ok)
+	}
+}

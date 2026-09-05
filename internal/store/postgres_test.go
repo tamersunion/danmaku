@@ -78,6 +78,9 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`CREATE TABLE IF NOT EXISTS "IqiyiDanmaku"`,
 		`CREATE TABLE IF NOT EXISTS "IqiyiDanmakuKeyword"`,
 		`CREATE TABLE IF NOT EXISTS "IqiyiDanmakuBinding"`,
+		`CREATE TABLE IF NOT EXISTS "ExternalDanmakuPool"`,
+		`CREATE TABLE IF NOT EXISTS "ExternalDanmaku"`,
+		`CREATE TABLE IF NOT EXISTS "ExternalDanmakuBinding"`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmaku_Pool_Timestamp_ContentHash"`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmakuPool_CID"`,
 		`CREATE INDEX IF NOT EXISTS "IX_BilibiliDanmakuPool_BVID_Page"`,
@@ -88,6 +91,9 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`CONSTRAINT "FK_BilibiliDanmakuBinding_Pool_PoolId"`,
 		`CONSTRAINT "FK_IqiyiDanmakuBinding_Pool_PoolId"`,
 		`CONSTRAINT "FK_IqiyiDanmakuBinding_Video_Vid"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_ExternalDanmaku_Pool_TimeMillis_ContentHash"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_ExternalDanmakuBinding_Vid_Pool"`,
+		`CONSTRAINT "FK_ExternalDanmakuBinding_Video_Vid"`,
 		`ALTER TABLE "Video" RENAME COLUMN "UpDateTime" TO "UpdateTime"`,
 		`ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "Name"`,
 		`ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "IsDelete"`,
@@ -109,11 +115,13 @@ func TestVideoMigrationOrdersDataRepairBeforeConstraints(t *testing.T) {
 	ordered := []string{
 		`ALTER TABLE "Video" RENAME COLUMN "UpDateTime" TO "UpdateTime"`,
 		`INSERT INTO "Video" ("Vid","Referer","Name","IsDelete","CreateTime","UpdateTime")`,
+		`FROM "ExternalDanmakuBinding" b`,
 		`UPDATE "Danmaku" d SET "VideoId"=c."Id"`,
 		`DELETE FROM "Video" duplicate`,
 		`UPDATE "Danmaku" d SET "VideoId"=v."Id"`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_Video_Vid"`,
 		`CONSTRAINT "FK_BilibiliDanmakuBinding_Video_Vid"`,
+		`CONSTRAINT "FK_ExternalDanmakuBinding_Video_Vid"`,
 	}
 	previous := -1
 	for _, fragment := range ordered {

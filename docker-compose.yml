@@ -2,11 +2,11 @@ version: "3"
 
 services:
   danmaku:
-    image: registry.hanada.info/tamersunion/danmaku:2.6.0
+    image: registry.hanada.info/tamersunion/danmaku:2.7.0
     build:
       context: .
       args:
-        DANMAKU_VERSION: 2.6.0
+        DANMAKU_VERSION: 2.7.0
     container_name: danmaku
     restart: unless-stopped
     volumes:
@@ -15,6 +15,7 @@ services:
       - "127.0.0.1:13009:80"
     depends_on:
       - danmaku-postgres
+      - danmaku-redis
 
   danmaku-postgres:
     image: dockerhub.hanada.info/library/postgres:13
@@ -27,3 +28,11 @@ services:
       POSTGRES_PASSWORD: 'danmaku'
       POSTGRES_DB: 'danmaku'
       PGDATA: /var/lib/postgresql/data/pgdata
+
+  danmaku-redis:
+    image: dockerhub.hanada.info/library/redis:8-alpine
+    container_name: danmaku-redis
+    restart: unless-stopped
+    volumes:
+      - "/usr/local/danmaku/redis:/data:Z"
+    command: ["redis-server", "--appendonly", "yes"]

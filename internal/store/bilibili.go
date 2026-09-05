@@ -33,7 +33,7 @@ func (p *Postgres) BilibiliPoolByKey(ctx context.Context, bvid string, page int)
 	if bvid == "" {
 		return nil, nil
 	}
-	pool, err := scanBilibiliPool(p.pool.QueryRow(ctx, bilibiliPoolSelect+` WHERE "BVID"=$1 AND "Page"=$2 ORDER BY "Id" DESC LIMIT 1`, bvid, page))
+	pool, err := scanBilibiliPool(p.pool.QueryRow(ctx, bilibiliPoolSelect+` WHERE ("BVID"=$1 OR ('BV' || "BVID")=$1) AND "Page"=$2 ORDER BY "Id" DESC LIMIT 1`, bvid, page))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -128,10 +128,17 @@ func (p *Postgres) MergeBilibiliDanmaku(ctx context.Context, poolID int, data []
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+	p.invalidateDanmakuCache(ctx, "bilibili")
 	return inserted, nil
 }
 
 func (p *Postgres) BilibiliPoolData(ctx context.Context, poolID int) ([]domain.DanmakuData, error) {
+	return p.cachedDanmaku(ctx, "bilibili", strconv.Itoa(poolID), func(ctx context.Context) ([]domain.DanmakuData, error) {
+		return p.bilibiliPoolDataFromPostgres(ctx, poolID)
+	})
+}
+
+func (p *Postgres) bilibiliPoolDataFromPostgres(ctx context.Context, poolID int) ([]domain.DanmakuData, error) {
 	query := `SELECT d."Data" FROM "BilibiliDanmaku" d WHERE d."PoolId"=$1 AND NOT d."IsBlocked" AND NOT ` + bilibiliKeywordBlockedSQL + ` ORDER BY d."Id"`
 	rows, err := p.pool.Query(ctx, query, poolID)
 	if err != nil {
@@ -164,7 +171,7 @@ func (p *Postgres) BilibiliPools(ctx context.Context, filter BilibiliPoolFilter)
 		if aid, err := strconv.ParseInt(query, 10, 64); err == nil {
 			if bvid, ok := domain.AIDToBVID(aid); ok {
 				args = append(args, bvid)
-				where += ` OR p."BVID"=$2`
+				where += ` OR p."BVID"=$2 OR ('BV' || p."BVID")=$2`
 			}
 		}
 	}
@@ -191,6 +198,7 @@ func (p *Postgres) BilibiliPools(ctx context.Context, filter BilibiliPoolFilter)
 		if err := rows.Scan(&item.ID, &item.BVID, &item.Page, &item.CID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BlockedCount, &item.BindingCount); err != nil {
 			return domain.Page[domain.BilibiliPool]{}, err
 		}
+		item.BVID = domain.CanonicalBVID(item.BVID)
 		item.AID, _ = domain.BVIDToAID(item.BVID)
 		list = append(list, item)
 	}
@@ -240,7 +248,11 @@ func (p *Postgres) BilibiliDanmaku(ctx context.Context, filter BilibiliDanmakuFi
 func (p *Postgres) SetBilibiliDanmakuBlocked(ctx context.Context, id int64, blocked bool) (bool, error) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	tag, err := p.pool.Exec(ctx, `UPDATE "BilibiliDanmaku" SET "IsBlocked"=$2,"UpdateTime"=$3 WHERE "Id"=$1`, id, blocked, now)
-	return tag.RowsAffected() > 0, err
+	ok := tag.RowsAffected() > 0
+	if err == nil && ok {
+		p.invalidateDanmakuCache(ctx, "bilibili")
+	}
+	return ok, err
 }
 
 func (p *Postgres) BilibiliKeywords(ctx context.Context) ([]domain.BilibiliKeyword, error) {
@@ -255,6 +267,7 @@ func (p *Postgres) BilibiliKeywords(ctx context.Context) ([]domain.BilibiliKeywo
 		if err := rows.Scan(&item.ID, &item.PoolID, &item.PoolBVID, &item.PoolPage, &item.PoolCID, &item.Keyword, &item.CreateTime); err != nil {
 			return nil, err
 		}
+		item.PoolBVID = domain.CanonicalBVID(item.PoolBVID)
 		item.PoolAID, _ = domain.BVIDToAID(item.PoolBVID)
 		result = append(result, item)
 	}
@@ -292,12 +305,17 @@ func (p *Postgres) CreateBilibiliKeyword(ctx context.Context, poolID *int, keywo
 		item.PoolBVID, item.PoolPage, item.PoolCID = pool.BVID, pool.Page, pool.CID
 		item.PoolAID = pool.AID
 	}
+	p.invalidateDanmakuCache(ctx, "bilibili")
 	return &item, nil
 }
 
 func (p *Postgres) DeleteBilibiliKeyword(ctx context.Context, id int) (bool, error) {
 	tag, err := p.pool.Exec(ctx, `DELETE FROM "BilibiliDanmakuKeyword" WHERE "Id"=$1`, id)
-	return tag.RowsAffected() > 0, err
+	ok := tag.RowsAffected() > 0
+	if err == nil && ok {
+		p.invalidateDanmakuCache(ctx, "bilibili")
+	}
+	return ok, err
 }
 
 func (p *Postgres) BilibiliBindingsByVID(ctx context.Context, vid string) ([]domain.BilibiliBinding, error) {
@@ -349,6 +367,7 @@ const bilibiliBindingSelect = `SELECT b."Id",b."Vid",b."PoolId",COALESCE(p."BVID
 func scanBilibiliPool(row pgx.Row) (*domain.BilibiliPool, error) {
 	var item domain.BilibiliPool
 	err := row.Scan(&item.ID, &item.BVID, &item.Page, &item.CID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime)
+	item.BVID = domain.CanonicalBVID(item.BVID)
 	item.AID, _ = domain.BVIDToAID(item.BVID)
 	return &item, err
 }
@@ -356,6 +375,7 @@ func scanBilibiliPool(row pgx.Row) (*domain.BilibiliPool, error) {
 func scanBilibiliBinding(row pgx.Row) (*domain.BilibiliBinding, error) {
 	var item domain.BilibiliBinding
 	err := row.Scan(&item.ID, &item.Vid, &item.PoolID, &item.BVID, &item.Page, &item.CID, &item.Offset, &item.CreateTime, &item.UpdateTime)
+	item.BVID = domain.CanonicalBVID(item.BVID)
 	item.AID, _ = domain.BVIDToAID(item.BVID)
 	return &item, err
 }

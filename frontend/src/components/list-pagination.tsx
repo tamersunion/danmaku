@@ -2,27 +2,27 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import type { PageMeta } from "@/api/types";
 import { Button } from "@/components/ui/button";
+import { CardFooter } from "@/components/ui/card";
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
 } from "@/components/ui/pagination";
-import { Separator } from "@/components/ui/separator";
 
 export function ListPagination({
   meta,
   onPageChange,
+  variant = "card",
 }: {
   meta: PageMeta;
   onPageChange: (page: number) => void;
+  variant?: "card" | "inline";
 }) {
   const pages = Math.max(1, Math.ceil(meta.total / meta.pageSize));
   const first = meta.total ? (meta.page - 1) * meta.pageSize + 1 : 0;
   const last = Math.min(meta.page * meta.pageSize, meta.total);
-  return (
+  const content = (
     <>
-      <Separator />
-      <div className="flex flex-col gap-3 bg-muted/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground">
           {meta.total
             ? `显示 ${first}–${last}，共 ${meta.total} 项`
@@ -59,7 +59,18 @@ export function ListPagination({
             </PaginationItem>
           </PaginationContent>
         </Pagination>
-      </div>
     </>
+  );
+  if (variant === "inline") {
+    return (
+      <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        {content}
+      </div>
+    );
+  }
+  return (
+    <CardFooter className="flex-col items-stretch justify-between gap-3 bg-muted/20 px-4 py-3 text-sm sm:flex-row sm:items-center">
+      {content}
+    </CardFooter>
   );
 }

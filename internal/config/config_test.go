@@ -28,6 +28,15 @@ func TestLoadJSONConfiguration(t *testing.T) {
 			"pool_size": 12
 		},
 		"admin": {"max_age_seconds": 3600},
+		"redis": {
+			"enabled": true,
+			"host": "cache",
+			"port": 6380,
+			"password": "redis-secret",
+			"database": 2,
+			"key_prefix": "project-cache",
+			"ttl_seconds": 73
+		},
 		"bilibili_setting": {
 			"cid_cache_seconds": 10080,
 			"sync_interval_seconds": 37
@@ -47,6 +56,9 @@ func TestLoadJSONConfiguration(t *testing.T) {
 	if cfg.Admin.MaxAgeSeconds != 3600 || cfg.Bilibili.CIDCacheSeconds != 10080 || cfg.Bilibili.SyncIntervalSeconds != 37 {
 		t.Fatalf("time settings are not in seconds: admin=%d bilibili=%#v", cfg.Admin.MaxAgeSeconds, cfg.Bilibili)
 	}
+	if !cfg.Redis.Enabled || cfg.Redis.Host != "cache" || cfg.Redis.Port != 6380 || cfg.Redis.Password != "redis-secret" || cfg.Redis.Database != 2 || cfg.Redis.KeyPrefix != "project-cache" || cfg.Redis.TTLSeconds != 73 {
+		t.Fatalf("unexpected Redis settings: %#v", cfg.Redis)
+	}
 	if cfg.CAS.SessionMaxAgeSeconds != 604800 || cfg.CAS.RequestTimeoutSeconds != 2 {
 		t.Fatalf("unexpected CAS time settings: %#v", cfg.CAS)
 	}
@@ -55,6 +67,21 @@ func TestLoadJSONConfiguration(t *testing.T) {
 	}
 	if cfg.Iqiyi.DecodeAPIBase != DefaultIqiyiDecodeAPIBase || cfg.Iqiyi.VideoInfoAPIBase != DefaultIqiyiVideoInfoAPIBase || cfg.Iqiyi.DanmakuAPIBase != DefaultIqiyiDanmakuAPIBase || cfg.Iqiyi.SyncIntervalSeconds != DefaultIqiyiSyncIntervalSeconds {
 		t.Fatalf("unexpected default iQiyi settings: %#v", cfg.Iqiyi)
+	}
+}
+
+func TestLoadRedisDefaultsAndValidation(t *testing.T) {
+	cfg, err := Load(writeConfig(t, "appsettings.json", `{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Redis.Enabled || cfg.Redis.Host != "127.0.0.1" || cfg.Redis.Port != 6379 || cfg.Redis.KeyPrefix != "danmaku" || cfg.Redis.TTLSeconds != DefaultRedisTTLSeconds {
+		t.Fatalf("unexpected Redis defaults: %#v", cfg.Redis)
+	}
+
+	_, err = Load(writeConfig(t, "invalid.json", `{"redis":{"ttl_seconds":0}}`))
+	if err == nil || !strings.Contains(err.Error(), "redis.ttl_seconds") {
+		t.Fatalf("invalid Redis TTL error = %v", err)
 	}
 }
 

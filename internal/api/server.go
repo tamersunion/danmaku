@@ -84,6 +84,8 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 		s.serveAdmin(w, r, path, value)
 	case path == "/api/other/bilibili/queryaid" && r.Method == http.MethodGet:
 		s.queryAID(w, r)
+	case path == "/api/danmaku/export" && r.Method == http.MethodGet:
+		s.exportDanmaku(w, r)
 	case strings.HasPrefix(path, "/api/danmaku/dplayer/v3"):
 		s.serveDPlayer(w, r, path)
 	case strings.HasPrefix(path, "/api/danmaku/artplayer/v1"):
@@ -145,7 +147,11 @@ func (s *Server) writeError(w http.ResponseWriter, err error) {
 }
 
 func (s *Server) decodeJSON(w http.ResponseWriter, r *http.Request, value any) bool {
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	return s.decodeJSONLimit(w, r, value, 1<<20)
+}
+
+func (s *Server) decodeJSONLimit(w http.ResponseWriter, r *http.Request, value any, limit int64) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	if err := decoder.Decode(value); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, result{Code: 1})
 		return false

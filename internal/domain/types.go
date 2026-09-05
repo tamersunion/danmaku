@@ -82,6 +82,8 @@ type Video struct {
 	BilibiliBindings  []BilibiliBinding `json:"bilibiliBindings,omitempty"`
 	IqiyiPoolCount    int               `json:"iqiyiPoolCount"`
 	IqiyiBindings     []IqiyiBinding    `json:"iqiyiBindings,omitempty"`
+	ExternalPoolCount int               `json:"externalPoolCount"`
+	ExternalBindings  []ExternalBinding `json:"externalBindings,omitempty"`
 	Referer           *Referer          `json:"referer,omitempty"`
 	CreateTime        time.Time         `json:"createTime"`
 	UpdateTime        time.Time         `json:"updateTime"`
@@ -221,6 +223,35 @@ type IqiyiBinding struct {
 	Vid        string    `json:"vid"`
 	PoolID     int       `json:"poolId"`
 	PoolVID    string    `json:"poolVid"`
+	Offset     float64   `json:"offset"`
+	CreateTime time.Time `json:"createTime"`
+	UpdateTime time.Time `json:"updateTime"`
+}
+
+type ExternalPool struct {
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	SourceFormat string            `json:"sourceFormat"`
+	DanmakuCount int               `json:"danmakuCount"`
+	BindingCount int               `json:"bindingCount"`
+	Bindings     []ExternalBinding `json:"bindings,omitempty"`
+	CreateTime   time.Time         `json:"createTime"`
+	UpdateTime   time.Time         `json:"updateTime"`
+}
+
+type ExternalDanmaku struct {
+	ID         int64       `json:"id"`
+	PoolID     string      `json:"poolId"`
+	Data       DanmakuData `json:"data"`
+	CreateTime time.Time   `json:"createTime"`
+	UpdateTime time.Time   `json:"updateTime"`
+}
+
+type ExternalBinding struct {
+	ID         int       `json:"id"`
+	Vid        string    `json:"vid"`
+	PoolID     string    `json:"poolId"`
+	PoolName   string    `json:"poolName"`
 	Offset     float64   `json:"offset"`
 	CreateTime time.Time `json:"createTime"`
 	UpdateTime time.Time `json:"updateTime"`

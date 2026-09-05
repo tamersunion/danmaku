@@ -388,13 +388,13 @@ export function DanmakuPage() {
               emptyDescription="请调整筛选条件后重新查询。"
             />
           )}
-          {data ? (
-            <ListPagination
-              meta={{ page, pageSize: 20, total: data.total }}
-              onPageChange={setPage}
-            />
-          ) : null}
         </CardContent>
+        {data ? (
+          <ListPagination
+            meta={{ page, pageSize: 20, total: data.total }}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
       <DanmakuEditor
         id={editingID}

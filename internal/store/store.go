@@ -73,6 +73,15 @@ type BilibiliDanmakuFilter struct {
 type IqiyiPoolFilter = BilibiliPoolFilter
 type IqiyiDanmakuFilter = BilibiliDanmakuFilter
 
+type ExternalPoolFilter = BilibiliPoolFilter
+
+type ExternalDanmakuFilter struct {
+	Page   int
+	Size   int
+	PoolID string
+	Query  string
+}
+
 type VideoFilter struct {
 	Page      int
 	Size      int
@@ -139,4 +148,20 @@ type Repository interface {
 	UpsertVideoIqiyiBinding(context.Context, int, int, float64) (*domain.IqiyiBinding, error)
 	DeleteVideoIqiyiBinding(context.Context, int, int) (bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
+}
+
+// ExternalRepository is kept separate so existing integrations implementing
+// Repository remain source compatible while the manually imported source is
+// additive.
+type ExternalRepository interface {
+	ExternalPool(context.Context, string) (*domain.ExternalPool, error)
+	ExternalPools(context.Context, ExternalPoolFilter) (domain.Page[domain.ExternalPool], error)
+	CreateExternalPool(context.Context, string, string, []domain.DanmakuData) (*domain.ExternalPool, error)
+	ReplaceExternalPool(context.Context, string, string, string, []domain.DanmakuData) (*domain.ExternalPool, error)
+	ExternalPoolData(context.Context, string) ([]domain.DanmakuData, error)
+	ExternalDanmaku(context.Context, ExternalDanmakuFilter) (domain.Page[domain.ExternalDanmaku], error)
+	ExternalBindingsByVID(context.Context, string) ([]domain.ExternalBinding, error)
+	VideoExternalBindings(context.Context, int) ([]domain.ExternalBinding, error)
+	UpsertVideoExternalBinding(context.Context, int, string, float64) (*domain.ExternalBinding, error)
+	DeleteVideoExternalBinding(context.Context, int, int) (bool, error)
 }

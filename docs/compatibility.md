@@ -32,10 +32,15 @@ bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 
 
 2.6.0 将爱奇艺弹幕纳入与 bilibili 并列的持久化第三方弹幕池管理：支持 VID 建池、被动增量同步、手动更新、单条屏蔽、全局或池级关键词以及带秒级偏移量的视频关联。视频详情统一管理全部第三方弹幕池，系统池改为直接跳转到已按视频 ID 筛选的弹幕管理页。管理前端的选项选择器统一支持输入搜索。bilibili 的 AID/BVID 按[新版转换规则](https://github.com/ILoveScratch2/bilibili-api-collect-new/blob/main/docs/misc/bvid_desc.md)在本地双向转换，不再依赖 `archive/stat`；弹幕池同时返回和展示 AID、BVID。
 
+2.7.0 增加人工导入的外部弹幕库：由服务端生成 UUID，支持覆盖重导且保留原 ID 和视频关联。管理前端通过 [dan-any](https://github.com/ani-uni/dan-any) 解析本系统、DanUni、bilibili、DPlayer、ArtPlayer、弹弹Play、腾讯、VOD、巴哈姆特、爱奇艺、优酷、芒果 TV 和可还原 ASS 等输入格式。视频详情可直接向既有 DPlayer 提交接口添加系统弹幕、关联全部第三方来源、查看按秒统计的合并弹幕热力图，并导出全部双向格式。bilibili AID 始终由 BVID 在响应时本地计算，不新增 AID 数据库列。
+
+同版本增加可选 Redis 弹幕缓存。缓存覆盖系统、bilibili、爱奇艺和外部导入池，写入、编辑、软删除、同步、屏蔽或关键词变更后通过命名空间版本立即失效；Redis 临时读写失败时读取会回退 PostgreSQL。配置显式启用 Redis 时，启动阶段连接失败会阻止服务监听，避免部署误以为缓存已经生效。
+
 | 方法 | 路径 | 兼容行为 |
 | --- | --- | --- |
 | GET | `/api/danmaku/v1?id={vid}` | 返回通用弹幕数组；存在第三方弹幕池关联时自动合并可见弹幕；软删除视频返回空数组 |
 | GET | `/api/danmaku/v1/{vid}.xml` | 返回 bilibili XML 格式；软删除视频返回空弹幕文档 |
+| GET | `/api/danmaku/export?id={vid}&format={format}&offset={seconds}` | 导出已合并弹幕；支持 `common.json`、`danuni.json`、`danuni.pb`、`bilibili.xml`、`dplayer.json`、`artplayer.json`、`ddplay.json`、`vod.json`、`baha.json`、`ass`；ASS 内嵌可还原原始数据 |
 | POST | `/api/danmaku/v1` | 接收通用弹幕 JSON |
 | GET/POST | `/api/danmaku/dplayer/v3` | DPlayer v3 查询与提交 |
 | GET | `/api/danmaku/dplayer/v3/iqiyi/?vid={vid}` | 按爱奇艺 VID 获取持久化 DPlayer v3 弹幕；可传秒级 `offset` |
@@ -55,6 +60,8 @@ bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 
 | PATCH | `/api/admin/videos/{id}/status` | 恢复或软删除视频 |
 | POST/DELETE | `/api/admin/videos/{id}/bilibili-bindings[/{bindingId}]` | 为指定视频新增、更新或删除 bilibili 弹幕池关联及秒级偏移量 |
 | POST/DELETE | `/api/admin/videos/{id}/iqiyi-bindings[/{bindingId}]` | 为指定视频新增、更新或删除爱奇艺弹幕池关联及秒级偏移量 |
+| POST/DELETE | `/api/admin/videos/{id}/external-bindings[/{bindingId}]` | 为指定视频新增、更新或删除人工导入弹幕池关联及秒级偏移量 |
+| GET | `/api/admin/videos/{id}/heatmap?granularity={seconds}` | 返回系统和全部已关联第三方弹幕的热力图桶；默认粒度 1 秒 |
 | GET | `/api/admin/danmakulist[/vids\|/dateselect\|/baseselect]` | 管理列表和筛选 |
 | GET/POST | `/api/admin/danmakuedit[/delete\|/edit]` | 查询、软删除和编辑 |
 | GET/POST | `/api/admin/bilibili/pools`、`/pools/{id}/sync`、`/pools/{id}/danmaku` | 查询弹幕池；通过 BVID/AID/CID + P（默认 1）创建并立即同步；强制增量同步及审阅池内弹幕 |
@@ -63,6 +70,9 @@ bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 
 | GET/POST | `/api/admin/iqiyi/pools`、`/pools/{id}/sync`、`/pools/{id}/danmaku` | 按爱奇艺 VID 查询、创建、同步和审阅持久化弹幕池 |
 | PATCH | `/api/admin/iqiyi/danmaku/{id}/blocked` | 设置单条爱奇艺弹幕的手动屏蔽状态 |
 | GET/POST/DELETE | `/api/admin/iqiyi/keywords[/{id}]` | 管理爱奇艺全局或指定弹幕池的过滤关键词 |
+| GET/POST | `/api/admin/external` | 分页查询外部弹幕池，或创建人工导入弹幕池并由后端生成 UUID |
+| GET/PUT | `/api/admin/external/{uuid}` | 查询弹幕池详情，或覆盖重导内容且保留 UUID 和已有视频关联 |
+| GET | `/api/admin/external/{uuid}/danmaku` | 分页审阅人工导入弹幕池内容 |
 
 客户端 IP 的取值顺序保持代理部署习惯：`X-Real-IP`、`X-Forwarded-For`、请求远端地址。提交时 JSON 未提供 `referer` 则读取 `Referer` 请求头。
 
@@ -77,7 +87,7 @@ bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 
 
 Go 后端启动时在单个事务中迁移并读写以下区分大小写对象：
 
-- 表：`"Danmaku"`、`"Video"`、`"User"`、`"HttpClientCache"`、`"BilibiliDanmakuPool"`、`"BilibiliDanmaku"`、`"BilibiliDanmakuKeyword"`、`"BilibiliDanmakuBinding"`、`"IqiyiDanmakuPool"`、`"IqiyiDanmaku"`、`"IqiyiDanmakuKeyword"`、`"IqiyiDanmakuBinding"`。
+- 表：`"Danmaku"`、`"Video"`、`"User"`、`"HttpClientCache"`、`"BilibiliDanmakuPool"`、`"BilibiliDanmaku"`、`"BilibiliDanmakuKeyword"`、`"BilibiliDanmakuBinding"`、`"IqiyiDanmakuPool"`、`"IqiyiDanmaku"`、`"IqiyiDanmakuKeyword"`、`"IqiyiDanmakuBinding"`、`"ExternalDanmakuPool"`、`"ExternalDanmaku"`、`"ExternalDanmakuBinding"`。
 - 软删除列：`"Danmaku"."IsDelete"`、`"Video"."IsDelete"`。
 - 视频外键：`"Danmaku"."VideoId"` -> `"Video"."Id"`。
 - 视频资料：唯一 `"Video"."Vid"` 及可空 `"Video"."Name"`；系统自带弹幕池为固有关系，不另建可删除的关联行。
@@ -88,7 +98,11 @@ Go 后端启动时在单个事务中迁移并读写以下区分大小写对象�
 
 bilibili 弹幕池以唯一 CID 为准；BVID 与 P 只保存为辅助解析和展示元数据，从 CID 直接创建时 BVID 可为空，后续通过 BVID/AID 访问同一 CID 时会补齐。弹幕正文同样以 PascalCase JSONB 保存，并额外记录发送时间戳及内容 SHA-256 用于增量去重。手动屏蔽状态保存在弹幕行上；关键词规则在公开查询时计算，命中的行仍保留在数据库中但默认不返回。视频关联只保存本地 `Vid`、弹幕池和偏移量，不给本地视频模型增加分 P 字段。
 
+AID 不写入数据库：只要弹幕池存在 BVID，API 和管理前端展示的 AID 都由服务端使用可逆算法实时计算。旧数据库中缺少 `BV` 前缀的 BVID 也会先在内存中规范化，不触发数据写回。
+
 爱奇艺弹幕池以爱奇艺 VID 唯一标识；弹幕按出现时间（毫秒精度）与内容 SHA-256 增量去重。上游返回空内容时仅更新同步时间，不删除已有缓存。屏蔽、关键词和视频偏移关联与 bilibili 弹幕池相互独立。
+
+外部导入弹幕池使用 UUID 唯一标识，弹幕按出现时间（毫秒精度）与内容 SHA-256 去重；覆盖重导在事务中替换弹幕内容，不重建弹幕池或视频关联。新表和索引与其他结构一样在服务开始监听前自动创建。
 
 已有 `"Danmu"` 表、`FK_Danmu_*` 外键和 `IX_Danmu_*` 索引会自动改为 `Danmaku` 命名。`"User"` 会新增 `"CASSubject"`、`"CASDisplayName"`、`"CASAvatar"`、`"Enabled"` 字段及唯一索引，用于稳定绑定、同步 CAS 资料及停用账户。`"Video"` 会新增名称和软删除字段、统一时间列名称、按 `Vid` 合并旧重复行并重新关联弹幕；既有 bilibili 或爱奇艺关联中的视频 ID 会补建为视频记录。结构检查在服务启动、开始监听前自动完成。
 

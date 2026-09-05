@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  DownloadIcon,
   LinkIcon,
   PencilIcon,
   PlusIcon,
   RefreshCcwIcon,
   SearchIcon,
+  SendIcon,
   Trash2Icon,
 } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { useNavigate } from "react-router-dom";
 
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/api/client";
@@ -15,6 +18,9 @@ import type {
   ApiResponse,
   BilibiliBinding,
   BilibiliPool,
+  ExternalBinding,
+  ExternalPool,
+  HeatmapPoint,
   IqiyiBinding,
   IqiyiPool,
   ManagedVideo,
@@ -37,6 +43,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -57,6 +69,19 @@ import { formatDateTime } from "@/lib/format";
 
 type Paged<T> = { total: number; list: T[] };
 
+const exportFormats = [
+  { value: "common.json", label: "本系统 JSON" },
+  { value: "danuni.json", label: "DanUni JSON" },
+  { value: "danuni.pb", label: "DanUni Protobuf" },
+  { value: "bilibili.xml", label: "bilibili XML" },
+  { value: "dplayer.json", label: "DPlayer JSON" },
+  { value: "artplayer.json", label: "ArtPlayer JSON" },
+  { value: "ddplay.json", label: "弹弹Play JSON" },
+  { value: "vod.json", label: "VOD JSON" },
+  { value: "baha.json", label: "巴哈姆特 JSON" },
+  { value: "ass", label: "ASS 字幕" },
+];
+
 function poolLabel(pool: Pick<BilibiliPool, "bvid" | "aid" | "cid" | "p">): string {
   return pool.bvid
     ? `${pool.bvid} / AID ${pool.aid} / P${pool.p}`
@@ -65,6 +90,16 @@ function poolLabel(pool: Pick<BilibiliPool, "bvid" | "aid" | "cid" | "p">): stri
 
 function offsetLabel(offset: number): string {
   return `${offset > 0 ? "+" : ""}${offset} 秒`;
+}
+
+function formatDuration(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`
+    : `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 export function VideosPage() {
@@ -103,6 +138,16 @@ export function VideosPage() {
     queryFn: async () =>
       (
         await apiGet<ApiResponse<Paged<IqiyiPool>>>("/api/admin/iqiyi/pools", {
+          page: 1,
+          size: 500,
+        })
+      ).data.list,
+  });
+  const externalPools = useQuery({
+    queryKey: ["external-pool-options"],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<Paged<ExternalPool>>>("/api/admin/external", {
           page: 1,
           size: 500,
         })
@@ -158,6 +203,7 @@ export function VideosPage() {
               bilibili {video.bilibiliPoolCount} 个
             </Badge>
             <Badge variant="outline">爱奇艺 {video.iqiyiPoolCount} 个</Badge>
+            <Badge variant="outline">外部导入 {video.externalPoolCount} 个</Badge>
           </div>
         ),
       },
@@ -322,13 +368,13 @@ export function VideosPage() {
               emptyDescription="添加视频，或通过外部弹幕接口自动创建。"
             />
           )}
-          {videos.data ? (
-            <ListPagination
-              meta={{ page, pageSize: 20, total: videos.data.total }}
-              onPageChange={setPage}
-            />
-          ) : null}
         </CardContent>
+        {videos.data ? (
+          <ListPagination
+            meta={{ page, pageSize: 20, total: videos.data.total }}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -381,6 +427,7 @@ export function VideosPage() {
         video={selected}
         bilibiliPools={bilibiliPools.data ?? []}
         iqiyiPools={iqiyiPools.data ?? []}
+        externalPools={externalPools.data ?? []}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
@@ -393,24 +440,41 @@ function VideoDialog({
   video,
   bilibiliPools,
   iqiyiPools,
+  externalPools,
   onOpenChange,
 }: {
   video: ManagedVideo | null;
   bilibiliPools: BilibiliPool[];
   iqiyiPools: IqiyiPool[];
+  externalPools: ExternalPool[];
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [source, setSource] = useState<"bilibili" | "iqiyi">("bilibili");
+  const [source, setSource] = useState<"bilibili" | "iqiyi" | "external">("bilibili");
   const [poolID, setPoolID] = useState("");
   const [offset, setOffset] = useState("0");
+  const [danmakuTime, setDanmakuTime] = useState("0");
+  const [danmakuType, setDanmakuType] = useState("0");
+  const [danmakuColor, setDanmakuColor] = useState("#ffffff");
+  const [danmakuText, setDanmakuText] = useState("");
+  const [exportFormat, setExportFormat] = useState("danuni.json");
   const detail = useQuery({
     queryKey: ["video", video?.id],
     queryFn: async () =>
       (
         await apiGet<ApiResponse<ManagedVideo>>(
           `/api/admin/videos/${video?.id}`,
+        )
+      ).data,
+    enabled: Boolean(video),
+  });
+  const heatmap = useQuery({
+    queryKey: ["video-heatmap", video?.id],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<HeatmapPoint[]>>(
+          `/api/admin/videos/${video?.id}/heatmap`,
         )
       ).data,
     enabled: Boolean(video),
@@ -424,8 +488,8 @@ function VideoDialog({
     invalidate: [["videos"], ["video"]],
   });
   const bind = useApiMutation<
-    { source: "bilibili" | "iqiyi"; poolId: number; offset: number },
-    ApiResponse<BilibiliBinding | IqiyiBinding>
+    { source: "bilibili" | "iqiyi" | "external"; poolId: number | string; offset: number },
+    ApiResponse<BilibiliBinding | IqiyiBinding | ExternalBinding>
   >({
     mutationFn: ({ source: targetSource, ...body }) =>
       apiPost(`/api/admin/videos/${video?.id}/${targetSource}-bindings`, body),
@@ -435,10 +499,11 @@ function VideoDialog({
       ["video"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
+      ["external-pools"],
     ],
   });
   const remove = useApiMutation<
-    { source: "bilibili" | "iqiyi"; id: number },
+    { source: "bilibili" | "iqiyi" | "external"; id: number },
     ApiResponse<null>
   >({
     mutationFn: ({ source: targetSource, id }) =>
@@ -451,11 +516,21 @@ function VideoDialog({
       ["video"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
+      ["external-pools"],
     ],
+  });
+  const addDanmaku = useApiMutation<
+    { id: string; time: number; type: number; color: number; author: string; text: string },
+    ApiResponse<null>
+  >({
+    mutationFn: (body) => apiPost("/api/danmaku/dplayer/v3", body),
+    successMessage: "弹幕已添加",
+    invalidate: [["videos"], ["video"], ["video-heatmap"]],
   });
   type ThirdPartyBinding =
     | { source: "bilibili"; binding: BilibiliBinding }
-    | { source: "iqiyi"; binding: IqiyiBinding };
+    | { source: "iqiyi"; binding: IqiyiBinding }
+    | { source: "external"; binding: ExternalBinding };
   const bindings: ThirdPartyBinding[] = [
     ...(detail.data?.bilibiliBindings ?? []).map((binding) => ({
       source: "bilibili" as const,
@@ -465,6 +540,10 @@ function VideoDialog({
       source: "iqiyi" as const,
       binding,
     })),
+    ...(detail.data?.externalBindings ?? []).map((binding) => ({
+      source: "external" as const,
+      binding,
+    })),
   ];
   const columns: DataColumn<ThirdPartyBinding>[] = [
     {
@@ -472,7 +551,11 @@ function VideoDialog({
       label: "来源",
       render: (item) => (
         <Badge variant="outline">
-          {item.source === "bilibili" ? "bilibili" : "爱奇艺"}
+          {item.source === "bilibili"
+            ? "bilibili"
+            : item.source === "iqiyi"
+              ? "爱奇艺"
+              : "外部导入"}
         </Badge>
       ),
     },
@@ -484,7 +567,9 @@ function VideoDialog({
           <p className="font-medium">
             {item.source === "bilibili"
               ? poolLabel(item.binding)
-              : item.binding.poolVid}
+              : item.source === "iqiyi"
+                ? item.binding.poolVid
+                : item.binding.poolName}
           </p>
           {item.source === "bilibili" ? (
             <p className="font-mono text-xs text-muted-foreground">
@@ -539,12 +624,34 @@ function VideoDialog({
   function submitBinding(event: FormEvent) {
     event.preventDefault();
     bind.mutate(
-      { source, poolId: Number(poolID), offset: Number(offset) },
+      {
+        source,
+        poolId: source === "external" ? poolID : Number(poolID),
+        offset: Number(offset),
+      },
       {
         onSuccess: () => {
           setPoolID("");
           setOffset("0");
         },
+      },
+    );
+  }
+
+  function submitDanmaku(event: FormEvent) {
+    event.preventDefault();
+    if (!video) return;
+    addDanmaku.mutate(
+      {
+        id: video.vid,
+        time: Number(danmakuTime),
+        type: Number(danmakuType),
+        color: Number.parseInt(danmakuColor.slice(1), 16),
+        author: "",
+        text: danmakuText.trim(),
+      },
+      {
+        onSuccess: () => setDanmakuText(""),
       },
     );
   }
@@ -615,16 +722,176 @@ function VideoDialog({
                 </CardAction>
               </CardHeader>
               <CardContent>
-                <Badge variant="secondary">
-                  {detail.data?.danmakuCount ?? 0} 条弹幕
-                </Badge>
+                <form onSubmit={submitDanmaku}>
+                  <FieldGroup>
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge variant="secondary">
+                        {detail.data?.danmakuCount ?? 0} 条弹幕
+                      </Badge>
+                      {detail.data?.isDelete ? (
+                        <span className="text-xs text-muted-foreground">
+                          已删除的视频不能发送弹幕
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-[8rem_10rem_7rem_1fr_auto] md:items-end">
+                      <Field data-disabled={detail.data?.isDelete}>
+                        <FieldLabel htmlFor="native-danmaku-time">
+                          出现时间（秒）
+                        </FieldLabel>
+                        <Input
+                          id="native-danmaku-time"
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={danmakuTime}
+                          disabled={detail.data?.isDelete}
+                          required
+                          onChange={(event) => setDanmakuTime(event.target.value)}
+                        />
+                      </Field>
+                      <Field data-disabled={detail.data?.isDelete}>
+                        <FieldLabel htmlFor="native-danmaku-type">类型</FieldLabel>
+                        <SearchableSelect
+                          id="native-danmaku-type"
+                          options={[
+                            { value: "0", label: "滚动" },
+                            { value: "1", label: "顶部" },
+                            { value: "2", label: "底部" },
+                          ]}
+                          value={danmakuType}
+                          disabled={detail.data?.isDelete}
+                          searchPlaceholder="搜索类型"
+                          onValueChange={setDanmakuType}
+                        />
+                      </Field>
+                      <Field data-disabled={detail.data?.isDelete}>
+                        <FieldLabel htmlFor="native-danmaku-color">颜色</FieldLabel>
+                        <Input
+                          id="native-danmaku-color"
+                          type="color"
+                          value={danmakuColor}
+                          disabled={detail.data?.isDelete}
+                          className="h-9 p-1"
+                          onChange={(event) => setDanmakuColor(event.target.value)}
+                        />
+                      </Field>
+                      <Field data-disabled={detail.data?.isDelete}>
+                        <FieldLabel htmlFor="native-danmaku-text">弹幕内容</FieldLabel>
+                        <Input
+                          id="native-danmaku-text"
+                          value={danmakuText}
+                          maxLength={500}
+                          disabled={detail.data?.isDelete}
+                          required
+                          placeholder="输入要发送的弹幕"
+                          onChange={(event) => setDanmakuText(event.target.value)}
+                        />
+                      </Field>
+                      <Button
+                        type="submit"
+                        disabled={detail.data?.isDelete || addDanmaku.isPending || !danmakuText.trim()}
+                      >
+                        {addDanmaku.isPending ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <SendIcon data-icon="inline-start" />
+                        )}
+                        添加
+                      </Button>
+                    </div>
+                  </FieldGroup>
+                </form>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>弹幕热力图</CardTitle>
+                <CardDescription>
+                  按秒统计系统弹幕与全部已关联第三方弹幕，峰值越高表示该时段越密集。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {heatmap.isError ? (
+                  <QueryError error={heatmap.error} retry={() => void heatmap.refetch()} />
+                ) : heatmap.isPending ? (
+                  <div className="grid h-48 place-items-center"><Spinner /></div>
+                ) : (heatmap.data?.length ?? 0) > 0 ? (
+                  <ChartContainer
+                    className="h-48 w-full"
+                    config={{ count: { label: "弹幕数", color: "var(--chart-1)" } } satisfies ChartConfig}
+                  >
+                    <AreaChart data={heatmap.data} margin={{ left: 4, right: 4 }}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="time"
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={28}
+                        tickFormatter={(value) => formatDuration(Number(value))}
+                      />
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            labelFormatter={(_, payload) =>
+                              payload?.[0]
+                                ? formatDuration(Number(payload[0].payload.time))
+                                : ""
+                            }
+                          />
+                        }
+                      />
+                      <Area
+                        dataKey="count"
+                        type="monotone"
+                        fill="var(--color-count)"
+                        fillOpacity={0.28}
+                        stroke="var(--color-count)"
+                        strokeWidth={1.5}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                ) : (
+                  <p className="py-12 text-center text-sm text-muted-foreground">
+                    暂无弹幕，添加或关联弹幕池后会显示热力图。
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>导出弹幕</CardTitle>
+                <CardDescription>
+                  导出当前视频已合并的系统与第三方弹幕，可额外通过 API 设置 offset。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Field orientation="horizontal">
+                  <SearchableSelect
+                    options={exportFormats}
+                    value={exportFormat}
+                    searchPlaceholder="搜索输出格式"
+                    onValueChange={setExportFormat}
+                  />
+                  <Button
+                    render={
+                      <a
+                        href={`/api/danmaku/export?id=${encodeURIComponent(video?.vid ?? "")}&format=${encodeURIComponent(exportFormat)}`}
+                      />
+                    }
+                  >
+                    <DownloadIcon data-icon="inline-start" />
+                    下载
+                  </Button>
+                </Field>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle>第三方弹幕池</CardTitle>
                 <CardDescription>
-                  可关联 bilibili 或爱奇艺弹幕池；偏移量为正时延后、为负时提前。
+                  可关联 bilibili、爱奇艺或外部导入弹幕池；偏移量为正时延后、为负时提前。
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -639,12 +906,13 @@ function VideoDialog({
                         options={[
                           { value: "bilibili", label: "bilibili" },
                           { value: "iqiyi", label: "爱奇艺" },
+                          { value: "external", label: "外部导入" },
                         ]}
                         value={source}
                         disabled={detail.data?.isDelete}
                         searchPlaceholder="搜索弹幕来源"
                         onValueChange={(value) => {
-                          setSource(value as "bilibili" | "iqiyi");
+                          setSource(value as "bilibili" | "iqiyi" | "external");
                           setPoolID("");
                         }}
                       />
@@ -661,14 +929,19 @@ function VideoDialog({
                                 value: String(pool.id),
                                 label: poolLabel(pool),
                               }))
-                            : iqiyiPools.map((pool) => ({
-                                value: String(pool.id),
-                                label: pool.vid,
-                              }))
+                            : source === "iqiyi"
+                              ? iqiyiPools.map((pool) => ({
+                                  value: String(pool.id),
+                                  label: pool.vid,
+                                }))
+                              : externalPools.map((pool) => ({
+                                  value: pool.id,
+                                  label: `${pool.name} · ${pool.id}`,
+                                }))
                         }
                         value={poolID}
                         disabled={detail.data?.isDelete}
-                        placeholder={`选择${source === "bilibili" ? " bilibili" : "爱奇艺"}弹幕池`}
+                        placeholder={`选择${source === "bilibili" ? " bilibili" : source === "iqiyi" ? "爱奇艺" : "外部导入"}弹幕池`}
                         searchPlaceholder="搜索弹幕池"
                         onValueChange={setPoolID}
                       />

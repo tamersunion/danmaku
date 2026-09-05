@@ -110,10 +110,17 @@ func (p *Postgres) MergeIqiyiDanmaku(ctx context.Context, poolID int, data []dom
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+	p.invalidateDanmakuCache(ctx, "iqiyi")
 	return inserted, nil
 }
 
 func (p *Postgres) IqiyiPoolData(ctx context.Context, poolID int) ([]domain.DanmakuData, error) {
+	return p.cachedDanmaku(ctx, "iqiyi", fmt.Sprint(poolID), func(ctx context.Context) ([]domain.DanmakuData, error) {
+		return p.iqiyiPoolDataFromPostgres(ctx, poolID)
+	})
+}
+
+func (p *Postgres) iqiyiPoolDataFromPostgres(ctx context.Context, poolID int) ([]domain.DanmakuData, error) {
 	rows, err := p.pool.Query(ctx, `SELECT d."Data" FROM "IqiyiDanmaku" d WHERE d."PoolId"=$1 AND NOT d."IsBlocked" AND NOT `+iqiyiKeywordBlockedSQL+` ORDER BY d."TimeMillis",d."Id"`, poolID)
 	if err != nil {
 		return nil, err
@@ -211,7 +218,11 @@ func (p *Postgres) IqiyiDanmaku(ctx context.Context, filter IqiyiDanmakuFilter) 
 func (p *Postgres) SetIqiyiDanmakuBlocked(ctx context.Context, id int64, blocked bool) (bool, error) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	tag, err := p.pool.Exec(ctx, `UPDATE "IqiyiDanmaku" SET "IsBlocked"=$2,"UpdateTime"=$3 WHERE "Id"=$1`, id, blocked, now)
-	return tag.RowsAffected() > 0, err
+	ok := tag.RowsAffected() > 0
+	if err == nil && ok {
+		p.invalidateDanmakuCache(ctx, "iqiyi")
+	}
+	return ok, err
 }
 
 func (p *Postgres) IqiyiKeywords(ctx context.Context) ([]domain.IqiyiKeyword, error) {
@@ -260,12 +271,17 @@ func (p *Postgres) CreateIqiyiKeyword(ctx context.Context, poolID *int, keyword 
 		}
 		item.PoolVID = pool.VID
 	}
+	p.invalidateDanmakuCache(ctx, "iqiyi")
 	return &item, nil
 }
 
 func (p *Postgres) DeleteIqiyiKeyword(ctx context.Context, id int) (bool, error) {
 	tag, err := p.pool.Exec(ctx, `DELETE FROM "IqiyiDanmakuKeyword" WHERE "Id"=$1`, id)
-	return tag.RowsAffected() > 0, err
+	ok := tag.RowsAffected() > 0
+	if err == nil && ok {
+		p.invalidateDanmakuCache(ctx, "iqiyi")
+	}
+	return ok, err
 }
 
 const iqiyiBindingSelect = `SELECT b."Id",b."Vid",b."PoolId",p."VID",b."Offset",b."CreateTime",b."UpdateTime" FROM "IqiyiDanmakuBinding" b JOIN "IqiyiDanmakuPool" p ON p."Id"=b."PoolId"`

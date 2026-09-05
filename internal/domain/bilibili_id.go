@@ -28,7 +28,10 @@ func AIDToBVID(aid int64) (string, bool) {
 }
 
 func BVIDToAID(bvid string) (int64, bool) {
-	bvid = strings.TrimSpace(bvid)
+	bvid = CanonicalBVID(bvid)
+	// A few legacy pools were saved without the constant "BV" prefix. Keep
+	// the database untouched and normalize only for the deterministic AID
+	// calculation performed while building API responses.
 	if len(bvid) != 12 || bvid[:3] != "BV1" {
 		return 0, false
 	}
@@ -49,4 +52,12 @@ func BVIDToAID(bvid string) (int64, bool) {
 	}
 	canonical, ok := AIDToBVID(aid)
 	return aid, ok && canonical == bvid
+}
+
+func CanonicalBVID(bvid string) string {
+	bvid = strings.TrimSpace(bvid)
+	if len(bvid) == 10 && strings.HasPrefix(bvid, "1") {
+		return "BV" + bvid
+	}
+	return bvid
 }

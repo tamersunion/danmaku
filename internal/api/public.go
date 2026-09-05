@@ -236,7 +236,31 @@ func (s *Server) queryDanmakuByVID(r *http.Request, vid string) ([]domain.Danmak
 	if err != nil {
 		return nil, err
 	}
-	return offsetDanmaku(append(append(local, linked...), iqiyiLinked...), 0), nil
+	externalLinked, err := s.externalBoundData(r, vid)
+	if err != nil {
+		return nil, err
+	}
+	return offsetDanmaku(append(append(append(local, linked...), iqiyiLinked...), externalLinked...), 0), nil
+}
+
+func (s *Server) externalBoundData(r *http.Request, vid string) ([]domain.DanmakuData, error) {
+	repository, ok := s.repository.(store.ExternalRepository)
+	if !ok {
+		return []domain.DanmakuData{}, nil
+	}
+	bindings, err := repository.ExternalBindingsByVID(r.Context(), vid)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.DanmakuData, 0)
+	for _, binding := range bindings {
+		data, err := repository.ExternalPoolData(r.Context(), binding.PoolID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, offsetDanmaku(data, binding.Offset)...)
+	}
+	return result, nil
 }
 
 func requestIP(r *http.Request, fallback net.IP) net.IP {

@@ -259,13 +259,13 @@ function PoolPanel() {
               emptyDescription="输入爱奇艺 VID 后创建并缓存弹幕。"
             />
           )}
-          {pools.data ? (
-            <ListPagination
-              meta={{ page, pageSize: 20, total: pools.data.total }}
-              onPageChange={setPage}
-            />
-          ) : null}
         </CardContent>
+        {pools.data ? (
+          <ListPagination
+            meta={{ page, pageSize: 20, total: pools.data.total }}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -506,7 +506,7 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
           ) : (
             <DataTable rows={danmaku.data?.list ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="没有匹配的弹幕" emptyDescription="请调整筛选条件后重试。" />
           )}
-          {danmaku.data ? <ListPagination meta={{ page, pageSize: 20, total: danmaku.data.total }} onPageChange={setPage} /> : null}
+          {danmaku.data ? <ListPagination meta={{ page, pageSize: 20, total: danmaku.data.total }} onPageChange={setPage} variant="inline" /> : null}
         </div>
       </DialogContent>
     </Dialog>

@@ -22,6 +22,7 @@ type Config struct {
 	Admin            AdminSettings    `json:"admin"`
 	Bilibili         BilibiliSettings `json:"bilibili_setting"`
 	Iqiyi            IqiyiSettings    `json:"iqiyi_setting"`
+	Redis            RedisSettings    `json:"redis"`
 	CAS              CASSettings      `json:"cas"`
 }
 
@@ -60,6 +61,16 @@ type IqiyiSettings struct {
 	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
 }
 
+type RedisSettings struct {
+	Enabled    bool   `json:"enabled"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	Password   string `json:"password"`
+	Database   int    `json:"database"`
+	KeyPrefix  string `json:"key_prefix"`
+	TTLSeconds int    `json:"ttl_seconds"`
+}
+
 const (
 	DefaultBilibiliAPIBase             = "https://api.bilibili.com"
 	DefaultBilibiliCIDCacheSeconds     = 72 * 60
@@ -68,6 +79,7 @@ const (
 	DefaultIqiyiVideoInfoAPIBase       = "https://pcw-api.iqiyi.com/video/video/baseinfo"
 	DefaultIqiyiDanmakuAPIBase         = "https://cmts.iqiyi.com/bullet"
 	DefaultIqiyiSyncIntervalSeconds    = 10 * 60
+	DefaultRedisTTLSeconds             = 60 * 60
 	DefaultCASSessionMaxAgeSeconds     = 7 * 24 * 60 * 60
 	DefaultCASRequestTimeoutSeconds    = 10
 	DefaultAdminSessionMaxAgeSeconds   = 60
@@ -100,6 +112,7 @@ func defaults() Config {
 			DecodeAPIBase: DefaultIqiyiDecodeAPIBase, VideoInfoAPIBase: DefaultIqiyiVideoInfoAPIBase,
 			DanmakuAPIBase: DefaultIqiyiDanmakuAPIBase, SyncIntervalSeconds: DefaultIqiyiSyncIntervalSeconds,
 		},
+		Redis: RedisSettings{Host: "127.0.0.1", Port: 6379, KeyPrefix: "danmaku", TTLSeconds: DefaultRedisTTLSeconds},
 		CAS: CASSettings{
 			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 3,
 			SessionMaxAgeSeconds:  DefaultCASSessionMaxAgeSeconds,
@@ -178,6 +191,25 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Iqiyi.SyncIntervalSeconds <= 0 {
 		return Config{}, errors.New("iqiyi_setting.sync_interval_seconds must be greater than zero")
+	}
+	if cfg.Redis.Host == "" {
+		cfg.Redis.Host = "127.0.0.1"
+	}
+	if cfg.Redis.Port == 0 {
+		cfg.Redis.Port = 6379
+	}
+	if cfg.Redis.Port < 1 || cfg.Redis.Port > 65535 {
+		return Config{}, errors.New("redis.port must be between 1 and 65535")
+	}
+	if cfg.Redis.Database < 0 {
+		return Config{}, errors.New("redis.database cannot be negative")
+	}
+	cfg.Redis.KeyPrefix = strings.Trim(strings.TrimSpace(cfg.Redis.KeyPrefix), ":")
+	if cfg.Redis.KeyPrefix == "" {
+		cfg.Redis.KeyPrefix = "danmaku"
+	}
+	if cfg.Redis.TTLSeconds <= 0 {
+		return Config{}, errors.New("redis.ttl_seconds must be greater than zero")
 	}
 	if cfg.CAS.SessionMaxAgeSeconds <= 0 {
 		cfg.CAS.SessionMaxAgeSeconds = DefaultCASSessionMaxAgeSeconds

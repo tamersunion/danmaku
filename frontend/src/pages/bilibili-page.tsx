@@ -320,13 +320,13 @@ function PoolPanel() {
               emptyDescription="输入 BVID、AID 或 CID 与分 P 后开始缓存弹幕。"
             />
           )}
-          {pools.data ? (
-            <ListPagination
-              meta={{ page, pageSize: 20, total: pools.data.total }}
-              onPageChange={setPage}
-            />
-          ) : null}
         </CardContent>
+        {pools.data ? (
+          <ListPagination
+            meta={{ page, pageSize: 20, total: pools.data.total }}
+            onPageChange={setPage}
+          />
+        ) : null}
       </Card>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -704,6 +704,7 @@ function PoolDanmakuDialog({
             <ListPagination
               meta={{ page, pageSize: 20, total: danmaku.data.total }}
               onPageChange={setPage}
+              variant="inline"
             />
           ) : null}
         </div>
