@@ -22,6 +22,7 @@ type Server struct {
 	config        config.Config
 	repository    store.Repository
 	bilibili      *Bilibili
+	iqiyi         *Iqiyi
 	cas           *casclient.Client
 	sessionSecret []byte
 	logger        *slog.Logger
@@ -40,6 +41,7 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 		staticDir: discoverStaticDir(),
 	}
 	server.bilibili = NewBilibili(repository, cfg.Bilibili)
+	server.iqiyi = NewIqiyi()
 	if cfg.CAS.Enabled {
 		client, err := casclient.NewClient(cfg.CAS.BaseURL, cfg.CAS.ValidationURL, cfg.CAS.ValidationHost, time.Duration(cfg.CAS.RequestTimeoutSeconds)*time.Second)
 		if err != nil {

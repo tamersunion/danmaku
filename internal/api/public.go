@@ -16,6 +16,18 @@ import (
 func (s *Server) serveDPlayer(w http.ResponseWriter, r *http.Request, path string) {
 	const base = "/api/danmaku/dplayer/v3"
 	switch {
+	case path == base+"/iqiyi" && r.Method == http.MethodGet:
+		vid := foldQuery(r, "vid")
+		if vid == "" {
+			http.NotFound(w, r)
+			return
+		}
+		data, err := s.iqiyi.Data(r.Context(), vid)
+		if err != nil {
+			s.writeError(w, err)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, success(iqiyiDPlayerRows(data)))
 	case path == base+"/bilibili" && r.Method == http.MethodGet:
 		data, err := s.bilibili.Data(r.Context(), bilibiliQueryFromRequest(r))
 		if err != nil {

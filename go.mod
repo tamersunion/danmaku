@@ -3,6 +3,7 @@ module git.hanada.info/tamersunion/danmaku
 go 1.25.0
 
 require (
+	github.com/andybalholm/brotli v1.2.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/philippseith/signalr v0.11.0
 )

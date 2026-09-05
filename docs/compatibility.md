@@ -28,12 +28,15 @@
 
 bilibili 上游 API 基址由 `bilibili_setting.api_base` 配置，默认使用 `https://api.bilibili.com`；末尾斜杠会在加载时移除。CID 元数据缓存时间由 `bilibili_setting.cid_cache_seconds` 配置。
 
+2.5.0 由服务端原生接管爱奇艺弹幕获取。对外入口仍为 `GET /api/danmaku/dplayer/v3/iqiyi/?vid={vid}`，只接受爱奇艺 VID，响应继续使用 DPlayer v3 的 `code/data` 结构。服务会解析 VID、读取视频时长，并发获取爱奇艺 60 秒 Brotli 弹幕分片，同时兼容 XML 和 protobuf 分片内容；单个分片失败不会丢弃其他已成功获取的弹幕。
+
 | 方法 | 路径 | 兼容行为 |
 | --- | --- | --- |
 | GET | `/api/danmaku/v1?id={vid}` | 返回通用弹幕数组；存在 bilibili 关联时自动合并可见的池内弹幕；软删除视频返回空数组 |
 | GET | `/api/danmaku/v1/{vid}.xml` | 返回 bilibili XML 格式；软删除视频返回空弹幕文档 |
 | POST | `/api/danmaku/v1` | 接收通用弹幕 JSON |
 | GET/POST | `/api/danmaku/dplayer/v3` | DPlayer v3 查询与提交 |
+| GET | `/api/danmaku/dplayer/v3/iqiyi/?vid={vid}` | 按爱奇艺 VID 获取 DPlayer v3 弹幕 |
 | GET/POST | `/api/danmaku/artplayer/v1` | ArtPlayer 查询与提交；查询默认 XML，`.json` 返回 JSON |
 | GET | `/api/danmaku/v1/bilibili/*`、`/api/danmaku/dplayer/v3/bilibili`、`/api/danmaku/artplayer/v1/bilibili/*` | 按 `cid`，或 `aid`/`bvid` + `p` 获取持久化 bilibili 弹幕；可传 `offset`，正数延后、负数提前，单位为秒 |
 | GET | `/api/other/bilibili/queryaid` | 查询 `aid`、`bvid` 和分 P 列表 |
