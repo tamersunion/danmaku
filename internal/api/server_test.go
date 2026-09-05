@@ -36,6 +36,7 @@ type fakeRepository struct {
 	updatedUser      store.UserUpdate
 	statusUserID     int
 	deletedUserID    int
+	videos           []domain.Video
 	bilibiliPools    []domain.BilibiliPool
 	bilibiliData     map[int][]domain.DanmakuData
 	bilibiliClaims   map[int]time.Time
@@ -49,6 +50,10 @@ func (f *fakeRepository) QueryByVid(context.Context, string) ([]domain.DanmakuDa
 	return f.data, nil
 }
 func (f *fakeRepository) Insert(_ context.Context, vid string, data domain.DanmakuData, ip net.IP, referer domain.Referer) (bool, error) {
+	video, _ := f.EnsureVideo(context.Background(), vid)
+	if video.IsDeleted {
+		return false, store.ErrVideoDeleted
+	}
 	if f.discardInsert {
 		return false, nil
 	}
@@ -62,6 +67,60 @@ func (f *fakeRepository) Search(context.Context, store.SearchFilter) (domain.Pag
 	return domain.Page[domain.Danmaku]{List: []domain.Danmaku{}}, nil
 }
 func (f *fakeRepository) Vids(context.Context) ([]string, error) { return f.vids, nil }
+func (f *fakeRepository) EnsureVideo(_ context.Context, vid string) (*domain.Video, error) {
+	for index := range f.videos {
+		if f.videos[index].Vid == vid {
+			value := f.videos[index]
+			return &value, nil
+		}
+	}
+	value := domain.Video{ID: len(f.videos) + 1, Vid: vid, DefaultPool: true}
+	f.videos = append(f.videos, value)
+	return &value, nil
+}
+func (f *fakeRepository) Videos(context.Context, store.VideoFilter) (domain.Page[domain.Video], error) {
+	list := append([]domain.Video{}, f.videos...)
+	return domain.Page[domain.Video]{Total: len(list), List: list}, nil
+}
+func (f *fakeRepository) Video(_ context.Context, id int) (*domain.Video, error) {
+	for index := range f.videos {
+		if f.videos[index].ID == id {
+			value := f.videos[index]
+			value.BilibiliBindings, _ = f.VideoBilibiliBindings(context.Background(), id)
+			value.BilibiliPoolCount = len(value.BilibiliBindings)
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) CreateVideo(_ context.Context, vid, name string) (*domain.Video, error) {
+	for _, item := range f.videos {
+		if item.Vid == vid {
+			return nil, store.ErrVideoExists
+		}
+	}
+	value := domain.Video{ID: len(f.videos) + 1, Vid: vid, Name: name, DefaultPool: true}
+	f.videos = append(f.videos, value)
+	return &value, nil
+}
+func (f *fakeRepository) UpdateVideo(_ context.Context, id int, name string) (*domain.Video, error) {
+	for index := range f.videos {
+		if f.videos[index].ID == id {
+			f.videos[index].Name = name
+			return f.Video(context.Background(), id)
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) SetVideoDeleted(_ context.Context, id int, deleted bool) (bool, error) {
+	for index := range f.videos {
+		if f.videos[index].ID == id {
+			f.videos[index].IsDeleted = deleted
+			return true, nil
+		}
+	}
+	return false, nil
+}
 func (f *fakeRepository) Get(context.Context, string) (*domain.Danmaku, error) {
 	return nil, nil
 }
@@ -212,9 +271,6 @@ func (f *fakeRepository) DeleteBilibiliKeyword(_ context.Context, id int) (bool,
 	}
 	return false, nil
 }
-func (f *fakeRepository) BilibiliBindings(context.Context, store.BilibiliBindingFilter) (domain.Page[domain.BilibiliBinding], error) {
-	return domain.Page[domain.BilibiliBinding]{Total: len(f.bilibiliBindings), List: f.bilibiliBindings}, nil
-}
 func (f *fakeRepository) BilibiliBindingsByVID(_ context.Context, vid string) ([]domain.BilibiliBinding, error) {
 	result := make([]domain.BilibiliBinding, 0)
 	for _, item := range f.bilibiliBindings {
@@ -224,7 +280,31 @@ func (f *fakeRepository) BilibiliBindingsByVID(_ context.Context, vid string) ([
 	}
 	return result, nil
 }
-func (f *fakeRepository) UpsertBilibiliBinding(_ context.Context, vid string, poolID int, offset float64) (*domain.BilibiliBinding, error) {
+func (f *fakeRepository) VideoBilibiliBindings(_ context.Context, videoID int) ([]domain.BilibiliBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return []domain.BilibiliBinding{}, nil
+	}
+	return f.BilibiliBindingsByVID(context.Background(), video.Vid)
+}
+func (f *fakeRepository) videoWithoutBindings(id int) (*domain.Video, error) {
+	for index := range f.videos {
+		if f.videos[index].ID == id {
+			value := f.videos[index]
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) UpsertVideoBilibiliBinding(_ context.Context, videoID, poolID int, offset float64) (*domain.BilibiliBinding, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return nil, nil
+	}
+	if video.IsDeleted {
+		return nil, store.ErrVideoDeleted
+	}
+	vid := video.Vid
 	for index := range f.bilibiliBindings {
 		if f.bilibiliBindings[index].Vid == vid && f.bilibiliBindings[index].PoolID == poolID {
 			f.bilibiliBindings[index].Offset = offset
@@ -235,9 +315,13 @@ func (f *fakeRepository) UpsertBilibiliBinding(_ context.Context, vid string, po
 	f.bilibiliBindings = append(f.bilibiliBindings, value)
 	return &f.bilibiliBindings[len(f.bilibiliBindings)-1], nil
 }
-func (f *fakeRepository) DeleteBilibiliBinding(_ context.Context, id int) (bool, error) {
+func (f *fakeRepository) DeleteVideoBilibiliBinding(_ context.Context, videoID, id int) (bool, error) {
+	video, _ := f.videoWithoutBindings(videoID)
+	if video == nil {
+		return false, nil
+	}
 	for index := range f.bilibiliBindings {
-		if f.bilibiliBindings[index].ID == id {
+		if f.bilibiliBindings[index].ID == id && f.bilibiliBindings[index].Vid == video.Vid {
 			f.bilibiliBindings = append(f.bilibiliBindings[:index], f.bilibiliBindings[index+1:]...)
 			return true, nil
 		}
@@ -290,6 +374,101 @@ func TestDPlayerGetContract(t *testing.T) {
 	}
 	if body.Code != 0 || len(body.Data) != 1 || body.Data[0][1] != float64(1) || body.Data[0][4] != "&lt;hello&gt;" {
 		t.Fatalf("unexpected response: %s", response.Body.String())
+	}
+	if len(repository.videos) != 1 || repository.videos[0].Vid != "video" || repository.videos[0].Name != "" || repository.videos[0].Referer != nil || !repository.videos[0].DefaultPool {
+		t.Fatalf("external read did not create an ID-only video: %#v", repository.videos)
+	}
+}
+
+func TestDeletedVideoIsHiddenAndRejectsSubmission(t *testing.T) {
+	text := "hidden"
+	repository := &fakeRepository{
+		data:             []domain.DanmakuData{{Time: 1, Text: &text}},
+		videos:           []domain.Video{{ID: 1, Vid: "deleted-video", Name: "deleted", IsDeleted: true, DefaultPool: true}},
+		bilibiliPools:    []domain.BilibiliPool{{ID: 1, BVID: "BVdeleted", Page: 1, CID: 99}},
+		bilibiliData:     map[int][]domain.DanmakuData{1: {{Time: 2, Text: &text}}},
+		bilibiliBindings: []domain.BilibiliBinding{{ID: 1, Vid: "deleted-video", PoolID: 1}},
+	}
+	server := testServer(t, repository)
+
+	read := httptest.NewRecorder()
+	server.Handler().ServeHTTP(read, httptest.NewRequest(http.MethodGet, "/api/danmaku/v1?id=deleted-video", nil))
+	var readBody ApiResponseForTest[[]domain.DanmakuData]
+	if err := json.Unmarshal(read.Body.Bytes(), &readBody); err != nil {
+		t.Fatal(err)
+	}
+	if read.Code != http.StatusOK || readBody.Code != 0 || len(readBody.Data) != 0 || !repository.videos[0].IsDeleted {
+		t.Fatalf("deleted video read = %d %s videos=%#v", read.Code, read.Body.String(), repository.videos)
+	}
+
+	write := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/danmaku/dplayer/v3", strings.NewReader(`{"id":"deleted-video","time":1,"type":0,"color":255,"text":"blocked"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Referer", "https://example.com/watch")
+	server.Handler().ServeHTTP(write, request)
+	if write.Code != http.StatusOK || !strings.Contains(write.Body.String(), `"code":1`) || repository.insertedVid != "" || !repository.videos[0].IsDeleted {
+		t.Fatalf("deleted video write = %d %s inserted=%q videos=%#v", write.Code, write.Body.String(), repository.insertedVid, repository.videos)
+	}
+}
+
+func TestVideoAdminOwnsBilibiliBindingsAndSoftDelete(t *testing.T) {
+	repository := &fakeRepository{}
+	server := testServer(t, repository)
+
+	create := httptest.NewRecorder()
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/admin/videos", strings.NewReader(`{"vid":"video-1","name":"First"}`))
+	createRequest.Header.Set("Content-Type", "application/json")
+	server.serveVideoAdmin(create, createRequest, "/api/admin/videos")
+	if create.Code != http.StatusOK || !strings.Contains(create.Body.String(), `"defaultPool":true`) || len(repository.videos) != 1 {
+		t.Fatalf("create video = %d %s videos=%#v", create.Code, create.Body.String(), repository.videos)
+	}
+
+	update := httptest.NewRecorder()
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/admin/videos/1", strings.NewReader(`{"name":"Renamed"}`))
+	updateRequest.Header.Set("Content-Type", "application/json")
+	server.serveVideoAdmin(update, updateRequest, "/api/admin/videos/1")
+	if update.Code != http.StatusOK || repository.videos[0].Name != "Renamed" {
+		t.Fatalf("update video = %d %s videos=%#v", update.Code, update.Body.String(), repository.videos)
+	}
+
+	bind := httptest.NewRecorder()
+	bindRequest := httptest.NewRequest(http.MethodPost, "/api/admin/videos/1/bilibili-bindings", strings.NewReader(`{"poolId":9,"offset":-1.5}`))
+	bindRequest.Header.Set("Content-Type", "application/json")
+	server.serveVideoAdmin(bind, bindRequest, "/api/admin/videos/1/bilibili-bindings")
+	if bind.Code != http.StatusOK || len(repository.bilibiliBindings) != 1 || repository.bilibiliBindings[0].Vid != "video-1" {
+		t.Fatalf("bind pool = %d %s bindings=%#v", bind.Code, bind.Body.String(), repository.bilibiliBindings)
+	}
+
+	detail := httptest.NewRecorder()
+	server.serveVideoAdmin(detail, httptest.NewRequest(http.MethodGet, "/api/admin/videos/1", nil), "/api/admin/videos/1")
+	if !strings.Contains(detail.Body.String(), `"defaultPool":true`) || !strings.Contains(detail.Body.String(), `"bilibiliBindings":[`) {
+		t.Fatalf("video detail = %s", detail.Body.String())
+	}
+
+	defaultPool := httptest.NewRecorder()
+	server.serveVideoAdmin(defaultPool, httptest.NewRequest(http.MethodDelete, "/api/admin/videos/1/default-pool", nil), "/api/admin/videos/1/default-pool")
+	if defaultPool.Code != http.StatusNotFound {
+		t.Fatalf("default pool removal status = %d", defaultPool.Code)
+	}
+
+	legacyBinding := httptest.NewRecorder()
+	server.serveBilibiliAdmin(legacyBinding, httptest.NewRequest(http.MethodGet, "/api/admin/bilibili/bindings", nil), "/api/admin/bilibili/bindings")
+	if legacyBinding.Code != http.StatusNotFound {
+		t.Fatalf("legacy binding route status = %d", legacyBinding.Code)
+	}
+
+	remove := httptest.NewRecorder()
+	server.serveVideoAdmin(remove, httptest.NewRequest(http.MethodDelete, "/api/admin/videos/1", nil), "/api/admin/videos/1")
+	if remove.Code != http.StatusOK || !repository.videos[0].IsDeleted || len(repository.bilibiliBindings) != 1 {
+		t.Fatalf("soft delete = %d %s videos=%#v bindings=%#v", remove.Code, remove.Body.String(), repository.videos, repository.bilibiliBindings)
+	}
+
+	restore := httptest.NewRecorder()
+	restoreRequest := httptest.NewRequest(http.MethodPatch, "/api/admin/videos/1/status", strings.NewReader(`{"deleted":false}`))
+	restoreRequest.Header.Set("Content-Type", "application/json")
+	server.serveVideoAdmin(restore, restoreRequest, "/api/admin/videos/1/status")
+	if restore.Code != http.StatusOK || repository.videos[0].IsDeleted {
+		t.Fatalf("restore = %d %s videos=%#v", restore.Code, restore.Body.String(), repository.videos)
 	}
 }
 
@@ -545,6 +724,13 @@ func TestDanmakuManagerCanManageDanmakuButNotUsers(t *testing.T) {
 	server.Handler().ServeHTTP(bilibiliResponse, bilibiliRequest)
 	if bilibiliResponse.Body.String() != "{\"code\":0,\"data\":{\"total\":0,\"list\":[]}}\n" {
 		t.Fatalf("danmaku manager Bilibili response = %s", bilibiliResponse.Body.String())
+	}
+	videosRequest := httptest.NewRequest(http.MethodGet, "/api/admin/videos", nil)
+	videosRequest.AddCookie(cookie)
+	videosResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(videosResponse, videosRequest)
+	if videosResponse.Body.String() != "{\"code\":0,\"data\":{\"total\":0,\"list\":[]}}\n" {
+		t.Fatalf("danmaku manager videos response = %s", videosResponse.Body.String())
 	}
 
 	usersRequest := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)

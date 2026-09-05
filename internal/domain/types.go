@@ -72,6 +72,22 @@ type Referer struct {
 }
 
 type Video struct {
+	ID                int               `json:"id"`
+	Vid               string            `json:"vid"`
+	Name              string            `json:"name"`
+	IsDeleted         bool              `json:"isDelete"`
+	DefaultPool       bool              `json:"defaultPool"`
+	DanmakuCount      int               `json:"danmakuCount"`
+	BilibiliPoolCount int               `json:"bilibiliPoolCount"`
+	BilibiliBindings  []BilibiliBinding `json:"bilibiliBindings,omitempty"`
+	Referer           *Referer          `json:"referer,omitempty"`
+	CreateTime        time.Time         `json:"createTime"`
+	UpdateTime        time.Time         `json:"updateTime"`
+}
+
+// DanmakuVideo preserves the video object embedded in the existing danmaku
+// management response. New video-management endpoints use Video instead.
+type DanmakuVideo struct {
 	ID         int       `json:"id"`
 	Vid        string    `json:"vid"`
 	Referer    Referer   `json:"referer"`
@@ -80,14 +96,14 @@ type Video struct {
 }
 
 type Danmaku struct {
-	ID         string      `json:"id"`
-	Vid        string      `json:"vid"`
-	Data       DanmakuData `json:"data"`
-	IP         net.IP      `json:"ip"`
-	IsDeleted  bool        `json:"isDelete"`
-	Video      *Video      `json:"video"`
-	CreateTime time.Time   `json:"createTime"`
-	UpdateTime time.Time   `json:"updateTime"`
+	ID         string        `json:"id"`
+	Vid        string        `json:"vid"`
+	Data       DanmakuData   `json:"data"`
+	IP         net.IP        `json:"ip"`
+	IsDeleted  bool          `json:"isDelete"`
+	Video      *DanmakuVideo `json:"video"`
+	CreateTime time.Time     `json:"createTime"`
+	UpdateTime time.Time     `json:"updateTime"`
 }
 
 type User struct {

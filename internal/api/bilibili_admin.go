@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,12 +27,6 @@ func (s *Server) serveBilibiliAdmin(w http.ResponseWriter, r *http.Request, path
 		s.createBilibiliKeyword(w, r)
 	case strings.HasPrefix(path, "/api/admin/bilibili/keywords/") && r.Method == http.MethodDelete:
 		s.deleteBilibiliKeyword(w, r, path)
-	case path == "/api/admin/bilibili/bindings" && r.Method == http.MethodGet:
-		s.listBilibiliBindings(w, r)
-	case path == "/api/admin/bilibili/bindings" && r.Method == http.MethodPost:
-		s.upsertBilibiliBinding(w, r)
-	case strings.HasPrefix(path, "/api/admin/bilibili/bindings/") && r.Method == http.MethodDelete:
-		s.deleteBilibiliBinding(w, r, path)
 	default:
 		http.NotFound(w, r)
 	}
@@ -200,54 +193,6 @@ func (s *Server) deleteBilibiliKeyword(w http.ResponseWriter, r *http.Request, p
 	}
 	if !ok {
 		s.writeBilibiliAdminFailure(w, "关键词不存在")
-		return
-	}
-	s.writeJSON(w, http.StatusOK, success(nil))
-}
-
-func (s *Server) listBilibiliBindings(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	data, err := s.repository.BilibiliBindings(r.Context(), store.BilibiliBindingFilter{
-		Page: queryInt(query.Get("page"), 1), Size: queryInt(query.Get("size"), 20), Query: query.Get("query"),
-	})
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	s.writeJSON(w, http.StatusOK, success(data))
-}
-
-func (s *Server) upsertBilibiliBinding(w http.ResponseWriter, r *http.Request) {
-	var request struct {
-		Vid    string  `json:"vid"`
-		PoolID int     `json:"poolId"`
-		Offset float64 `json:"offset"`
-	}
-	if !s.decodeJSON(w, r, &request) {
-		return
-	}
-	request.Vid = strings.TrimSpace(request.Vid)
-	if request.Vid == "" || utf8.RuneCountInString(request.Vid) > 36 || request.PoolID < 1 || math.IsNaN(request.Offset) || math.IsInf(request.Offset, 0) || math.Abs(request.Offset) > math.MaxFloat32 {
-		s.writeBilibiliAdminFailure(w, "请输入有效的视频 ID、弹幕池和偏移量")
-		return
-	}
-	data, err := s.repository.UpsertBilibiliBinding(r.Context(), request.Vid, request.PoolID, request.Offset)
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	s.writeJSON(w, http.StatusOK, success(data))
-}
-
-func (s *Server) deleteBilibiliBinding(w http.ResponseWriter, r *http.Request, path string) {
-	id := pathID(path, "/api/admin/bilibili/bindings/", "")
-	ok, err := s.repository.DeleteBilibiliBinding(r.Context(), id)
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	if !ok {
-		s.writeBilibiliAdminFailure(w, "关联不存在")
 		return
 	}
 	s.writeJSON(w, http.StatusOK, success(nil))

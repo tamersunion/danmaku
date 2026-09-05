@@ -82,6 +82,12 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmakuBinding_Vid_Pool"`,
 		`"LastAttemptTime" timestamp(3) without time zone NULL`,
 		`CONSTRAINT "FK_BilibiliDanmakuBinding_Pool_PoolId"`,
+		`ALTER TABLE "Video" RENAME COLUMN "UpDateTime" TO "UpdateTime"`,
+		`ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "Name"`,
+		`ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "IsDelete"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_Video_Vid"`,
+		`UPDATE "Danmaku" d SET "VideoId"=v."Id"`,
+		`CONSTRAINT "FK_BilibiliDanmakuBinding_Video_Vid"`,
 	} {
 		if !strings.Contains(migration, expected) {
 			t.Fatalf("schema migration does not contain %q", expected)
@@ -89,6 +95,30 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 	}
 	if !strings.Contains(migration, `both legacy table "Danmu" and target table "Danmaku" exist`) {
 		t.Fatal("schema migration must reject ambiguous old/new table state")
+	}
+}
+
+func TestVideoMigrationOrdersDataRepairBeforeConstraints(t *testing.T) {
+	migration := strings.Join(schemaStatements(), "\n")
+	ordered := []string{
+		`ALTER TABLE "Video" RENAME COLUMN "UpDateTime" TO "UpdateTime"`,
+		`INSERT INTO "Video" ("Vid","Referer","Name","IsDelete","CreateTime","UpdateTime")`,
+		`UPDATE "Danmaku" d SET "VideoId"=c."Id"`,
+		`DELETE FROM "Video" duplicate`,
+		`UPDATE "Danmaku" d SET "VideoId"=v."Id"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_Video_Vid"`,
+		`CONSTRAINT "FK_BilibiliDanmakuBinding_Video_Vid"`,
+	}
+	previous := -1
+	for _, fragment := range ordered {
+		index := strings.Index(migration, fragment)
+		if index < 0 {
+			t.Fatalf("video migration does not contain %q", fragment)
+		}
+		if index <= previous {
+			t.Fatalf("video migration fragment %q is out of order", fragment)
+		}
+		previous = index
 	}
 }
 

@@ -17,6 +17,8 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string,
 		return
 	}
 	switch {
+	case path == "/api/admin/videos" || strings.HasPrefix(path, "/api/admin/videos/"):
+		s.serveVideoAdmin(w, r, path)
 	case path == "/api/admin/bilibili" || strings.HasPrefix(path, "/api/admin/bilibili/"):
 		s.serveBilibiliAdmin(w, r, path)
 	case path == "/api/admin/users" || strings.HasPrefix(path, "/api/admin/users/"):

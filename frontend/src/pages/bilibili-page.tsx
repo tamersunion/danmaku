@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   EyeIcon,
   LinkIcon,
-  PencilIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -18,6 +17,7 @@ import type {
   BilibiliKeyword,
   BilibiliPool,
   BilibiliPoolDanmaku,
+  ManagedVideo,
 } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
 import { DataTable, type DataColumn } from "@/components/data-table";
@@ -89,11 +89,6 @@ function keywordPoolLabel(keyword: BilibiliKeyword): string {
   return `${keyword.poolBvid} / P${keyword.poolP}`;
 }
 
-function offsetLabel(offset: number): string {
-  if (offset > 0) return `+${offset} 秒`;
-  return `${offset} 秒`;
-}
-
 export function BilibiliPage() {
   const poolOptions = useQuery({
     queryKey: ["bilibili-pool-options"],
@@ -110,23 +105,19 @@ export function BilibiliPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Library"
-        title="Bilibili 弹幕库"
-        description="持久化管理 Bilibili 弹幕池、过滤规则以及与本地视频 ID 的关联。"
+        title="bilibili 弹幕库"
+        description="持久化管理 bilibili 弹幕池和过滤规则。"
       />
       <Tabs defaultValue="pools">
         <TabsList>
           <TabsTrigger value="pools">弹幕池</TabsTrigger>
           <TabsTrigger value="keywords">过滤关键词</TabsTrigger>
-          <TabsTrigger value="bindings">关联设置</TabsTrigger>
         </TabsList>
         <TabsContent value="pools" className="flex flex-col gap-4">
           <PoolPanel />
         </TabsContent>
         <TabsContent value="keywords" className="flex flex-col gap-4">
           <KeywordPanel pools={poolOptions.data ?? []} />
-        </TabsContent>
-        <TabsContent value="bindings" className="flex flex-col gap-4">
-          <BindingPanel pools={poolOptions.data ?? []} />
         </TabsContent>
       </Tabs>
     </div>
@@ -143,6 +134,7 @@ function PoolPanel() {
   const [identifier, setIdentifier] = useState("");
   const [part, setPart] = useState("1");
   const [selectedPool, setSelectedPool] = useState<BilibiliPool | null>(null);
+  const [bindingPool, setBindingPool] = useState<BilibiliPool | null>(null);
   const pools = useQuery({
     queryKey: ["bilibili-pools", page, query],
     queryFn: async () =>
@@ -211,7 +203,7 @@ function PoolPanel() {
       {
         key: "actions",
         label: "操作",
-        className: "w-24 whitespace-nowrap text-right",
+        className: "w-32 whitespace-nowrap text-right",
         render: (pool) => (
           <div className="flex justify-end gap-1">
             <Button
@@ -223,6 +215,16 @@ function PoolPanel() {
               onClick={() => setSelectedPool(pool)}
             >
               <EyeIcon />
+            </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="关联视频"
+              title="关联视频"
+              onClick={() => setBindingPool(pool)}
+            >
+              <LinkIcon />
             </Button>
             <Button
               type="button"
@@ -319,7 +321,7 @@ function PoolPanel() {
               rows={pools.data?.list ?? []}
               columns={columns}
               rowKey={(pool) => String(pool.id)}
-              emptyTitle="暂无 Bilibili 弹幕池"
+              emptyTitle="暂无 bilibili 弹幕池"
               emptyDescription="输入 BVID、AID 或 CID 与分 P 后开始缓存弹幕。"
             />
           )}
@@ -335,7 +337,7 @@ function PoolPanel() {
         <DialogContent>
           <form className="flex flex-col gap-5" onSubmit={submitPool}>
             <DialogHeader>
-              <DialogTitle>添加 Bilibili 弹幕池</DialogTitle>
+              <DialogTitle>添加 bilibili 弹幕池</DialogTitle>
               <DialogDescription>
                 输入任一视频标识，系统会创建弹幕池并立即从上游执行第一次增量同步。
               </DialogDescription>
@@ -417,7 +419,157 @@ function PoolPanel() {
           if (!open) setSelectedPool(null);
         }}
       />
+      <PoolVideoBindingDialog
+        pool={bindingPool}
+        onOpenChange={(open) => {
+          if (!open) setBindingPool(null);
+        }}
+      />
     </>
+  );
+}
+
+function PoolVideoBindingDialog({
+  pool,
+  onOpenChange,
+}: {
+  pool: BilibiliPool | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [videoID, setVideoID] = useState("");
+  const [offset, setOffset] = useState("0");
+  const videos = useQuery({
+    queryKey: ["videos", "options"],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<Paged<ManagedVideo>>>("/api/admin/videos", {
+          page: 1,
+          size: 500,
+          deleted: false,
+        })
+      ).data.list,
+    enabled: Boolean(pool),
+  });
+  const bind = useApiMutation<
+    { videoID: number; offset: number },
+    ApiResponse<BilibiliBinding>
+  >({
+    mutationFn: ({ videoID: targetVideoID, offset: targetOffset }) =>
+      apiPost(`/api/admin/videos/${targetVideoID}/bilibili-bindings`, {
+        poolId: pool?.id,
+        offset: targetOffset,
+      }),
+    successMessage: "视频关联已保存",
+    invalidate: [["videos"], ["video"], ["bilibili-pools"]],
+  });
+
+  useEffect(() => {
+    setVideoID("");
+    setOffset("0");
+  }, [pool?.id]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    bind.mutate(
+      { videoID: Number(videoID), offset: Number(offset) },
+      { onSuccess: () => onOpenChange(false) },
+    );
+  }
+
+  return (
+    <Dialog open={Boolean(pool)} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form className="flex flex-col gap-5" onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>关联视频</DialogTitle>
+            <DialogDescription>
+              将 {pool ? poolLabel(pool) : "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量。
+            </DialogDescription>
+          </DialogHeader>
+          {videos.isError ? (
+            <QueryError
+              error={videos.error}
+              retry={() => void videos.refetch()}
+            />
+          ) : (
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="pool-binding-video">视频</FieldLabel>
+                <Select
+                  items={(videos.data ?? []).map((video) => ({
+                    value: String(video.id),
+                    label: video.name
+                      ? `${video.name} (${video.vid})`
+                      : video.vid,
+                  }))}
+                  value={videoID}
+                  disabled={videos.isPending}
+                  onValueChange={(value) => setVideoID(value ?? "")}
+                >
+                  <SelectTrigger id="pool-binding-video" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        videos.isPending ? "正在加载视频" : "选择视频"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {(videos.data ?? []).map((video) => (
+                        <SelectItem key={video.id} value={String(video.id)}>
+                          {video.name
+                            ? `${video.name} (${video.vid})`
+                            : video.vid}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {!videos.isPending && videos.data?.length === 0 ? (
+                  <FieldDescription>
+                    暂无可关联的视频，请先在视频管理中添加。
+                  </FieldDescription>
+                ) : null}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="pool-binding-offset">
+                  偏移量（秒）
+                </FieldLabel>
+                <Input
+                  id="pool-binding-offset"
+                  type="number"
+                  step="any"
+                  value={offset}
+                  required
+                  onChange={(event) => setOffset(event.target.value)}
+                />
+                <FieldDescription>正数延后，负数提前。</FieldDescription>
+              </Field>
+            </FieldGroup>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              disabled={bind.isPending || videos.isError || !videoID}
+            >
+              {bind.isPending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <LinkIcon data-icon="inline-start" />
+              )}
+              保存关联
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -776,250 +928,6 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
             emptyDescription="添加全局或弹幕池级关键词后，命中的弹幕会自动隐藏。"
           />
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function BindingPanel({ pools }: { pools: BilibiliPool[] }) {
-  const [page, setPage] = useState(1);
-  const [draftQuery, setDraftQuery] = useState("");
-  const [query, setQuery] = useState("");
-  const [vid, setVid] = useState("");
-  const [poolID, setPoolID] = useState("");
-  const [offset, setOffset] = useState("0");
-  const bindings = useQuery({
-    queryKey: ["bilibili-bindings", page, query],
-    queryFn: async () =>
-      (
-        await apiGet<ApiResponse<Paged<BilibiliBinding>>>(
-          "/api/admin/bilibili/bindings",
-          { page, size: 20, query },
-        )
-      ).data,
-  });
-  const save = useApiMutation<
-    { vid: string; poolId: number; offset: number },
-    ApiResponse<BilibiliBinding>
-  >({
-    mutationFn: (body) => apiPost("/api/admin/bilibili/bindings", body),
-    successMessage: "视频关联已保存",
-    invalidate: [["bilibili-bindings"], ["bilibili-pools"]],
-  });
-  const remove = useApiMutation<number, ApiResponse<null>>({
-    mutationFn: (id) => apiDelete(`/api/admin/bilibili/bindings/${id}`),
-    successMessage: "视频关联已删除",
-    invalidate: [["bilibili-bindings"], ["bilibili-pools"]],
-  });
-  const columns: DataColumn<BilibiliBinding>[] = [
-    {
-      key: "vid",
-      label: "本地视频 ID",
-      render: (item) => (
-        <span className="font-mono text-xs">{item.vid}</span>
-      ),
-    },
-    {
-      key: "pool",
-      label: "Bilibili 弹幕池",
-      render: (item) => (
-        <div>
-          <p>{poolLabel(item)}</p>
-          <p className="font-mono text-xs text-muted-foreground">
-            CID {item.cid}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "offset",
-      label: "时间偏移",
-      render: (item) => (
-        <Badge variant="outline">{offsetLabel(item.offset)}</Badge>
-      ),
-    },
-    {
-      key: "updated",
-      label: "最后修改",
-      className: "whitespace-nowrap",
-      render: (item) => formatDateTime(item.updateTime),
-    },
-    {
-      key: "actions",
-      label: "操作",
-      className: "w-20 whitespace-nowrap text-right",
-      render: (item) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label="编辑关联"
-            title="编辑"
-            onClick={() => {
-              setVid(item.vid);
-              setPoolID(String(item.poolId));
-              setOffset(String(item.offset));
-            }}
-          >
-            <PencilIcon />
-          </Button>
-          <ConfirmAction
-            trigger={
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="destructive"
-                aria-label="删除关联"
-                title="删除"
-              >
-                <Trash2Icon />
-              </Button>
-            }
-            title="删除这个视频关联？"
-            description="之后请求该视频 ID 时将不再合并这个 Bilibili 弹幕池。"
-            destructive
-            pending={remove.isPending}
-            onConfirm={() => remove.mutate(item.id)}
-          />
-        </div>
-      ),
-    },
-  ];
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    save.mutate(
-      { vid: vid.trim(), poolId: Number(poolID), offset: Number(offset) },
-      {
-        onSuccess: () => {
-          setVid("");
-          setPoolID("");
-          setOffset("0");
-        },
-      },
-    );
-  }
-
-  function search(event: FormEvent) {
-    event.preventDefault();
-    setPage(1);
-    setQuery(draftQuery.trim());
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>视频关联</CardTitle>
-        <CardDescription>
-          将以 CID 唯一标识的弹幕池合并到本地视频 ID；偏移量只作用于合并进来的 Bilibili 弹幕。
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <FieldGroup className="grid gap-4 md:grid-cols-3">
-            <Field>
-              <FieldLabel htmlFor="binding-vid">本地视频 ID</FieldLabel>
-              <Input
-                id="binding-vid"
-                value={vid}
-                maxLength={36}
-                required
-                onChange={(event) => setVid(event.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="binding-pool">Bilibili 弹幕池</FieldLabel>
-              <Select
-                items={pools.map((pool) => ({
-                  value: String(pool.id),
-                  label: poolLabel(pool),
-                }))}
-                value={poolID}
-                onValueChange={(value) => setPoolID(value ?? "")}
-              >
-                <SelectTrigger id="binding-pool" className="w-full">
-                  <SelectValue placeholder="选择弹幕池" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {pools.map((pool) => (
-                      <SelectItem key={pool.id} value={String(pool.id)}>
-                        {poolLabel(pool)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="binding-offset">偏移量（秒）</FieldLabel>
-              <div className="flex gap-2">
-                <Input
-                  id="binding-offset"
-                  type="number"
-                  step="any"
-                  value={offset}
-                  required
-                  onChange={(event) => setOffset(event.target.value)}
-                />
-                <Button type="submit" disabled={save.isPending || !poolID}>
-                  {save.isPending ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <LinkIcon data-icon="inline-start" />
-                  )}
-                  保存
-                </Button>
-              </div>
-              <FieldDescription>正数延后，负数提前。</FieldDescription>
-            </Field>
-          </FieldGroup>
-        </form>
-      </CardContent>
-      <CardContent>
-        <form onSubmit={search}>
-          <FieldGroup>
-            <Field orientation="horizontal">
-              <Input
-                aria-label="搜索视频关联"
-                value={draftQuery}
-                placeholder="搜索本地视频 ID 或 BVID"
-                onChange={(event) => setDraftQuery(event.target.value)}
-              />
-              <Button type="submit" variant="outline">
-                <SearchIcon data-icon="inline-start" />
-                查询
-              </Button>
-            </Field>
-          </FieldGroup>
-        </form>
-      </CardContent>
-      <CardContent className="p-0">
-        {bindings.isError ? (
-          <div className="p-6">
-            <QueryError
-              error={bindings.error}
-              retry={() => void bindings.refetch()}
-            />
-          </div>
-        ) : bindings.isPending ? (
-          <LoadingTable />
-        ) : (
-          <DataTable
-            rows={bindings.data?.list ?? []}
-            columns={columns}
-            rowKey={(item) => String(item.id)}
-            emptyTitle="暂无视频关联"
-            emptyDescription="选择弹幕池并关联到一个本地视频 ID。"
-          />
-        )}
-        {bindings.data ? (
-          <ListPagination
-            meta={{ page, pageSize: 20, total: bindings.data.total }}
-            onPageChange={setPage}
-          />
-        ) : null}
       </CardContent>
     </Card>
   );

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/xml"
+	"errors"
 	"html"
 	"net"
 	"net/http"
@@ -193,7 +194,10 @@ func (s *Server) insertDanmaku(w http.ResponseWriter, r *http.Request, vid strin
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	}
-	if _, err := s.repository.Insert(r.Context(), vid, data, ip, referer); err != nil {
+	if _, err := s.repository.Insert(r.Context(), vid, data, ip, referer); errors.Is(err, store.ErrVideoDeleted) {
+		s.writeJSON(w, http.StatusOK, failure())
+		return
+	} else if err != nil {
 		s.writeError(w, err)
 		return
 	}
@@ -201,6 +205,13 @@ func (s *Server) insertDanmaku(w http.ResponseWriter, r *http.Request, vid strin
 }
 
 func (s *Server) queryDanmakuByVID(r *http.Request, vid string) ([]domain.DanmakuData, error) {
+	video, err := s.repository.EnsureVideo(r.Context(), vid)
+	if err != nil {
+		return nil, err
+	}
+	if video == nil || video.IsDeleted {
+		return []domain.DanmakuData{}, nil
+	}
 	local, err := s.repository.QueryByVid(r.Context(), vid)
 	if err != nil {
 		return nil, err

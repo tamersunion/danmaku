@@ -94,6 +94,19 @@ export type BilibiliBinding = {
   updateTime: string;
 };
 
+export type ManagedVideo = {
+  id: number;
+  vid: string;
+  name: string;
+  isDelete: boolean;
+  defaultPool: true;
+  danmakuCount: number;
+  bilibiliPoolCount: number;
+  bilibiliBindings?: BilibiliBinding[];
+  createTime: string;
+  updateTime: string;
+};
+
 export type ManagedUser = {
   id: number;
   name: string;

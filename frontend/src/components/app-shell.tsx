@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import {
+  ClapperboardIcon,
   DatabaseIcon,
   EllipsisVerticalIcon,
   ListFilterIcon,
@@ -47,8 +48,9 @@ import {
 import { initials, sessionRoleLabel } from "@/lib/format";
 
 const titles: Array<[RegExp, string]> = [
+  [/^\/videos/, "视频管理"],
   [/^\/danmaku/, "弹幕管理"],
-  [/^\/bilibili/, "Bilibili 弹幕库"],
+  [/^\/bilibili/, "bilibili 弹幕库"],
   [/^\/users/, "用户管理"],
   [/^\/profile/, "个人资料"],
 ];
@@ -97,9 +99,19 @@ function AppShellContent() {
         <SidebarContent>
           {session.canManageDanmaku ? (
             <SidebarGroup>
-              <SidebarGroupLabel>管理</SidebarGroupLabel>
+              <SidebarGroupLabel>视频与弹幕库</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="视频管理"
+                      isActive={location.pathname.startsWith("/videos")}
+                      render={<NavLink to="/videos" />}
+                    >
+                      <ClapperboardIcon />
+                      <span>视频管理</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       tooltip="弹幕管理"
@@ -110,28 +122,44 @@ function AppShellContent() {
                       <span>弹幕管理</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+          {session.canManageDanmaku ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>第三方弹幕库</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      tooltip="Bilibili 弹幕库"
+                      tooltip="bilibili 弹幕库"
                       isActive={location.pathname.startsWith("/bilibili")}
                       render={<NavLink to="/bilibili" />}
                     >
                       <DatabaseIcon />
-                      <span>Bilibili 弹幕库</span>
+                      <span>bilibili 弹幕库</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  {session.canManageUsers ? (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        tooltip="用户管理"
-                        isActive={location.pathname.startsWith("/users")}
-                        render={<NavLink to="/users" />}
-                      >
-                        <UsersIcon />
-                        <span>用户管理</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ) : null}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+          {session.canManageUsers ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>平台管理</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="用户管理"
+                      isActive={location.pathname.startsWith("/users")}
+                      render={<NavLink to="/users" />}
+                    >
+                      <UsersIcon />
+                      <span>用户管理</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

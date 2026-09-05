@@ -15,6 +15,8 @@ var (
 	ErrUserDisabled        = errors.New("user is disabled")
 	ErrUserNameConflict    = errors.New("user name already exists")
 	ErrCASProfileReadOnly  = errors.New("CAS profile fields are read-only")
+	ErrVideoDeleted        = errors.New("video is deleted")
+	ErrVideoExists         = errors.New("video already exists")
 )
 
 type SearchFilter struct {
@@ -68,10 +70,11 @@ type BilibiliDanmakuFilter struct {
 	Blocked *bool
 }
 
-type BilibiliBindingFilter struct {
-	Page  int
-	Size  int
-	Query string
+type VideoFilter struct {
+	Page      int
+	Size      int
+	Query     string
+	IsDeleted *bool
 }
 
 type Repository interface {
@@ -82,6 +85,12 @@ type Repository interface {
 	List(context.Context, string, int, int, bool) (domain.Page[domain.Danmaku], error)
 	Search(context.Context, SearchFilter) (domain.Page[domain.Danmaku], error)
 	Vids(context.Context) ([]string, error)
+	EnsureVideo(context.Context, string) (*domain.Video, error)
+	Videos(context.Context, VideoFilter) (domain.Page[domain.Video], error)
+	Video(context.Context, int) (*domain.Video, error)
+	CreateVideo(context.Context, string, string) (*domain.Video, error)
+	UpdateVideo(context.Context, int, string) (*domain.Video, error)
+	SetVideoDeleted(context.Context, int, bool) (bool, error)
 	Get(context.Context, string) (*domain.Danmaku, error)
 	Edit(context.Context, string, domain.DanmakuData, bool) (*domain.Danmaku, error)
 	Delete(context.Context, string) (bool, error)
@@ -107,9 +116,9 @@ type Repository interface {
 	BilibiliKeywords(context.Context) ([]domain.BilibiliKeyword, error)
 	CreateBilibiliKeyword(context.Context, *int, string) (*domain.BilibiliKeyword, error)
 	DeleteBilibiliKeyword(context.Context, int) (bool, error)
-	BilibiliBindings(context.Context, BilibiliBindingFilter) (domain.Page[domain.BilibiliBinding], error)
 	BilibiliBindingsByVID(context.Context, string) ([]domain.BilibiliBinding, error)
-	UpsertBilibiliBinding(context.Context, string, int, float64) (*domain.BilibiliBinding, error)
-	DeleteBilibiliBinding(context.Context, int) (bool, error)
+	VideoBilibiliBindings(context.Context, int) ([]domain.BilibiliBinding, error)
+	UpsertVideoBilibiliBinding(context.Context, int, int, float64) (*domain.BilibiliBinding, error)
+	DeleteVideoBilibiliBinding(context.Context, int, int) (bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
 }

@@ -20,18 +20,20 @@
 
 2.1.5 增加提交去重：30 秒内客户端 IP、视频 ID 与弹幕内容均相同时，后续提交仍返回原有成功响应，但不写入数据库。服务启动时会自动创建去重查询索引。
 
-2.2.0 将 Bilibili 弹幕改为 PostgreSQL 持久化弹幕池：AID 先解析为一一对应的 BVID，再由 BVID + P 解析 CID，最终以 CID 作为弹幕池唯一标识，BVID 和 P 仅作为可选来源元数据。上次上游获取后的固定 10 分钟内只返回缓存，超过后由下一次弹幕池请求被动增量更新，后台也可手动触发；服务不会定时主动刷新。弹幕以发送时间戳和内容去重，空上游响应不再清空既有数据。新增弹幕池及全局关键词过滤、单条屏蔽、本地视频关联和秒级 `offset` 偏移功能；后台可通过 BVID、AID 或 CID（P 默认为 1）创建弹幕池并立即完成首次获取。
+2.2.0 将 bilibili 弹幕改为 PostgreSQL 持久化弹幕池：AID 先解析为一一对应的 BVID，再由 BVID + P 解析 CID，最终以 CID 作为弹幕池唯一标识，BVID 和 P 仅作为可选来源元数据。上次上游获取后的固定 10 分钟内只返回缓存，超过后由下一次弹幕池请求被动增量更新，后台也可手动触发；服务不会定时主动刷新。弹幕以发送时间戳和内容去重，空上游响应不再清空既有数据。新增弹幕池及全局关键词过滤、单条屏蔽、本地视频关联和秒级 `offset` 偏移功能；后台可通过 BVID、AID 或 CID（P 默认为 1）创建弹幕池并立即完成首次获取。
 
-Bilibili 上游 API 基址由 `BiliBiliSetting.ApiBase` 配置，默认使用 `https://api.bilibili.com`；末尾斜杠会在加载时移除。
+2.3.0 新增独立视频管理。外部弹幕查询或提交首次遇到视频 ID 时只创建该 ID 对应的视频记录，不写入名称或来源资料；系统自带弹幕池始终固定关联且不能取消。后台可从视频详情或 bilibili 弹幕池列表双向发起视频关联并设置各自偏移量，上一版 `/api/admin/bilibili/bindings` 管理接口同步下线。视频删除为软删除：外部查询返回空弹幕，提交返回原有业务失败响应，外部请求不会恢复视频；管理员可在视频管理中恢复。
+
+bilibili 上游 API 基址由 `BiliBiliSetting.ApiBase` 配置，默认使用 `https://api.bilibili.com`；末尾斜杠会在加载时移除。
 
 | 方法 | 路径 | 兼容行为 |
 | --- | --- | --- |
-| GET | `/api/danmaku/v1?id={vid}` | 返回通用弹幕数组；存在 Bilibili 关联时自动合并可见的池内弹幕 |
-| GET | `/api/danmaku/v1/{vid}.xml` | 返回 Bilibili XML 格式 |
+| GET | `/api/danmaku/v1?id={vid}` | 返回通用弹幕数组；存在 bilibili 关联时自动合并可见的池内弹幕；软删除视频返回空数组 |
+| GET | `/api/danmaku/v1/{vid}.xml` | 返回 bilibili XML 格式；软删除视频返回空弹幕文档 |
 | POST | `/api/danmaku/v1` | 接收通用弹幕 JSON |
 | GET/POST | `/api/danmaku/dplayer/v3` | DPlayer v3 查询与提交 |
 | GET/POST | `/api/danmaku/artplayer/v1` | ArtPlayer 查询与提交；查询默认 XML，`.json` 返回 JSON |
-| GET | `/api/danmaku/v1/bilibili/*`、`/api/danmaku/dplayer/v3/bilibili`、`/api/danmaku/artplayer/v1/bilibili/*` | 按 `cid`，或 `aid`/`bvid` + `p` 获取持久化 Bilibili 弹幕；可传 `offset`，正数延后、负数提前，单位为秒 |
+| GET | `/api/danmaku/v1/bilibili/*`、`/api/danmaku/dplayer/v3/bilibili`、`/api/danmaku/artplayer/v1/bilibili/*` | 按 `cid`，或 `aid`/`bvid` + `p` 获取持久化 bilibili 弹幕；可传 `offset`，正数延后、负数提前，单位为秒 |
 | GET | `/api/other/bilibili/queryaid` | 查询 `aid`、`bvid` 和分 P 列表 |
 | POST | `/api/admin/login` | 建立 `DCookie` 会话并写入 `ClientAuth` 角色 Cookie |
 | GET | `/api/admin/logout` | 清理 Cookie 并以 302 跳转 `/` |
@@ -41,12 +43,15 @@ Bilibili 上游 API 基址由 `BiliBiliSetting.ApiBase` 配置，默认使用 `h
 | GET/POST | `/api/admin/users` | 管理员分页查询用户或创建本地用户；CAS 开启时不允许创建本地用户 |
 | GET/PUT/DELETE | `/api/admin/users/{id}` | 管理员查询、更新或删除用户；CAS 用户只能修改角色 |
 | PATCH | `/api/admin/users/{id}/status` | 管理员启用或停用用户 |
+| GET/POST | `/api/admin/videos` | 分页查询视频或创建视频；可按视频 ID、名称和删除状态筛选 |
+| GET/PUT/DELETE | `/api/admin/videos/{id}` | 查询详情、修改名称或软删除视频 |
+| PATCH | `/api/admin/videos/{id}/status` | 恢复或软删除视频 |
+| POST/DELETE | `/api/admin/videos/{id}/bilibili-bindings[/{bindingId}]` | 为指定视频新增、更新或删除 bilibili 弹幕池关联及秒级偏移量 |
 | GET | `/api/admin/danmakulist[/vids\|/dateselect\|/baseselect]` | 管理列表和筛选 |
 | GET/POST | `/api/admin/danmakuedit[/delete\|/edit]` | 查询、软删除和编辑 |
 | GET/POST | `/api/admin/bilibili/pools`、`/pools/{id}/sync`、`/pools/{id}/danmaku` | 查询弹幕池；通过 BVID/AID/CID + P（默认 1）创建并立即同步；强制增量同步及审阅池内弹幕 |
-| PATCH | `/api/admin/bilibili/danmaku/{id}/blocked` | 设置单条 Bilibili 弹幕的手动屏蔽状态 |
+| PATCH | `/api/admin/bilibili/danmaku/{id}/blocked` | 设置单条 bilibili 弹幕的手动屏蔽状态 |
 | GET/POST/DELETE | `/api/admin/bilibili/keywords[/{id}]` | 管理全局或指定弹幕池的过滤关键词 |
-| GET/POST/DELETE | `/api/admin/bilibili/bindings[/{id}]` | 将 BVID + P 弹幕池关联到本地视频 ID，并保存秒级偏移量 |
 
 客户端 IP 的取值顺序保持代理部署习惯：`X-Real-IP`、`X-Forwarded-For`、请求远端地址。提交时 JSON 未提供 `referer` 则读取 `Referer` 请求头。
 
@@ -62,15 +67,16 @@ Bilibili 上游 API 基址由 `BiliBiliSetting.ApiBase` 配置，默认使用 `h
 Go 后端启动时在单个事务中迁移并读写以下区分大小写对象：
 
 - 表：`"Danmaku"`、`"Video"`、`"User"`、`"HttpClientCache"`、`"BilibiliDanmakuPool"`、`"BilibiliDanmaku"`、`"BilibiliDanmakuKeyword"`、`"BilibiliDanmakuBinding"`。
-- 软删除列：`"Danmaku"."IsDelete"`。
+- 软删除列：`"Danmaku"."IsDelete"`、`"Video"."IsDelete"`。
 - 视频外键：`"Danmaku"."VideoId"` -> `"Video"."Id"`。
+- 视频资料：唯一 `"Video"."Vid"` 及可空 `"Video"."Name"`；系统自带弹幕池为固有关系，不另建可删除的关联行。
 - 弹幕 JSONB：`"Danmaku"."Data"`，内部属性继续写为 `Time`、`Mode`、`Size`、`Color`、`TimeStamp`、`Pool`、`Author`、`AuthorId`、`Text`。
 - 来源 JSONB：`"Video"."Referer"`，内部属性继续写为 `Protocol`、`Host`、`Port`、`Path`、`Query`、`Fragment`。
 
 数据库读取同时兼容既有 PascalCase JSONB 和可能存在的 camelCase 数据，但新增数据仍写成旧 EF Core 的 PascalCase 结构。
 
-Bilibili 弹幕池以唯一 CID 为准；BVID 与 P 只保存为辅助解析和展示元数据，从 CID 直接创建时 BVID 可为空，后续通过 BVID/AID 访问同一 CID 时会补齐。弹幕正文同样以 PascalCase JSONB 保存，并额外记录发送时间戳及内容 SHA-256 用于增量去重。手动屏蔽状态保存在弹幕行上；关键词规则在公开查询时计算，命中的行仍保留在数据库中但默认不返回。视频关联只保存本地 `Vid`、弹幕池和偏移量，不给本地视频模型增加分 P 字段。
+bilibili 弹幕池以唯一 CID 为准；BVID 与 P 只保存为辅助解析和展示元数据，从 CID 直接创建时 BVID 可为空，后续通过 BVID/AID 访问同一 CID 时会补齐。弹幕正文同样以 PascalCase JSONB 保存，并额外记录发送时间戳及内容 SHA-256 用于增量去重。手动屏蔽状态保存在弹幕行上；关键词规则在公开查询时计算，命中的行仍保留在数据库中但默认不返回。视频关联只保存本地 `Vid`、弹幕池和偏移量，不给本地视频模型增加分 P 字段。
 
-已有 `"Danmu"` 表、`FK_Danmu_*` 外键和 `IX_Danmu_*` 索引会自动改为 `Danmaku` 命名。`"User"` 会新增 `"CASSubject"`、`"CASDisplayName"`、`"CASAvatar"`、`"Enabled"` 字段及唯一索引，用于稳定绑定、同步 CAS 资料及停用账户。结构检查在服务启动、开始监听前自动完成。
+已有 `"Danmu"` 表、`FK_Danmu_*` 外键和 `IX_Danmu_*` 索引会自动改为 `Danmaku` 命名。`"User"` 会新增 `"CASSubject"`、`"CASDisplayName"`、`"CASAvatar"`、`"Enabled"` 字段及唯一索引，用于稳定绑定、同步 CAS 资料及停用账户。`"Video"` 会新增名称和软删除字段、统一时间列名称、按 `Vid` 合并旧重复行并重新关联弹幕；既有 bilibili 关联中的视频 ID 会补建为视频记录。结构检查在服务启动、开始监听前自动完成。
 
 用户角色 `1` 为管理员，可管理弹幕和用户；角色 `2` 为弹幕管理员，只能管理弹幕；角色 `3` 为普通用户，只能查看自己的资料。CAS 启用后，CAS 返回的用户名、显示名、邮箱和头像会在登录时同步；包括电话在内的本地资料及密码均不可由本项目修改，只允许管理员调整角色或启停账户。

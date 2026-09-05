@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMarshalDBDataPreservesExistingJSONKeys(t *testing.T) {
@@ -40,5 +41,21 @@ func TestExternalJSONUsesCamelCase(t *testing.T) {
 	serialized := string(raw)
 	if !strings.Contains(serialized, `"timeStamp":123`) || !strings.Contains(serialized, `"authorId":7`) {
 		t.Fatalf("unexpected API JSON: %s", serialized)
+	}
+}
+
+func TestDanmakuVideoPreservesExistingResponseKeys(t *testing.T) {
+	raw, err := json.Marshal(DanmakuVideo{ID: 1, Vid: "video", UpdateTime: time.Unix(0, 0).UTC()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(raw)
+	for _, key := range []string{`"id"`, `"vid"`, `"referer"`, `"createTime"`, `"upDateTime"`} {
+		if !strings.Contains(serialized, key) {
+			t.Fatalf("existing danmaku video response %s does not contain %s", serialized, key)
+		}
+	}
+	if strings.Contains(serialized, `"updateTime"`) {
+		t.Fatalf("existing danmaku video response key changed: %s", serialized)
 	}
 }

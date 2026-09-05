@@ -289,29 +289,6 @@ func (p *Postgres) DeleteBilibiliKeyword(ctx context.Context, id int) (bool, err
 	return tag.RowsAffected() > 0, err
 }
 
-func (p *Postgres) BilibiliBindings(ctx context.Context, filter BilibiliBindingFilter) (domain.Page[domain.BilibiliBinding], error) {
-	filter.Page, filter.Size = normalizePage(filter.Page, filter.Size)
-	where := ""
-	args := []any{}
-	if strings.TrimSpace(filter.Query) != "" {
-		args = append(args, strings.TrimSpace(filter.Query))
-		where = ` WHERE b."Vid" ILIKE '%' || $1 || '%' OR p."BVID" ILIKE '%' || $1 || '%'`
-	}
-	var total int
-	if err := p.pool.QueryRow(ctx, `SELECT COUNT(*) FROM "BilibiliDanmakuBinding" b JOIN "BilibiliDanmakuPool" p ON p."Id"=b."PoolId"`+where, args...).Scan(&total); err != nil {
-		return domain.Page[domain.BilibiliBinding]{}, err
-	}
-	args = append(args, filter.Size, filter.Size*(filter.Page-1))
-	query := bilibiliBindingSelect + where + ` ORDER BY b."Vid",p."BVID",p."Page" LIMIT $` + fmt.Sprint(len(args)-1) + ` OFFSET $` + fmt.Sprint(len(args))
-	rows, err := p.pool.Query(ctx, query, args...)
-	if err != nil {
-		return domain.Page[domain.BilibiliBinding]{}, err
-	}
-	defer rows.Close()
-	list, err := scanBilibiliBindings(rows)
-	return domain.Page[domain.BilibiliBinding]{Total: total, List: list}, err
-}
-
 func (p *Postgres) BilibiliBindingsByVID(ctx context.Context, vid string) ([]domain.BilibiliBinding, error) {
 	rows, err := p.pool.Query(ctx, bilibiliBindingSelect+` WHERE b."Vid"=$1 ORDER BY b."Id"`, vid)
 	if err != nil {
@@ -321,7 +298,27 @@ func (p *Postgres) BilibiliBindingsByVID(ctx context.Context, vid string) ([]dom
 	return scanBilibiliBindings(rows)
 }
 
-func (p *Postgres) UpsertBilibiliBinding(ctx context.Context, vid string, poolID int, offset float64) (*domain.BilibiliBinding, error) {
+func (p *Postgres) VideoBilibiliBindings(ctx context.Context, videoID int) ([]domain.BilibiliBinding, error) {
+	rows, err := p.pool.Query(ctx, bilibiliBindingSelect+` JOIN "Video" v ON v."Vid"=b."Vid" WHERE v."Id"=$1 ORDER BY b."Id"`, videoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanBilibiliBindings(rows)
+}
+
+func (p *Postgres) UpsertVideoBilibiliBinding(ctx context.Context, videoID, poolID int, offset float64) (*domain.BilibiliBinding, error) {
+	var vid string
+	var deleted bool
+	if err := p.pool.QueryRow(ctx, `SELECT "Vid","IsDelete" FROM "Video" WHERE "Id"=$1`, videoID).Scan(&vid, &deleted); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if deleted {
+		return nil, ErrVideoDeleted
+	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	var id int
 	err := p.pool.QueryRow(ctx, `INSERT INTO "BilibiliDanmakuBinding" ("Vid","PoolId","Offset","CreateTime","UpdateTime") VALUES ($1,$2,$3,$4,$4) ON CONFLICT ("Vid","PoolId") DO UPDATE SET "Offset"=EXCLUDED."Offset","UpdateTime"=EXCLUDED."UpdateTime" RETURNING "Id"`, vid, poolID, offset, now).Scan(&id)
@@ -331,8 +328,8 @@ func (p *Postgres) UpsertBilibiliBinding(ctx context.Context, vid string, poolID
 	return scanBilibiliBinding(p.pool.QueryRow(ctx, bilibiliBindingSelect+` WHERE b."Id"=$1`, id))
 }
 
-func (p *Postgres) DeleteBilibiliBinding(ctx context.Context, id int) (bool, error) {
-	tag, err := p.pool.Exec(ctx, `DELETE FROM "BilibiliDanmakuBinding" WHERE "Id"=$1`, id)
+func (p *Postgres) DeleteVideoBilibiliBinding(ctx context.Context, videoID, bindingID int) (bool, error) {
+	tag, err := p.pool.Exec(ctx, `DELETE FROM "BilibiliDanmakuBinding" b USING "Video" v WHERE b."Id"=$1 AND v."Id"=$2 AND b."Vid"=v."Vid"`, bindingID, videoID)
 	return tag.RowsAffected() > 0, err
 }
 
