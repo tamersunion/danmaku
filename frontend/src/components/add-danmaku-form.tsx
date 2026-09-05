@@ -6,6 +6,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ColorPicker } from "@/components/color-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 
@@ -35,7 +36,7 @@ export function AddDanmakuForm({ vid, initialVid = "", disabled = false, onSucce
    <FieldGroup className="grid gap-4 sm:grid-cols-3">
     <Field data-disabled={disabled}><FieldLabel htmlFor={`${prefix}-time`}>出现时间（秒）</FieldLabel><Input id={`${prefix}-time`} type="number" min="0" step="any" value={time} onChange={e=>setTime(e.target.value)} required disabled={disabled} /></Field>
     <Field data-disabled={disabled}><FieldLabel htmlFor={`${prefix}-type`}>类型</FieldLabel><SearchableSelect id={`${prefix}-type`} value={type} onValueChange={setType} disabled={disabled} searchPlaceholder="搜索类型" options={[{value:"0",label:"滚动"},{value:"1",label:"顶部"},{value:"2",label:"底部"}]} /></Field>
-    <Field data-disabled={disabled}><FieldLabel htmlFor={`${prefix}-color`}>颜色</FieldLabel><Input id={`${prefix}-color`} type="color" value={color} onChange={e=>setColor(e.target.value)} disabled={disabled} className="p-1 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0" /></Field>
+    <Field data-disabled={disabled}><FieldLabel htmlFor={`${prefix}-color`}>颜色</FieldLabel><ColorPicker id={`${prefix}-color`} value={color} onChange={setColor} disabled={disabled} /></Field>
    </FieldGroup>
    <Field data-disabled={disabled}><FieldLabel htmlFor={`${prefix}-text`}>弹幕内容</FieldLabel><Input id={`${prefix}-text`} value={text} onChange={e=>setText(e.target.value)} maxLength={500} required disabled={disabled} /></Field>
    <Button type="submit" className="self-end" disabled={disabled || mutation.isPending || !text.trim() || !(vid ?? videoID.trim())}>{mutation.isPending ? <Spinner data-icon="inline-start"/> : <SendIcon data-icon="inline-start"/>}添加弹幕</Button>

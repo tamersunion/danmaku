@@ -15,6 +15,8 @@ import type { ApiResponse, Danmaku } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
 import { AddDanmakuForm } from "@/components/add-danmaku-form";
 import { NativeRulePanel } from "@/components/native-rule-panel";
+import { DateTimePicker } from "@/components/date-time-picker";
+import { ColorPicker } from "@/components/color-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { ListPagination } from "@/components/list-pagination";
@@ -333,23 +335,21 @@ export function DanmakuPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-start">开始时间</FieldLabel>
-                <Input
+                <DateTimePicker
                   id="filter-start"
-                  type="datetime-local"
                   value={draft.startDate}
-                  onChange={(event) =>
-                    setDraft({ ...draft, startDate: event.target.value })
+                  onChange={(value) =>
+                    setDraft({ ...draft, startDate: value })
                   }
                 />
               </Field>
               <Field>
                 <FieldLabel htmlFor="filter-end">结束时间</FieldLabel>
-                <Input
+                <DateTimePicker
                   id="filter-end"
-                  type="datetime-local"
                   value={draft.endDate}
-                  onChange={(event) =>
-                    setDraft({ ...draft, endDate: event.target.value })
+                  onChange={(value) =>
+                    setDraft({ ...draft, endDate: value })
                   }
                 />
               </Field>
@@ -561,21 +561,7 @@ function DanmakuEditor({
               </FieldGroup>
               <Field>
                 <FieldLabel htmlFor="danmaku-color">颜色</FieldLabel>
-                <div className="flex gap-3">
-                  <Input
-                    id="danmaku-color"
-                    type="color"
-                    className="w-16 p-1"
-                    value={color}
-                    onChange={(event) => setColor(event.target.value)}
-                  />
-                  <Input
-                    aria-label="颜色十六进制值"
-                    value={color}
-                    pattern="^#[0-9a-fA-F]{6}$"
-                    onChange={(event) => setColor(event.target.value)}
-                  />
-                </div>
+                <ColorPicker id="danmaku-color" value={color} onChange={setColor} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="danmaku-text">弹幕内容</FieldLabel>

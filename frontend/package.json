@@ -1,7 +1,7 @@
 {
   "name": "danmaku-frontend",
   "private": true,
-  "version": "2.9.1",
+  "version": "2.9.2",
   "description": "Modern shadcn/ui console for Danmaku Server",
   "type": "module",
   "scripts": {
@@ -23,10 +23,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.2.5",
+    "date-fns": "^4.4.0",
     "js-md5": "^0.8.3",
     "lucide-react": "^1.37.0",
     "pako": "^2.1.0",
     "react": "^19.2.8",
+    "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.8.0",
