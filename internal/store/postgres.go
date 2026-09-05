@@ -526,7 +526,7 @@ func (p *Postgres) List(ctx context.Context, vid string, page, size int, descend
 		direction = "ASC"
 	}
 	args = append(args, size, size*(page-1))
-	query := `SELECT "Id"::text,"Vid","Data",COALESCE("Ip"::text,''),"IsDelete","CreateTime","UpdateTime" FROM "Danmaku"` + where + ` ORDER BY "CreateTime" ` + direction + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	query := `SELECT "Id"::text,"Vid","Data",COALESCE("Ip"::text,''),"IsDelete","CreateTime","UpdateTime" FROM "Danmaku"` + where + ` ORDER BY "CreateTime" ` + direction + `,"Id" ` + direction + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
 	list, err := p.queryDanmaku(ctx, query, args...)
 	return domain.Page[domain.Danmaku]{Total: total, List: list}, err
 }
@@ -573,7 +573,7 @@ func (p *Postgres) Search(ctx context.Context, filter SearchFilter) (domain.Page
 		direction = "ASC"
 	}
 	args = append(args, filter.Size, filter.Size*(filter.Page-1))
-	query := `SELECT "Id"::text,"Vid","Data",COALESCE("Ip"::text,''),"IsDelete","CreateTime","UpdateTime" FROM "Danmaku"` + where + ` ORDER BY "UpdateTime" ` + direction + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	query := `SELECT "Id"::text,"Vid","Data",COALESCE("Ip"::text,''),"IsDelete","CreateTime","UpdateTime" FROM "Danmaku"` + where + ` ORDER BY "CreateTime" ` + direction + `,"Id" ` + direction + fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
 	list, err := p.queryDanmaku(ctx, query, args...)
 	return domain.Page[domain.Danmaku]{Total: total, List: list}, err
 }

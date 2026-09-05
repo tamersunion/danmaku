@@ -127,4 +127,45 @@ func TestNativeRulePostgresIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM "Video" WHERE "Vid"='blocked-video'`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("blacklist created video count=%d err=%v", count, err)
 	}
+	t.Run("management creation order", func(t *testing.T) {
+		ids := []string{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003"}
+		for i, id := range ids {
+			created := time.Date(2090, 1, 1, 0, 0, 0, 0, time.UTC)
+			if i > 0 {
+				created = created.Add(time.Hour)
+			}
+			updated := created
+			if i == 0 {
+				updated = created.Add(24 * time.Hour)
+			}
+			if _, err := pool.Exec(ctx, `INSERT INTO "Danmaku" ("Id","Vid","Data","IsDelete","CreateTime","UpdateTime") VALUES ($1,'sort-test','{}',FALSE,$2,$3)`, id, created, updated); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, filtered := range []bool{false, true} {
+			vid := ""
+			if filtered {
+				vid = "sort-test"
+			}
+			for page := 1; page <= 3; page++ {
+				result, err := repo.Search(ctx, SearchFilter{Vid: vid, Page: page, Size: 1, Descending: true})
+				if err != nil || len(result.List) != 1 || result.List[0].ID != ids[3-page] {
+					t.Fatalf("search filtered=%v page=%d: %#v err=%v", filtered, page, result, err)
+				}
+				result, err = repo.List(ctx, vid, page, 1, true)
+				if err != nil || len(result.List) != 1 || result.List[0].ID != ids[3-page] {
+					t.Fatalf("list filtered=%v page=%d: %#v err=%v", filtered, page, result, err)
+				}
+			}
+		}
+		result, err := repo.Search(ctx, SearchFilter{Vid: "sort-test", Page: 1, Size: 3, Descending: false})
+		if err != nil || len(result.List) != 3 {
+			t.Fatalf("ascending: %#v err=%v", result, err)
+		}
+		for i, item := range result.List {
+			if item.ID != ids[i] {
+				t.Fatalf("ascending entry %d=%s", i, item.ID)
+			}
+		}
+	})
 }
