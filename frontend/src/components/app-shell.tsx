@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import {
+  DatabaseIcon,
   EllipsisVerticalIcon,
   ListFilterIcon,
   LogOutIcon,
@@ -47,6 +48,7 @@ import { initials, sessionRoleLabel } from "@/lib/format";
 
 const titles: Array<[RegExp, string]> = [
   [/^\/danmaku/, "弹幕管理"],
+  [/^\/bilibili/, "Bilibili 弹幕库"],
   [/^\/users/, "用户管理"],
   [/^\/profile/, "个人资料"],
 ];
@@ -106,6 +108,16 @@ function AppShellContent() {
                     >
                       <ListFilterIcon />
                       <span>弹幕管理</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="Bilibili 弹幕库"
+                      isActive={location.pathname.startsWith("/bilibili")}
+                      render={<NavLink to="/bilibili" />}
+                    >
+                      <DatabaseIcon />
+                      <span>Bilibili 弹幕库</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   {session.canManageUsers ? (

@@ -11,8 +11,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,12 +33,15 @@ type Bilibili struct {
 }
 
 type bilibiliQuery struct {
-	CID   int64
-	AID   int
-	BVID  string
-	Page  int
-	Dates []string
+	CID    int64
+	AID    int
+	BVID   string
+	Page   int
+	Dates  []string
+	Offset float64
 }
+
+const bilibiliSyncInterval = 10 * time.Minute
 
 type bilibiliPageResponse struct {
 	Code int            `json:"code"`
@@ -67,30 +72,33 @@ type bilibiliArchiveResponse struct {
 }
 
 func NewBilibili(repository store.Repository, settings config.BilibiliSettings) *Bilibili {
-	return &Bilibili{repository: repository, settings: settings, client: &http.Client{Timeout: 60 * time.Second}, baseURL: "https://bilibili-api.hanada.info"}
-}
-
-func (b *Bilibili) Raw(ctx context.Context, query bilibiliQuery) ([]byte, error) {
-	cid, err := b.resolveCID(ctx, query)
-	if err != nil || cid == 0 {
-		return nil, err
+	baseURL := strings.TrimRight(strings.TrimSpace(settings.APIBase), "/")
+	if baseURL == "" {
+		baseURL = config.DefaultBilibiliAPIBase
 	}
-	return b.fetch(ctx, fmt.Sprintf("%s/x/v1/dm/list.so?oid=%d", b.baseURL, cid), false, time.Duration(b.settings.DataCacheMinutes)*time.Minute)
+	return &Bilibili{repository: repository, settings: settings, client: &http.Client{Timeout: 60 * time.Second}, baseURL: baseURL}
 }
 
 func (b *Bilibili) Data(ctx context.Context, query bilibiliQuery) ([]domain.DanmakuData, error) {
-	cid, err := b.resolveCID(ctx, query)
-	if err != nil || cid == 0 {
+	pool, _, err := b.ensurePool(ctx, query, false, true)
+	if err != nil || pool == nil {
 		return []domain.DanmakuData{}, err
 	}
+	data, err := b.repository.BilibiliPoolData(ctx, pool.ID)
+	if err != nil {
+		return nil, err
+	}
+	return offsetDanmaku(data, query.Offset), nil
+}
+
+func (b *Bilibili) fetchDanmaku(ctx context.Context, query bilibiliQuery, cid int64) ([]domain.DanmakuData, error) {
 	if len(query.Dates) == 0 || b.settings.Cookie == "" {
-		raw, err := b.fetch(ctx, fmt.Sprintf("%s/x/v1/dm/list.so?oid=%d", b.baseURL, cid), false, time.Duration(b.settings.DataCacheMinutes)*time.Minute)
+		raw, err := b.fetch(ctx, fmt.Sprintf("%s/x/v1/dm/list.so?oid=%d", b.baseURL, cid), false, 0)
 		if err != nil {
 			return nil, err
 		}
 		return parseBilibiliXML(raw)
 	}
-
 	results := make([][]domain.DanmakuData, len(query.Dates))
 	errorsByIndex := make([]error, len(query.Dates))
 	var wait sync.WaitGroup
@@ -99,7 +107,7 @@ func (b *Bilibili) Data(ctx context.Context, query bilibiliQuery) ([]domain.Danm
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			raw, fetchErr := b.fetch(ctx, fmt.Sprintf("%s/x/v2/dm/history?type=1&oid=%d&date=%s", b.baseURL, cid, url.QueryEscape(date)), true, time.Duration(b.settings.DataCacheMinutes)*time.Minute)
+			raw, fetchErr := b.fetch(ctx, fmt.Sprintf("%s/x/v2/dm/history?type=1&oid=%d&date=%s", b.baseURL, cid, url.QueryEscape(date)), true, 0)
 			if fetchErr != nil {
 				errorsByIndex[index] = fetchErr
 				return
@@ -116,6 +124,68 @@ func (b *Bilibili) Data(ctx context.Context, query bilibiliQuery) ([]domain.Danm
 		combined = append(combined, results[index]...)
 	}
 	return combined, nil
+}
+
+func (b *Bilibili) ensurePool(ctx context.Context, query bilibiliQuery, force, staleOnError bool) (*domain.BilibiliPool, int, error) {
+	bvid, page, cid, err := b.resolvePool(ctx, query)
+	if err != nil || cid == 0 {
+		return nil, 0, err
+	}
+	pool, err := b.repository.EnsureBilibiliPool(ctx, bvid, page, cid)
+	if err != nil {
+		return nil, 0, err
+	}
+	claimed, err := b.repository.ClaimBilibiliPoolSync(ctx, pool.ID, bilibiliSyncInterval, force)
+	if err != nil || !claimed {
+		return pool, 0, err
+	}
+	data, err := b.fetchDanmaku(ctx, query, cid)
+	if err != nil {
+		if staleOnError {
+			return pool, 0, nil
+		}
+		return pool, 0, err
+	}
+	inserted, err := b.repository.MergeBilibiliDanmaku(ctx, pool.ID, data)
+	if err != nil {
+		return pool, 0, err
+	}
+	refreshed, err := b.repository.BilibiliPool(ctx, pool.ID)
+	return refreshed, inserted, err
+}
+
+func (b *Bilibili) PreparePool(ctx context.Context, query bilibiliQuery) (*domain.BilibiliPool, int, error) {
+	query.BVID = strings.TrimSpace(query.BVID)
+	return b.ensurePool(ctx, query, true, false)
+}
+
+func (b *Bilibili) SyncPool(ctx context.Context, id int) (*domain.BilibiliPool, int, error) {
+	pool, err := b.repository.BilibiliPool(ctx, id)
+	if err != nil {
+		return nil, 0, err
+	}
+	return b.ensurePool(ctx, bilibiliQuery{BVID: pool.BVID, Page: pool.Page, CID: pool.CID}, true, false)
+}
+
+func (b *Bilibili) BoundData(ctx context.Context, vid string) ([]domain.DanmakuData, error) {
+	bindings, err := b.repository.BilibiliBindingsByVID(ctx, vid)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.DanmakuData, 0)
+	for _, binding := range bindings {
+		pool, _, err := b.ensurePool(ctx, bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID}, false, true)
+		if err != nil {
+			return nil, err
+		}
+		data, err := b.repository.BilibiliPoolData(ctx, pool.ID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, offsetDanmaku(data, binding.Offset)...)
+	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Time < result[j].Time })
+	return result, nil
 }
 
 func (b *Bilibili) Archive(ctx context.Context, bvid string, aid int) (bilibiliArchiveResponse, error) {
@@ -159,53 +229,78 @@ func (b *Bilibili) Pages(ctx context.Context, bvid string, aid int) ([]bilibiliP
 	return response.Data, nil
 }
 
-func (b *Bilibili) resolveCID(ctx context.Context, query bilibiliQuery) (int64, error) {
-	if query.CID != 0 {
-		return query.CID, nil
-	}
+func (b *Bilibili) resolvePool(ctx context.Context, query bilibiliQuery) (string, int, int64, error) {
 	if query.Page == 0 {
 		query.Page = 1
 	}
-	pages, err := b.Pages(ctx, query.BVID, query.AID)
+	bvid := strings.TrimSpace(query.BVID)
+	if query.CID != 0 {
+		return bvid, query.Page, query.CID, nil
+	}
+	if bvid == "" && query.AID != 0 {
+		archive, err := b.Archive(ctx, "", query.AID)
+		if err != nil {
+			return "", 0, 0, err
+		}
+		if archive.Code != 0 {
+			return "", 0, 0, nil
+		}
+		bvid = archive.Data.BVID
+	}
+	if bvid == "" {
+		return "", 0, 0, nil
+	}
+	existing, err := b.repository.BilibiliPoolByKey(ctx, bvid, query.Page)
 	if err != nil {
-		return 0, err
+		return "", 0, 0, err
+	}
+	if existing != nil {
+		return existing.BVID, existing.Page, existing.CID, nil
+	}
+	pages, err := b.Pages(ctx, bvid, 0)
+	if err != nil {
+		return "", 0, 0, err
 	}
 	for _, page := range pages {
 		if page.Page == query.Page {
-			return page.CID, nil
+			return bvid, query.Page, page.CID, nil
 		}
 	}
-	return 0, nil
+	return "", 0, 0, nil
 }
 
 func (b *Bilibili) fetch(ctx context.Context, endpoint string, useCookie bool, lifetime time.Duration) ([]byte, error) {
 	sum := md5.Sum([]byte(endpoint))
 	key := hex.EncodeToString(sum[:])
 	return b.repository.Cache(ctx, key, lifetime, func(ctx context.Context) ([]byte, error) {
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-		if err != nil {
-			return nil, err
-		}
-		if useCookie && b.settings.Cookie != "" {
-			request.Header.Set("Cookie", b.settings.Cookie)
-		}
-		response, err := b.client.Do(request)
-		if err != nil {
-			return nil, err
-		}
-		defer response.Body.Close()
-		if response.StatusCode < 200 || response.StatusCode >= 300 {
-			return []byte{}, nil
-		}
-		raw, err := io.ReadAll(io.LimitReader(response.Body, 32<<20))
-		if err != nil {
-			return nil, err
-		}
-		if strings.EqualFold(strings.TrimSpace(response.Header.Get("Content-Encoding")), "deflate") {
-			return inflate(raw)
-		}
-		return raw, nil
+		return b.fetchUpstream(ctx, endpoint, useCookie)
 	})
+}
+
+func (b *Bilibili) fetchUpstream(ctx context.Context, endpoint string, useCookie bool) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	if useCookie && b.settings.Cookie != "" {
+		request.Header.Set("Cookie", b.settings.Cookie)
+	}
+	response, err := b.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return []byte{}, nil
+	}
+	raw, err := io.ReadAll(io.LimitReader(response.Body, 32<<20))
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(strings.TrimSpace(response.Header.Get("Content-Encoding")), "deflate") {
+		return inflate(raw)
+	}
+	return raw, nil
 }
 
 func inflate(raw []byte) ([]byte, error) {
@@ -250,6 +345,7 @@ func bilibiliQueryFromRequest(r *http.Request) bilibiliQuery {
 	return bilibiliQuery{
 		CID: queryInt64(foldQuery(r, "cid")), AID: queryInt(foldQuery(r, "aid"), 0),
 		BVID: foldQuery(r, "bvid"), Page: queryInt(foldQuery(r, "p"), 0), Dates: foldQueryValues(r, "date"),
+		Offset: queryFloat(foldQuery(r, "offset"), 0),
 	}
 }
 
@@ -273,6 +369,26 @@ func foldQueryValues(r *http.Request, key string) []string {
 func queryInt64(raw string) int64 {
 	value, _ := strconv.ParseInt(raw, 10, 64)
 	return value
+}
+
+func queryFloat(raw string, fallback float64) float64 {
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || math.Abs(value) > math.MaxFloat32 {
+		return fallback
+	}
+	return value
+}
+
+func offsetDanmaku(data []domain.DanmakuData, offset float64) []domain.DanmakuData {
+	result := make([]domain.DanmakuData, len(data))
+	copy(result, data)
+	if offset != 0 {
+		for index := range result {
+			result[index].Time += float32(offset)
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Time < result[j].Time })
+	return result
 }
 
 func (s *Server) queryAID(w http.ResponseWriter, r *http.Request) {

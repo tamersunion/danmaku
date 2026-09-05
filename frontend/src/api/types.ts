@@ -48,6 +48,52 @@ export type Danmaku = {
   updateTime: string;
 };
 
+export type BilibiliPool = {
+  id: number;
+  bvid: string;
+  p: number;
+  cid: number;
+  danmakuCount: number;
+  blockedCount: number;
+  bindingCount: number;
+  lastAttemptTime?: string | null;
+  lastSyncTime?: string | null;
+  createTime: string;
+  updateTime: string;
+};
+
+export type BilibiliPoolDanmaku = {
+  id: number;
+  poolId: number;
+  data: DanmakuData;
+  isBlocked: boolean;
+  manuallyBlocked: boolean;
+  createTime: string;
+  updateTime: string;
+};
+
+export type BilibiliKeyword = {
+  id: number;
+  poolId?: number | null;
+  poolBvid: string;
+  poolP: number;
+  poolCid: number;
+  keyword: string;
+  createTime: string;
+};
+
+export type BilibiliBinding = {
+  id: number;
+  vid: string;
+  poolId: number;
+  bvid: string;
+  p: number;
+  cid: number;
+  offset: number;
+  createTime: string;
+  updateTime: string;
+};
+
 export type ManagedUser = {
   id: number;
   name: string;

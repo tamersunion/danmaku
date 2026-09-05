@@ -49,10 +49,13 @@ type AdminSettings struct {
 
 type BilibiliSettings struct {
 	Cookie                 string `json:"Cookie" yaml:"Cookie"`
+	APIBase                string `json:"ApiBase" yaml:"ApiBase"`
 	CIDCacheMinutes        int    `json:"CidCacheTime" yaml:"CidCacheTime"`
 	DataCacheMinutes       int    `json:"DanmakuCacheTime" yaml:"DanmakuCacheTime"`
 	LegacyDanmakuCacheTime *int   `json:"DanmuCacheTime,omitempty" yaml:"DanmuCacheTime,omitempty"`
 }
+
+const DefaultBilibiliAPIBase = "https://api.bilibili.com"
 
 type CASSettings struct {
 	Enabled               bool   `json:"Enabled" yaml:"Enabled"`
@@ -73,7 +76,7 @@ func defaults() Config {
 		KestrelSettings: ListenerSettings{Host: "127.0.0.1", Port: 80},
 		DanmakuSQL:      DatabaseSettings{Host: "127.0.0.1", Port: 5432, PoolSize: 8},
 		Admin:           AdminSettings{MaxAge: 1},
-		Bilibili:        BilibiliSettings{CIDCacheMinutes: 72, DataCacheMinutes: 5},
+		Bilibili:        BilibiliSettings{APIBase: DefaultBilibiliAPIBase, CIDCacheMinutes: 72, DataCacheMinutes: 5},
 		CAS: CASSettings{
 			DefaultLogin: true, AutoCreateUsers: true, DefaultRole: 3,
 			SessionMaxAgeMinutes:  7 * 24 * 60,
@@ -115,6 +118,13 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Admin.MaxAge <= 0 {
 		cfg.Admin.MaxAge = 1
+	}
+	cfg.Bilibili.APIBase = strings.TrimRight(strings.TrimSpace(cfg.Bilibili.APIBase), "/")
+	if cfg.Bilibili.APIBase == "" {
+		cfg.Bilibili.APIBase = DefaultBilibiliAPIBase
+	}
+	if err := validateAbsoluteURL(cfg.Bilibili.APIBase, "BiliBiliSetting.ApiBase"); err != nil {
+		return Config{}, err
 	}
 	if cfg.CAS.SessionMaxAgeMinutes <= 0 {
 		cfg.CAS.SessionMaxAgeMinutes = 7 * 24 * 60

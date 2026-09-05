@@ -28,7 +28,7 @@ func (s *Server) serveDPlayer(w http.ResponseWriter, r *http.Request, path strin
 			s.writeJSON(w, http.StatusOK, failure())
 			return
 		}
-		data, err := s.repository.QueryByVid(r.Context(), id)
+		data, err := s.queryDanmakuByVID(r, id)
 		if err != nil {
 			s.writeError(w, err)
 			return
@@ -98,7 +98,7 @@ func (s *Server) serveCommon(w http.ResponseWriter, r *http.Request, path string
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	}
-	data, err := s.repository.QueryByVid(r.Context(), id)
+	data, err := s.queryDanmakuByVID(r, id)
 	if err != nil {
 		s.writeError(w, err)
 		return
@@ -151,7 +151,7 @@ func (s *Server) serveArtPlayer(w http.ResponseWriter, r *http.Request, path str
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	}
-	data, err := s.repository.QueryByVid(r.Context(), id)
+	data, err := s.queryDanmakuByVID(r, id)
 	if err != nil {
 		s.writeError(w, err)
 		return
@@ -166,17 +166,6 @@ func (s *Server) serveArtPlayer(w http.ResponseWriter, r *http.Request, path str
 func (s *Server) serveBilibiliData(w http.ResponseWriter, r *http.Request, path, base string, artPlayer bool) {
 	format := bilibiliFormat(path, base)
 	query := bilibiliQueryFromRequest(r)
-	if len(query.Dates) == 0 && !strings.EqualFold(format, "json") {
-		raw, err := s.bilibili.Raw(r.Context(), query)
-		if err != nil {
-			s.writeError(w, err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(raw)
-		return
-	}
 	data, err := s.bilibili.Data(r.Context(), query)
 	if err != nil {
 		s.writeError(w, err)
@@ -209,6 +198,18 @@ func (s *Server) insertDanmaku(w http.ResponseWriter, r *http.Request, vid strin
 		return
 	}
 	s.writeJSON(w, http.StatusOK, success(nil))
+}
+
+func (s *Server) queryDanmakuByVID(r *http.Request, vid string) ([]domain.DanmakuData, error) {
+	local, err := s.repository.QueryByVid(r.Context(), vid)
+	if err != nil {
+		return nil, err
+	}
+	linked, err := s.bilibili.BoundData(r.Context(), vid)
+	if err != nil {
+		return nil, err
+	}
+	return offsetDanmaku(append(local, linked...), 0), nil
 }
 
 func requestIP(r *http.Request, fallback net.IP) net.IP {

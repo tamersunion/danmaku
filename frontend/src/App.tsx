@@ -21,6 +21,11 @@ const DanmakuPage = lazy(() =>
     default: module.DanmakuPage,
   })),
 );
+const BilibiliPage = lazy(() =>
+  import("@/pages/bilibili-page").then((module) => ({
+    default: module.BilibiliPage,
+  })),
+);
 const LoginPage = lazy(() =>
   import("@/pages/login-page").then((module) => ({
     default: module.LoginPage,
@@ -87,6 +92,7 @@ export default function App() {
                     <Route index element={<HomeRedirect />} />
                     <Route element={<DanmakuManagerRoute />}>
                       <Route path="danmaku" element={<DanmakuPage />} />
+                      <Route path="bilibili" element={<BilibiliPage />} />
                     </Route>
                     <Route element={<UserManagerRoute />}>
                       <Route path="users" element={<UsersPage />} />

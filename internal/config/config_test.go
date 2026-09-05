@@ -23,8 +23,27 @@ func TestLoadDanmakuConfiguration(t *testing.T) {
 	if cfg.Bilibili.DataCacheMinutes != 9 {
 		t.Fatalf("unexpected cache duration: %d", cfg.Bilibili.DataCacheMinutes)
 	}
+	if cfg.Bilibili.APIBase != DefaultBilibiliAPIBase {
+		t.Fatalf("default Bilibili API base = %q", cfg.Bilibili.APIBase)
+	}
 	if cfg.CAS.DefaultRole != 3 {
 		t.Fatalf("default CAS role = %d", cfg.CAS.DefaultRole)
+	}
+}
+
+func TestLoadCustomBilibiliAPIBase(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "appsettings.yml")
+	contents := []byte("KestrelSettings:\n  Port: 80\nBiliBiliSetting:\n  ApiBase: https://bilibili.example/api/\n")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Bilibili.APIBase != "https://bilibili.example/api" {
+		t.Fatalf("custom Bilibili API base = %q", cfg.Bilibili.APIBase)
 	}
 }
 

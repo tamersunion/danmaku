@@ -22,8 +22,9 @@ Admin:
   MaxAge: 60
 BiliBiliSetting:
   Cookie: ""
+  ApiBase: https://api.bilibili.com
   CidCacheTime: 168
-  DanmakuCacheTime: 12
+  DanmakuCacheTime: 10
 CAS:
   Enabled: true
   DefaultLogin: true

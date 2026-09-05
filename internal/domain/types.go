@@ -119,6 +119,52 @@ type Page[T any] struct {
 	List  []T `json:"list"`
 }
 
+type BilibiliPool struct {
+	ID              int        `json:"id"`
+	BVID            string     `json:"bvid"`
+	Page            int        `json:"p"`
+	CID             int64      `json:"cid"`
+	DanmakuCount    int        `json:"danmakuCount"`
+	BlockedCount    int        `json:"blockedCount"`
+	BindingCount    int        `json:"bindingCount"`
+	LastAttemptTime *time.Time `json:"lastAttemptTime"`
+	LastSyncTime    *time.Time `json:"lastSyncTime"`
+	CreateTime      time.Time  `json:"createTime"`
+	UpdateTime      time.Time  `json:"updateTime"`
+}
+
+type BilibiliDanmaku struct {
+	ID              int64       `json:"id"`
+	PoolID          int         `json:"poolId"`
+	Data            DanmakuData `json:"data"`
+	IsBlocked       bool        `json:"isBlocked"`
+	ManuallyBlocked bool        `json:"manuallyBlocked"`
+	CreateTime      time.Time   `json:"createTime"`
+	UpdateTime      time.Time   `json:"updateTime"`
+}
+
+type BilibiliKeyword struct {
+	ID         int       `json:"id"`
+	PoolID     *int      `json:"poolId"`
+	PoolBVID   string    `json:"poolBvid"`
+	PoolPage   int       `json:"poolP"`
+	PoolCID    int64     `json:"poolCid"`
+	Keyword    string    `json:"keyword"`
+	CreateTime time.Time `json:"createTime"`
+}
+
+type BilibiliBinding struct {
+	ID         int       `json:"id"`
+	Vid        string    `json:"vid"`
+	PoolID     int       `json:"poolId"`
+	BVID       string    `json:"bvid"`
+	Page       int       `json:"p"`
+	CID        int64     `json:"cid"`
+	Offset     float64   `json:"offset"`
+	CreateTime time.Time `json:"createTime"`
+	UpdateTime time.Time `json:"updateTime"`
+}
+
 type DBData struct {
 	Time      float32 `json:"Time"`
 	Mode      int     `json:"Mode"`

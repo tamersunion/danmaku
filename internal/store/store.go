@@ -54,6 +54,26 @@ type UserUpdate struct {
 	PhoneNumber string
 }
 
+type BilibiliPoolFilter struct {
+	Page  int
+	Size  int
+	Query string
+}
+
+type BilibiliDanmakuFilter struct {
+	Page    int
+	Size    int
+	PoolID  int
+	Query   string
+	Blocked *bool
+}
+
+type BilibiliBindingFilter struct {
+	Page  int
+	Size  int
+	Query string
+}
+
 type Repository interface {
 	Initialize(context.Context) error
 	Close()
@@ -75,5 +95,21 @@ type Repository interface {
 	SetUserEnabled(context.Context, int, bool) (bool, error)
 	DeleteUser(context.Context, int) (bool, error)
 	UpsertCASUser(context.Context, domain.CASProfile, int, bool) (*domain.User, bool, error)
+	BilibiliPool(context.Context, int) (*domain.BilibiliPool, error)
+	BilibiliPoolByKey(context.Context, string, int) (*domain.BilibiliPool, error)
+	EnsureBilibiliPool(context.Context, string, int, int64) (*domain.BilibiliPool, error)
+	ClaimBilibiliPoolSync(context.Context, int, time.Duration, bool) (bool, error)
+	MergeBilibiliDanmaku(context.Context, int, []domain.DanmakuData) (int, error)
+	BilibiliPoolData(context.Context, int) ([]domain.DanmakuData, error)
+	BilibiliPools(context.Context, BilibiliPoolFilter) (domain.Page[domain.BilibiliPool], error)
+	BilibiliDanmaku(context.Context, BilibiliDanmakuFilter) (domain.Page[domain.BilibiliDanmaku], error)
+	SetBilibiliDanmakuBlocked(context.Context, int64, bool) (bool, error)
+	BilibiliKeywords(context.Context) ([]domain.BilibiliKeyword, error)
+	CreateBilibiliKeyword(context.Context, *int, string) (*domain.BilibiliKeyword, error)
+	DeleteBilibiliKeyword(context.Context, int) (bool, error)
+	BilibiliBindings(context.Context, BilibiliBindingFilter) (domain.Page[domain.BilibiliBinding], error)
+	BilibiliBindingsByVID(context.Context, string) ([]domain.BilibiliBinding, error)
+	UpsertBilibiliBinding(context.Context, string, int, float64) (*domain.BilibiliBinding, error)
+	DeleteBilibiliBinding(context.Context, int) (bool, error)
 	Cache(context.Context, string, time.Duration, func(context.Context) ([]byte, error)) ([]byte, error)
 }

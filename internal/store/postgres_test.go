@@ -70,6 +70,18 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`"UX_User_CASSubject"`,
 		`"Enabled" boolean NOT NULL DEFAULT TRUE`,
 		`CREATE INDEX IF NOT EXISTS "IX_Danmaku_DuplicateGuard"`,
+		`CREATE TABLE IF NOT EXISTS "BilibiliDanmakuPool"`,
+		`CREATE TABLE IF NOT EXISTS "BilibiliDanmaku"`,
+		`CREATE TABLE IF NOT EXISTS "BilibiliDanmakuKeyword"`,
+		`CREATE TABLE IF NOT EXISTS "BilibiliDanmakuBinding"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmaku_Pool_Timestamp_ContentHash"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmakuPool_CID"`,
+		`CREATE INDEX IF NOT EXISTS "IX_BilibiliDanmakuPool_BVID_Page"`,
+		`ALTER TABLE "BilibiliDanmakuPool" ALTER COLUMN "BVID" DROP NOT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmakuKeyword_Global"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_BilibiliDanmakuBinding_Vid_Pool"`,
+		`"LastAttemptTime" timestamp(3) without time zone NULL`,
+		`CONSTRAINT "FK_BilibiliDanmakuBinding_Pool_PoolId"`,
 	} {
 		if !strings.Contains(migration, expected) {
 			t.Fatalf("schema migration does not contain %q", expected)
@@ -77,6 +89,18 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 	}
 	if !strings.Contains(migration, `both legacy table "Danmu" and target table "Danmaku" exist`) {
 		t.Fatal("schema migration must reject ambiguous old/new table state")
+	}
+}
+
+func TestBilibiliKeywordFilterKeepsGlobalAndPoolScopes(t *testing.T) {
+	for _, expected := range []string{
+		`k."PoolId" IS NULL`,
+		`k."PoolId"=d."PoolId"`,
+		`strpos(lower(d."Content"), lower(k."Keyword"))>0`,
+	} {
+		if !strings.Contains(bilibiliKeywordBlockedSQL, expected) {
+			t.Fatalf("Bilibili keyword filter does not contain %q", expected)
+		}
 	}
 }
 

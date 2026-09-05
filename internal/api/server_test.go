@@ -19,23 +19,28 @@ import (
 )
 
 type fakeRepository struct {
-	data          []domain.DanmakuData
-	vids          []string
-	insertedVid   string
-	insertedData  domain.DanmakuData
-	insertedIP    net.IP
-	insertedRefer domain.Referer
-	discardInsert bool
-	verifyOK      bool
-	verifyUID     int
-	verifyRole    int
-	casUser       *domain.User
-	casCreated    bool
-	casProfile    domain.CASProfile
-	users         []domain.User
-	updatedUser   store.UserUpdate
-	statusUserID  int
-	deletedUserID int
+	data             []domain.DanmakuData
+	vids             []string
+	insertedVid      string
+	insertedData     domain.DanmakuData
+	insertedIP       net.IP
+	insertedRefer    domain.Referer
+	discardInsert    bool
+	verifyOK         bool
+	verifyUID        int
+	verifyRole       int
+	casUser          *domain.User
+	casCreated       bool
+	casProfile       domain.CASProfile
+	users            []domain.User
+	updatedUser      store.UserUpdate
+	statusUserID     int
+	deletedUserID    int
+	bilibiliPools    []domain.BilibiliPool
+	bilibiliData     map[int][]domain.DanmakuData
+	bilibiliClaims   map[int]time.Time
+	bilibiliKeywords []domain.BilibiliKeyword
+	bilibiliBindings []domain.BilibiliBinding
 }
 
 func (f *fakeRepository) Initialize(context.Context) error { return nil }
@@ -105,6 +110,139 @@ func (f *fakeRepository) UpsertCASUser(_ context.Context, profile domain.CASProf
 		f.casUser = &domain.User{ID: 1, Name: profile.UserName, Role: 1}
 	}
 	return f.casUser, f.casCreated, nil
+}
+func (f *fakeRepository) BilibiliPool(_ context.Context, id int) (*domain.BilibiliPool, error) {
+	for index := range f.bilibiliPools {
+		if f.bilibiliPools[index].ID == id {
+			value := f.bilibiliPools[index]
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) BilibiliPoolByKey(_ context.Context, bvid string, page int) (*domain.BilibiliPool, error) {
+	for index := range f.bilibiliPools {
+		if f.bilibiliPools[index].BVID == bvid && f.bilibiliPools[index].Page == page {
+			value := f.bilibiliPools[index]
+			return &value, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeRepository) EnsureBilibiliPool(_ context.Context, bvid string, page int, cid int64) (*domain.BilibiliPool, error) {
+	for index := range f.bilibiliPools {
+		if f.bilibiliPools[index].CID == cid {
+			if f.bilibiliPools[index].BVID == "" && bvid != "" {
+				f.bilibiliPools[index].BVID = bvid
+				f.bilibiliPools[index].Page = page
+			}
+			value := f.bilibiliPools[index]
+			return &value, nil
+		}
+	}
+	value := domain.BilibiliPool{ID: len(f.bilibiliPools) + 1, BVID: bvid, Page: page, CID: cid}
+	f.bilibiliPools = append(f.bilibiliPools, value)
+	return &value, nil
+}
+func (f *fakeRepository) ClaimBilibiliPoolSync(_ context.Context, id int, interval time.Duration, force bool) (bool, error) {
+	if f.bilibiliClaims == nil {
+		f.bilibiliClaims = map[int]time.Time{}
+	}
+	last, exists := f.bilibiliClaims[id]
+	if !force && exists && time.Since(last) <= interval {
+		return false, nil
+	}
+	f.bilibiliClaims[id] = time.Now()
+	return true, nil
+}
+func (f *fakeRepository) MergeBilibiliDanmaku(_ context.Context, poolID int, data []domain.DanmakuData) (int, error) {
+	if f.bilibiliData == nil {
+		f.bilibiliData = map[int][]domain.DanmakuData{}
+	}
+	inserted := 0
+	for _, candidate := range data {
+		duplicate := false
+		for _, existing := range f.bilibiliData[poolID] {
+			candidateText, existingText := "", ""
+			if candidate.Text != nil {
+				candidateText = *candidate.Text
+			}
+			if existing.Text != nil {
+				existingText = *existing.Text
+			}
+			if candidate.Timestamp == existing.Timestamp && candidateText == existingText {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			f.bilibiliData[poolID] = append(f.bilibiliData[poolID], candidate)
+			inserted++
+		}
+	}
+	return inserted, nil
+}
+func (f *fakeRepository) BilibiliPoolData(_ context.Context, poolID int) ([]domain.DanmakuData, error) {
+	return append([]domain.DanmakuData(nil), f.bilibiliData[poolID]...), nil
+}
+func (f *fakeRepository) BilibiliPools(context.Context, store.BilibiliPoolFilter) (domain.Page[domain.BilibiliPool], error) {
+	list := append([]domain.BilibiliPool{}, f.bilibiliPools...)
+	return domain.Page[domain.BilibiliPool]{Total: len(list), List: list}, nil
+}
+func (f *fakeRepository) BilibiliDanmaku(context.Context, store.BilibiliDanmakuFilter) (domain.Page[domain.BilibiliDanmaku], error) {
+	return domain.Page[domain.BilibiliDanmaku]{List: []domain.BilibiliDanmaku{}}, nil
+}
+func (f *fakeRepository) SetBilibiliDanmakuBlocked(context.Context, int64, bool) (bool, error) {
+	return true, nil
+}
+func (f *fakeRepository) BilibiliKeywords(context.Context) ([]domain.BilibiliKeyword, error) {
+	return f.bilibiliKeywords, nil
+}
+func (f *fakeRepository) CreateBilibiliKeyword(_ context.Context, poolID *int, keyword string) (*domain.BilibiliKeyword, error) {
+	value := domain.BilibiliKeyword{ID: len(f.bilibiliKeywords) + 1, PoolID: poolID, Keyword: keyword}
+	f.bilibiliKeywords = append(f.bilibiliKeywords, value)
+	return &value, nil
+}
+func (f *fakeRepository) DeleteBilibiliKeyword(_ context.Context, id int) (bool, error) {
+	for index := range f.bilibiliKeywords {
+		if f.bilibiliKeywords[index].ID == id {
+			f.bilibiliKeywords = append(f.bilibiliKeywords[:index], f.bilibiliKeywords[index+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (f *fakeRepository) BilibiliBindings(context.Context, store.BilibiliBindingFilter) (domain.Page[domain.BilibiliBinding], error) {
+	return domain.Page[domain.BilibiliBinding]{Total: len(f.bilibiliBindings), List: f.bilibiliBindings}, nil
+}
+func (f *fakeRepository) BilibiliBindingsByVID(_ context.Context, vid string) ([]domain.BilibiliBinding, error) {
+	result := make([]domain.BilibiliBinding, 0)
+	for _, item := range f.bilibiliBindings {
+		if item.Vid == vid {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+func (f *fakeRepository) UpsertBilibiliBinding(_ context.Context, vid string, poolID int, offset float64) (*domain.BilibiliBinding, error) {
+	for index := range f.bilibiliBindings {
+		if f.bilibiliBindings[index].Vid == vid && f.bilibiliBindings[index].PoolID == poolID {
+			f.bilibiliBindings[index].Offset = offset
+			return &f.bilibiliBindings[index], nil
+		}
+	}
+	value := domain.BilibiliBinding{ID: len(f.bilibiliBindings) + 1, Vid: vid, PoolID: poolID, Offset: offset}
+	f.bilibiliBindings = append(f.bilibiliBindings, value)
+	return &f.bilibiliBindings[len(f.bilibiliBindings)-1], nil
+}
+func (f *fakeRepository) DeleteBilibiliBinding(_ context.Context, id int) (bool, error) {
+	for index := range f.bilibiliBindings {
+		if f.bilibiliBindings[index].ID == id {
+			f.bilibiliBindings = append(f.bilibiliBindings[:index], f.bilibiliBindings[index+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
 }
 func (f *fakeRepository) Cache(ctx context.Context, _ string, _ time.Duration, factory func(context.Context) ([]byte, error)) ([]byte, error) {
 	return factory(ctx)
@@ -401,6 +539,13 @@ func TestDanmakuManagerCanManageDanmakuButNotUsers(t *testing.T) {
 	if danmakuResponse.Body.String() != "{\"code\":0,\"data\":[\"video\"]}\n" {
 		t.Fatalf("danmaku manager response = %s", danmakuResponse.Body.String())
 	}
+	bilibiliRequest := httptest.NewRequest(http.MethodGet, "/api/admin/bilibili/pools", nil)
+	bilibiliRequest.AddCookie(cookie)
+	bilibiliResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(bilibiliResponse, bilibiliRequest)
+	if bilibiliResponse.Body.String() != "{\"code\":0,\"data\":{\"total\":0,\"list\":[]}}\n" {
+		t.Fatalf("danmaku manager Bilibili response = %s", bilibiliResponse.Body.String())
+	}
 
 	usersRequest := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)
 	usersRequest.AddCookie(cookie)
@@ -569,6 +714,210 @@ func TestBilibiliJSONCompatibility(t *testing.T) {
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"time":1.25`) || !strings.Contains(response.Body.String(), `"author":"alice"`) {
 		t.Fatalf("unexpected Bilibili response: %d %s", response.Code, response.Body.String())
 	}
+}
+
+func TestBilibiliPoolRefreshIsIncrementalAndSurvivesEmptyUpstream(t *testing.T) {
+	responses := []string{
+		`<i><d p="1.25,5,25,16777215,123,0,alice,9">hello</d></i>`,
+		`<i><d p="1.25,5,25,16777215,123,0,alice,9">hello</d><d p="3.5,1,25,255,124,0,bob,10">new</d></i>`,
+		``,
+	}
+	requests := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		index := requests
+		requests++
+		if index >= len(responses) {
+			index = len(responses) - 1
+		}
+		_, _ = io.WriteString(w, responses[index])
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{}
+	bilibili := NewBilibili(repository, config.BilibiliSettings{})
+	bilibili.baseURL = upstream.URL
+	data, err := bilibili.Data(context.Background(), bilibiliQuery{CID: 99, Offset: 2})
+	if err != nil || len(data) != 1 || data[0].Time != 3.25 {
+		t.Fatalf("first fetch = %#v, %v", data, err)
+	}
+	data, err = bilibili.Data(context.Background(), bilibiliQuery{CID: 99})
+	if err != nil || len(data) != 1 || requests != 1 {
+		t.Fatalf("ten-minute cache was bypassed: data=%#v requests=%d err=%v", data, requests, err)
+	}
+	_, inserted, err := bilibili.SyncPool(context.Background(), 1)
+	if err != nil || inserted != 1 {
+		t.Fatalf("incremental refresh inserted=%d err=%v", inserted, err)
+	}
+	data, err = bilibili.Data(context.Background(), bilibiliQuery{CID: 99})
+	if err != nil || len(data) != 2 {
+		t.Fatalf("incremental data = %#v, %v", data, err)
+	}
+	_, inserted, err = bilibili.SyncPool(context.Background(), 1)
+	if err != nil || inserted != 0 {
+		t.Fatalf("empty refresh inserted=%d err=%v", inserted, err)
+	}
+	data, err = bilibili.Data(context.Background(), bilibiliQuery{CID: 99})
+	if err != nil || len(data) != 2 || requests != 3 {
+		t.Fatalf("empty upstream replaced cached data: data=%#v requests=%d err=%v", data, requests, err)
+	}
+}
+
+func TestBilibiliSyncIntervalAndOffsetQuery(t *testing.T) {
+	if bilibiliSyncInterval != 10*time.Minute {
+		t.Fatalf("fixed sync interval = %s", bilibiliSyncInterval)
+	}
+	if got := NewBilibili(&fakeRepository{}, config.BilibiliSettings{}).baseURL; got != config.DefaultBilibiliAPIBase {
+		t.Fatalf("default Bilibili API base = %q", got)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/danmaku/v1/bilibili/danmaku.json?BVID=BV1example&P=2&OFFSET=-3.5", nil)
+	query := bilibiliQueryFromRequest(request)
+	if query.BVID != "BV1example" || query.Page != 2 || query.Offset != -3.5 {
+		t.Fatalf("unexpected Bilibili query: %#v", query)
+	}
+	positive := bilibiliQueryFromRequest(httptest.NewRequest(http.MethodGet, "/api/danmaku/v1/bilibili/danmaku.json?cid=99&offset=+2.5", nil))
+	if positive.Offset != 2.5 {
+		t.Fatalf("positive offset = %v", positive.Offset)
+	}
+}
+
+func TestPrepareBilibiliPoolAcceptsBVIDAIDAndCID(t *testing.T) {
+	metadataRequests, danmakuRequests := 0, 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/x/web-interface/archive/stat":
+			metadataRequests++
+			_, _ = io.WriteString(w, `{"code":0,"data":{"aid":42,"bvid":"BVAID"}}`)
+		case "/x/player/pagelist":
+			metadataRequests++
+			if r.URL.Query().Get("bvid") == "BVdirect" {
+				_, _ = io.WriteString(w, `{"code":0,"data":[{"cid":222,"page":2}]}`)
+			} else {
+				_, _ = io.WriteString(w, `{"code":0,"data":[{"cid":111,"page":1}]}`)
+			}
+		case "/x/v1/dm/list.so":
+			danmakuRequests++
+			_, _ = io.WriteString(w, `<i><d p="1,1,25,16777215,123,0,author,1">cached</d></i>`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{}
+	bilibili := NewBilibili(repository, config.BilibiliSettings{})
+	bilibili.baseURL = upstream.URL
+	tests := []struct {
+		name  string
+		query bilibiliQuery
+		bvid  string
+		page  int
+		cid   int64
+	}{
+		{name: "BVID", query: bilibiliQuery{BVID: "BVdirect", Page: 2}, bvid: "BVdirect", page: 2, cid: 222},
+		{name: "AID", query: bilibiliQuery{AID: 42}, bvid: "BVAID", page: 1, cid: 111},
+		{name: "CID", query: bilibiliQuery{CID: 333}, bvid: "", page: 1, cid: 333},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pool, inserted, err := bilibili.PreparePool(context.Background(), test.query)
+			if err != nil || pool == nil || inserted != 1 {
+				t.Fatalf("prepare pool = %#v inserted=%d err=%v", pool, inserted, err)
+			}
+			if pool.BVID != test.bvid || pool.Page != test.page || pool.CID != test.cid {
+				t.Fatalf("unexpected pool: %#v", pool)
+			}
+		})
+	}
+	if metadataRequests != 3 || danmakuRequests != 3 {
+		t.Fatalf("metadata requests=%d danmaku requests=%d", metadataRequests, danmakuRequests)
+	}
+}
+
+func TestCreateBilibiliPoolDefaultsPageForCID(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `<i><d p="1,1,25,16777215,123,0,author,1">cached</d></i>`)
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{}
+	server := testServer(t, repository)
+	server.bilibili.baseURL = upstream.URL
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/admin/bilibili/pools", strings.NewReader(`{"cid":333}`))
+	request.Header.Set("Content-Type", "application/json")
+	server.createBilibiliPool(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"code":0`) {
+		t.Fatalf("unexpected create response: %d %s", response.Code, response.Body.String())
+	}
+	if len(repository.bilibiliPools) != 1 || repository.bilibiliPools[0].Page != 1 || repository.bilibiliPools[0].CID != 333 {
+		t.Fatalf("unexpected created pools: %#v", repository.bilibiliPools)
+	}
+}
+
+func TestBilibiliPoolUsesCIDAsCanonicalIdentity(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/x/player/pagelist" {
+			_, _ = io.WriteString(w, `{"code":0,"data":[{"cid":333,"page":2}]}`)
+			return
+		}
+		_, _ = io.WriteString(w, `<i><d p="1,1,25,16777215,123,0,author,1">cached</d></i>`)
+	}))
+	defer upstream.Close()
+
+	repository := &fakeRepository{}
+	bilibili := NewBilibili(repository, config.BilibiliSettings{})
+	bilibili.baseURL = upstream.URL
+	direct, _, err := bilibili.PreparePool(context.Background(), bilibiliQuery{CID: 333})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, _, err := bilibili.PreparePool(context.Background(), bilibiliQuery{BVID: "BVcanonical", Page: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if direct.ID != resolved.ID || len(repository.bilibiliPools) != 1 || resolved.CID != 333 || resolved.BVID != "BVcanonical" || resolved.Page != 2 {
+		t.Fatalf("CID did not remain canonical: direct=%#v resolved=%#v pools=%#v", direct, resolved, repository.bilibiliPools)
+	}
+}
+
+func TestBilibiliPoolByBVIDUsesStoredCIDWithoutMetadataRoundTrip(t *testing.T) {
+	text := "cached"
+	repository := &fakeRepository{
+		bilibiliPools:  []domain.BilibiliPool{{ID: 1, BVID: "BV1example", Page: 2, CID: 99}},
+		bilibiliData:   map[int][]domain.DanmakuData{1: {{Time: 1, Timestamp: 123, Text: &text}}},
+		bilibiliClaims: map[int]time.Time{1: time.Now()},
+	}
+	bilibili := NewBilibili(repository, config.BilibiliSettings{})
+	bilibili.baseURL = "http://127.0.0.1:1"
+	data, err := bilibili.Data(context.Background(), bilibiliQuery{BVID: "BV1example", Page: 2})
+	if err != nil || len(data) != 1 || data[0].Text == nil || *data[0].Text != text {
+		t.Fatalf("stored pool lookup = %#v, %v", data, err)
+	}
+}
+
+func TestVIDQueryMergesBoundBilibiliPoolWithBindingOffset(t *testing.T) {
+	localText, bilibiliText := "local", "bilibili"
+	repository := &fakeRepository{
+		data:             []domain.DanmakuData{{Time: 1, Text: &localText}},
+		bilibiliPools:    []domain.BilibiliPool{{ID: 1, BVID: "BV1example", Page: 2, CID: 99}},
+		bilibiliData:     map[int][]domain.DanmakuData{1: {{Time: 2, Timestamp: 123, Text: &bilibiliText}}},
+		bilibiliClaims:   map[int]time.Time{1: time.Now()},
+		bilibiliBindings: []domain.BilibiliBinding{{ID: 1, Vid: "video", PoolID: 1, BVID: "BV1example", Page: 2, CID: 99, Offset: -1.5}},
+	}
+	response := httptest.NewRecorder()
+	testServer(t, repository).Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/v1?id=video", nil))
+	var body ApiResponseForTest[[]domain.DanmakuData]
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || body.Code != 0 || len(body.Data) != 2 || body.Data[0].Time != 0.5 || body.Data[1].Time != 1 {
+		t.Fatalf("unexpected merged response: %d %s", response.Code, response.Body.String())
+	}
+}
+
+type ApiResponseForTest[T any] struct {
+	Code int `json:"code"`
+	Data T   `json:"data"`
 }
 
 type liveReceiver struct {
