@@ -25,6 +25,7 @@ type fakeRepository struct {
 	insertedData  domain.DanmakuData
 	insertedIP    net.IP
 	insertedRefer domain.Referer
+	discardInsert bool
 	verifyOK      bool
 	verifyUID     int
 	verifyRole    int
@@ -42,9 +43,12 @@ func (f *fakeRepository) Close()                           {}
 func (f *fakeRepository) QueryByVid(context.Context, string) ([]domain.DanmakuData, error) {
 	return f.data, nil
 }
-func (f *fakeRepository) Insert(_ context.Context, vid string, data domain.DanmakuData, ip net.IP, referer domain.Referer) error {
+func (f *fakeRepository) Insert(_ context.Context, vid string, data domain.DanmakuData, ip net.IP, referer domain.Referer) (bool, error) {
+	if f.discardInsert {
+		return false, nil
+	}
 	f.insertedVid, f.insertedData, f.insertedIP, f.insertedRefer = vid, data, ip, referer
-	return nil
+	return true, nil
 }
 func (f *fakeRepository) List(context.Context, string, int, int, bool) (domain.Page[domain.Danmaku], error) {
 	return domain.Page[domain.Danmaku]{List: []domain.Danmaku{}}, nil
@@ -174,6 +178,24 @@ func TestDPlayerPostUsesExternalContract(t *testing.T) {
 	}
 	if response.Body.String() != "{\"code\":0,\"data\":null}\n" {
 		t.Fatalf("unexpected response: %s", response.Body.String())
+	}
+}
+
+func TestDiscardedDPlayerPostStillUsesSuccessContract(t *testing.T) {
+	repository := &fakeRepository{discardInsert: true}
+	request := httptest.NewRequest(http.MethodPost, "/api/danmaku/dplayer/v3", strings.NewReader(`{"id":"video","time":3.5,"type":2,"color":255,"author":"42","text":"hello"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Referer", "https://example.com/watch?id=7")
+	request.Header.Set("X-Real-IP", "203.0.113.8")
+	response := httptest.NewRecorder()
+
+	testServer(t, repository).Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || response.Body.String() != "{\"code\":0,\"data\":null}\n" {
+		t.Fatalf("discarded insert response = %d %q", response.Code, response.Body.String())
+	}
+	if repository.insertedVid != "" {
+		t.Fatalf("discarded insert was recorded as %q", repository.insertedVid)
 	}
 }
 

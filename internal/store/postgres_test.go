@@ -1,8 +1,10 @@
 package store
 
 import (
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"git.hanada.info/tamersunion/danmaku/internal/config"
 )
@@ -67,6 +69,7 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`"CASSubject"`,
 		`"UX_User_CASSubject"`,
 		`"Enabled" boolean NOT NULL DEFAULT TRUE`,
+		`CREATE INDEX IF NOT EXISTS "IX_Danmaku_DuplicateGuard"`,
 	} {
 		if !strings.Contains(migration, expected) {
 			t.Fatalf("schema migration does not contain %q", expected)
@@ -74,5 +77,35 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 	}
 	if !strings.Contains(migration, `both legacy table "Danmu" and target table "Danmaku" exist`) {
 		t.Fatal("schema migration must reject ambiguous old/new table state")
+	}
+}
+
+func TestDuplicateDanmakuGuardContract(t *testing.T) {
+	if duplicateDanmakuWindow != 30*time.Second {
+		t.Fatalf("duplicate window = %s", duplicateDanmakuWindow)
+	}
+	for _, expected := range []string{
+		`"Vid"=$1`,
+		`"Ip" IS NOT DISTINCT FROM $2::inet`,
+		`COALESCE("Data"->>'Text','')=$3`,
+		`"CreateTime">=$4`,
+	} {
+		if !strings.Contains(duplicateDanmakuQuery, expected) {
+			t.Fatalf("duplicate query does not contain %q", expected)
+		}
+	}
+
+	base := duplicateDanmakuAdvisoryKey("video", net.ParseIP("2001:db8::1"), "hello")
+	if base != duplicateDanmakuAdvisoryKey("video", net.ParseIP("2001:0db8:0:0:0:0:0:1"), "hello") {
+		t.Fatal("equivalent IP addresses must use the same advisory lock")
+	}
+	for name, key := range map[string]int64{
+		"IP":      duplicateDanmakuAdvisoryKey("video", net.ParseIP("2001:db8::2"), "hello"),
+		"VID":     duplicateDanmakuAdvisoryKey("other", net.ParseIP("2001:db8::1"), "hello"),
+		"content": duplicateDanmakuAdvisoryKey("video", net.ParseIP("2001:db8::1"), "other"),
+	} {
+		if base == key {
+			t.Fatalf("different %s must use a different advisory lock", name)
+		}
 	}
 }

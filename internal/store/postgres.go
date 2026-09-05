@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -23,6 +25,18 @@ type Postgres struct {
 	pool  *pgxpool.Pool
 	admin config.AdminSettings
 }
+
+const duplicateDanmakuWindow = 30 * time.Second
+
+const duplicateDanmakuQuery = `SELECT EXISTS (
+	SELECT 1
+	FROM "Danmaku"
+	WHERE "Vid"=$1
+		AND "Ip" IS NOT DISTINCT FROM $2::inet
+		AND md5(COALESCE("Data"->>'Text',''))=md5($3)
+		AND COALESCE("Data"->>'Text','')=$3
+		AND "CreateTime">=$4
+)`
 
 func Open(ctx context.Context, cfg config.Config) (*Postgres, error) {
 	poolConfig, err := pgxpool.ParseConfig(cfg.DanmakuSQL.ConnectionString())
@@ -153,6 +167,7 @@ func schemaStatements() []string {
 		END $$`,
 		`CREATE INDEX IF NOT EXISTS "IX_Danmaku_Vid_IsDelete" ON "Danmaku" ("Vid", "IsDelete")`,
 		`CREATE INDEX IF NOT EXISTS "IX_Danmaku_VideoId" ON "Danmaku" ("VideoId")`,
+		`CREATE INDEX IF NOT EXISTS "IX_Danmaku_DuplicateGuard" ON "Danmaku" ("Vid", "Ip", (md5(COALESCE("Data"->>'Text',''))), "CreateTime")`,
 		`CREATE INDEX IF NOT EXISTS "IX_HttpClientCache_Key" ON "HttpClientCache" USING hash ("Key")`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_User_CASSubject" ON "User" ("CASSubject") WHERE "CASSubject" IS NOT NULL`,
 	}
@@ -179,34 +194,79 @@ func (p *Postgres) QueryByVid(ctx context.Context, vid string) ([]domain.Danmaku
 	return result, rows.Err()
 }
 
-func (p *Postgres) Insert(ctx context.Context, vid string, data domain.DanmakuData, ip net.IP, referer domain.Referer) error {
-	videoID, err := p.findOrInsertVideo(ctx, vid, referer)
-	if err != nil {
-		return err
-	}
-	raw, err := domain.MarshalDBData(data)
-	if err != nil {
-		return err
-	}
-	id, err := randomUUID()
-	if err != nil {
-		return err
-	}
+func (p *Postgres) Insert(ctx context.Context, vid string, data domain.DanmakuData, ip net.IP, referer domain.Referer) (bool, error) {
 	now := time.Now().UTC().Truncate(time.Second)
 	var ipValue any
 	if ip != nil {
 		ipValue = ip.String()
 	}
-	_, err = p.pool.Exec(ctx, `INSERT INTO "Danmaku" ("Id","Vid","Data","Ip","IsDelete","VideoId","CreateTime","UpdateTime") VALUES ($1,$2,$3,$4,FALSE,$5,$6,$6)`, id, vid, raw, ipValue, videoID, now)
-	return err
+	text := ""
+	if data.Text != nil {
+		text = *data.Text
+	}
+
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin Danmaku insert: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, duplicateDanmakuAdvisoryKey(vid, ip, text)); err != nil {
+		return false, fmt.Errorf("lock duplicate Danmaku submissions: %w", err)
+	}
+	var duplicate bool
+	if err := tx.QueryRow(ctx, duplicateDanmakuQuery, vid, ipValue, text, now.Add(-duplicateDanmakuWindow)).Scan(&duplicate); err != nil {
+		return false, fmt.Errorf("check duplicate Danmaku submission: %w", err)
+	}
+	if duplicate {
+		if err := tx.Commit(ctx); err != nil {
+			return false, fmt.Errorf("commit duplicate Danmaku check: %w", err)
+		}
+		return false, nil
+	}
+
+	videoID, err := p.findOrInsertVideo(ctx, tx, vid, referer)
+	if err != nil {
+		return false, err
+	}
+	raw, err := domain.MarshalDBData(data)
+	if err != nil {
+		return false, err
+	}
+	id, err := randomUUID()
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO "Danmaku" ("Id","Vid","Data","Ip","IsDelete","VideoId","CreateTime","UpdateTime") VALUES ($1,$2,$3,$4,FALSE,$5,$6,$6)`, id, vid, raw, ipValue, videoID, now); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit Danmaku insert: %w", err)
+	}
+	return true, nil
 }
 
-func (p *Postgres) findOrInsertVideo(ctx context.Context, vid string, referer domain.Referer) (int, error) {
-	rows, err := p.pool.Query(ctx, `SELECT "Id", "Referer" FROM "Video" WHERE "Vid"=$1`, vid)
+func duplicateDanmakuAdvisoryKey(vid string, ip net.IP, text string) int64 {
+	ipText := ""
+	if ip != nil {
+		ipText = ip.String()
+	}
+	hash := sha256.New()
+	var size [8]byte
+	for _, value := range []string{"danmaku:duplicate:v1", ipText, vid, text} {
+		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+		_, _ = hash.Write(size[:])
+		_, _ = hash.Write([]byte(value))
+	}
+	sum := hash.Sum(nil)
+	return int64(binary.BigEndian.Uint64(sum[:8]))
+}
+
+func (p *Postgres) findOrInsertVideo(ctx context.Context, tx pgx.Tx, vid string, referer domain.Referer) (int, error) {
+	rows, err := tx.Query(ctx, `SELECT "Id", "Referer" FROM "Video" WHERE "Vid"=$1`, vid)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var id int
 		var raw []byte
@@ -215,10 +275,13 @@ func (p *Postgres) findOrInsertVideo(ctx context.Context, vid string, referer do
 		}
 		var existing domain.Referer
 		if json.Unmarshal(raw, &existing) == nil && existing.Protocol == referer.Protocol && existing.Host == referer.Host && existing.Path == referer.Path && existing.Query == referer.Query {
+			rows.Close()
 			return id, nil
 		}
 	}
-	if err := rows.Err(); err != nil {
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
 		return 0, err
 	}
 	raw, err := domain.MarshalDBReferer(referer)
@@ -227,7 +290,7 @@ func (p *Postgres) findOrInsertVideo(ctx context.Context, vid string, referer do
 	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	var id int
-	err = p.pool.QueryRow(ctx, `INSERT INTO "Video" ("Vid","Referer","CreateTime","UpDateTime") VALUES ($1,$2,$3,$3) RETURNING "Id"`, vid, raw, now).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO "Video" ("Vid","Referer","CreateTime","UpDateTime") VALUES ($1,$2,$3,$3) RETURNING "Id"`, vid, raw, now).Scan(&id)
 	return id, err
 }
 

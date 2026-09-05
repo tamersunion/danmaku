@@ -204,7 +204,7 @@ func (s *Server) insertDanmaku(w http.ResponseWriter, r *http.Request, vid strin
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	}
-	if err := s.repository.Insert(r.Context(), vid, data, ip, referer); err != nil {
+	if _, err := s.repository.Insert(r.Context(), vid, data, ip, referer); err != nil {
 		s.writeError(w, err)
 		return
 	}

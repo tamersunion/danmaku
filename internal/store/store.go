@@ -58,7 +58,7 @@ type Repository interface {
 	Initialize(context.Context) error
 	Close()
 	QueryByVid(context.Context, string) ([]domain.DanmakuData, error)
-	Insert(context.Context, string, domain.DanmakuData, net.IP, domain.Referer) error
+	Insert(context.Context, string, domain.DanmakuData, net.IP, domain.Referer) (bool, error)
 	List(context.Context, string, int, int, bool) (domain.Page[domain.Danmaku], error)
 	Search(context.Context, SearchFilter) (domain.Page[domain.Danmaku], error)
 	Vids(context.Context) ([]string, error)
