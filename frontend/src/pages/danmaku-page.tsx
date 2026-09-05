@@ -14,6 +14,8 @@ import { apiGet, apiPost } from "@/api/client";
 import type { ApiResponse, Danmaku } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
 import { AddDanmakuForm } from "@/components/add-danmaku-form";
+import { NativeRulePanel } from "@/components/native-rule-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { ListPagination } from "@/components/list-pagination";
 import { LoadingTable } from "@/components/loading-table";
@@ -261,6 +263,17 @@ export function DanmakuPage() {
           {adding ? <AddDanmakuForm initialVid={filters.vid} onSuccess={() => setAdding(false)} /> : null}
         </DialogContent>
       </Dialog>
+      <Tabs defaultValue="danmaku">
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="danmaku">弹幕</TabsTrigger>
+          <TabsTrigger value="keywords">关键词过滤</TabsTrigger>
+          <TabsTrigger value="authors">用户名映射</TabsTrigger>
+          <TabsTrigger value="ips">IP 黑名单</TabsTrigger>
+        </TabsList>
+        <TabsContent value="keywords"><NativeRulePanel kind="keywords" /></TabsContent>
+        <TabsContent value="authors"><NativeRulePanel kind="authors" /></TabsContent>
+        <TabsContent value="ips"><NativeRulePanel kind="ips" /></TabsContent>
+        <TabsContent value="danmaku" className="flex flex-col gap-6">
       <Card>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -408,6 +421,8 @@ export function DanmakuPage() {
           />
         ) : null}
       </Card>
+        </TabsContent>
+      </Tabs>
       <DanmakuEditor
         id={editingID}
         onOpenChange={(open) => {

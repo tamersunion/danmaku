@@ -104,7 +104,7 @@ export function BilibiliPage() {
       <Tabs defaultValue="pools">
         <TabsList>
           <TabsTrigger value="pools">弹幕池</TabsTrigger>
-          <TabsTrigger value="keywords">过滤关键词</TabsTrigger>
+          <TabsTrigger value="keywords">关键词过滤</TabsTrigger>
         </TabsList>
         <TabsContent value="pools" className="flex flex-col gap-4">
           <PoolPanel />
@@ -730,7 +730,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
     ApiResponse<BilibiliKeyword>
   >({
     mutationFn: (body) => apiPost("/api/admin/bilibili/keywords", body),
-    successMessage: "过滤关键词已添加",
+    successMessage: "关键词过滤规则已添加",
     invalidate: [
       ["bilibili-keywords"],
       ["bilibili-pools"],
@@ -739,7 +739,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
   });
   const remove = useApiMutation<number, ApiResponse<null>>({
     mutationFn: (id) => apiDelete(`/api/admin/bilibili/keywords/${id}`),
-    successMessage: "过滤关键词已删除",
+    successMessage: "关键词过滤规则已删除",
     invalidate: [
       ["bilibili-keywords"],
       ["bilibili-pools"],
@@ -781,13 +781,13 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
               type="button"
               size="icon-sm"
               variant="destructive"
-              aria-label="删除过滤关键词"
+              aria-label="删除关键词过滤规则"
               title="删除"
             >
               <Trash2Icon />
             </Button>
           }
-          title="删除这个过滤关键词？"
+          title="删除这条关键词过滤规则？"
           description="删除后，只有因该关键词而隐藏的弹幕会恢复为可见。"
           destructive
           pending={remove.isPending}
@@ -811,7 +811,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>过滤关键词</CardTitle>
+        <CardTitle>关键词过滤</CardTitle>
         <CardDescription>
           全局规则作用于所有弹幕池；池级规则只作用于指定 CID 弹幕池。弹幕数据仍会完整保留。
         </CardDescription>
@@ -877,7 +877,7 @@ function KeywordPanel({ pools }: { pools: BilibiliPool[] }) {
             rows={keywords.data ?? []}
             columns={columns}
             rowKey={(item) => String(item.id)}
-            emptyTitle="暂无过滤关键词"
+            emptyTitle="暂无关键词过滤规则"
             emptyDescription="添加全局或弹幕池级关键词后，命中的弹幕会自动隐藏。"
           />
         )}

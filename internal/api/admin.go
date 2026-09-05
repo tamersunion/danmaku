@@ -17,6 +17,8 @@ func (s *Server) serveAdmin(w http.ResponseWriter, r *http.Request, path string,
 		return
 	}
 	switch {
+	case strings.HasPrefix(path, "/api/admin/danmaku-rules/"):
+		s.serveNativeRules(w, r, path)
 	case path == "/api/admin/videos" || strings.HasPrefix(path, "/api/admin/videos/"):
 		s.serveVideoAdmin(w, r, path)
 	case path == "/api/admin/bilibili" || strings.HasPrefix(path, "/api/admin/bilibili/"):

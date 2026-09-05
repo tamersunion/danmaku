@@ -168,7 +168,7 @@ export function ExternalPage() {
         description="将不同平台或播放器格式统一导入为可关联的视频弹幕池。"
       />
       <Tabs defaultValue="pools">
-      <TabsList><TabsTrigger value="pools">弹幕池</TabsTrigger><TabsTrigger value="keywords">过滤关键词</TabsTrigger></TabsList>
+      <TabsList><TabsTrigger value="pools">弹幕池</TabsTrigger><TabsTrigger value="keywords">关键词过滤</TabsTrigger></TabsList>
       <TabsContent value="pools">
       <Card>
         <CardHeader>

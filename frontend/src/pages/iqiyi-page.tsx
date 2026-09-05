@@ -81,7 +81,7 @@ export function IqiyiPage() {
       <Tabs defaultValue="pools">
         <TabsList>
           <TabsTrigger value="pools">弹幕池</TabsTrigger>
-          <TabsTrigger value="keywords">过滤关键词</TabsTrigger>
+          <TabsTrigger value="keywords">关键词过滤</TabsTrigger>
         </TabsList>
         <TabsContent value="pools" className="flex flex-col gap-4">
           <PoolPanel />
@@ -525,12 +525,12 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
     ApiResponse<IqiyiKeyword>
   >({
     mutationFn: (body) => apiPost("/api/admin/iqiyi/keywords", body),
-    successMessage: "过滤关键词已添加",
+    successMessage: "关键词过滤规则已添加",
     invalidate: [["iqiyi-keywords"], ["iqiyi-pools"], ["iqiyi-pool-danmaku"]],
   });
   const remove = useApiMutation<number, ApiResponse<null>>({
     mutationFn: (id) => apiDelete(`/api/admin/iqiyi/keywords/${id}`),
-    successMessage: "过滤关键词已删除",
+    successMessage: "关键词过滤规则已删除",
     invalidate: [["iqiyi-keywords"], ["iqiyi-pools"], ["iqiyi-pool-danmaku"]],
   });
   const columns: DataColumn<IqiyiKeyword>[] = [
@@ -543,8 +543,8 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
       className: "w-16 text-right",
       render: (item) => (
         <ConfirmAction
-          trigger={<Button type="button" size="icon-sm" variant="destructive" aria-label="删除过滤关键词"><Trash2Icon /></Button>}
-          title="删除这个过滤关键词？"
+          trigger={<Button type="button" size="icon-sm" variant="destructive" aria-label="删除关键词过滤规则"><Trash2Icon /></Button>}
+          title="删除这条关键词过滤规则？"
           description="删除后，匹配的弹幕将不再因这条规则被自动屏蔽。"
           destructive
           pending={remove.isPending}
@@ -557,7 +557,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>过滤关键词</CardTitle>
+        <CardTitle>关键词过滤</CardTitle>
         <CardDescription>全局规则作用于所有爱奇艺弹幕池；池级规则只作用于指定 VID。弹幕数据仍会完整保留。</CardDescription>
       </CardHeader>
       <CardContent>
@@ -604,7 +604,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
         ) : keywords.isPending ? (
           <LoadingTable />
         ) : (
-          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无过滤关键词" emptyDescription="添加全局或弹幕池级关键词规则。" />
+          <DataTable rows={keywords.data ?? []} columns={columns} rowKey={(item) => String(item.id)} emptyTitle="暂无关键词过滤规则" emptyDescription="添加全局或弹幕池级关键词规则。" />
         )}
       </CardContent>
     </Card>

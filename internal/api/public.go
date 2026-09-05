@@ -206,7 +206,7 @@ func (s *Server) insertDanmaku(w http.ResponseWriter, r *http.Request, vid strin
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	}
-	if _, err := s.repository.Insert(r.Context(), vid, data, ip, referer); errors.Is(err, store.ErrVideoDeleted) {
+	if _, err := s.repository.Insert(r.Context(), vid, data, ip, referer); errors.Is(err, store.ErrVideoDeleted) || errors.Is(err, store.ErrSubmissionDenied) {
 		s.writeJSON(w, http.StatusOK, failure())
 		return
 	} else if err != nil {
@@ -236,14 +236,16 @@ func requestIP(r *http.Request, fallback net.IP) net.IP {
 			return parsed
 		}
 	}
-	if fallback != nil {
-		return fallback
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {
-		return net.ParseIP(host)
+		if parsed := net.ParseIP(host); parsed != nil {
+			return parsed
+		}
 	}
-	return net.ParseIP(r.RemoteAddr)
+	if parsed := net.ParseIP(r.RemoteAddr); parsed != nil {
+		return parsed
+	}
+	return fallback
 }
 
 func routeIDAndFormat(path, base string) (string, string) {
