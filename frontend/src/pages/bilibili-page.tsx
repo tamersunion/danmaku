@@ -1,3 +1,5 @@
+import { PoolVideoBindingFields } from "@/components/pool-video-binding-fields";
+import { usePoolVideoBinding } from "@/hooks/use-pool-video-binding";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -124,6 +126,7 @@ function PoolPanel() {
   const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const creationBinding = usePoolVideoBinding<ApiResponse<PoolMutationResult>>("bilibili", createOpen, (result) => result.data.pool.id);
   const [identifierType, setIdentifierType] =
     useState<PoolIdentifierType>("bvid");
   const [identifier, setIdentifier] = useState("");
@@ -144,8 +147,8 @@ function PoolPanel() {
     CreatePoolInput,
     ApiResponse<PoolMutationResult>
   >({
-    mutationFn: (body) => apiPost("/api/admin/bilibili/pools", body),
-    successMessage: "弹幕池已创建并同步",
+    mutationFn: (body) => creationBinding.create(body, () => apiPost<ApiResponse<PoolMutationResult>>("/api/admin/bilibili/pools", body)),
+    successMessage: creationBinding.videoID ? "弹幕池已创建、同步并关联视频" : "弹幕池已创建并同步",
     invalidate: [["bilibili-pools"], ["bilibili-pool-options"]],
   });
   const sync = useApiMutation<number, ApiResponse<PoolMutationResult>>({
@@ -330,7 +333,7 @@ function PoolPanel() {
           />
         ) : null}
       </Card>
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!create.isPending) setCreateOpen(open); }}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
           <form className="flex flex-col gap-5" onSubmit={submitPool}>
             <DialogHeader>
@@ -390,11 +393,12 @@ function PoolPanel() {
                 />
               </Field>
             </FieldGroup>
+            <PoolVideoBindingFields binding={creationBinding} disabled={create.isPending} />
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCreateOpen(false)}
+                disabled={create.isPending} onClick={() => setCreateOpen(false)}
               >
                 取消
               </Button>

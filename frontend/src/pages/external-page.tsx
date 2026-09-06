@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { PoolVideoBindingFields } from "@/components/pool-video-binding-fields";
+import { usePoolVideoBinding } from "@/hooks/use-pool-video-binding";
 import { useQuery } from "@tanstack/react-query";
 import {
   EyeIcon,
@@ -253,8 +255,11 @@ function ImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [parseError, setParseError] = useState("");
   const [parsing, setParsing] = useState(false);
+  const parsedFile = useRef<{ file: File; format: ImportFormat; danmaku: Awaited<ReturnType<typeof importDanmakuFile>> } | null>(null);
+  const creationBinding = usePoolVideoBinding<ApiResponse<ExternalPool>>("external", open, (result) => result.data.id);
   useEffect(() => {
     if (!open) return;
+    parsedFile.current = null;
     setName(pool?.name ?? "");
     setFile(null);
     setParseError("");
@@ -271,8 +276,8 @@ function ImportDialog({
     mutationFn: (body) =>
       pool
         ? apiPut(`/api/admin/external/${pool.id}`, body)
-        : apiPost("/api/admin/external", body),
-    successMessage: pool ? "弹幕池已覆盖导入" : "弹幕池已导入",
+        : creationBinding.create(body, () => apiPost<ApiResponse<ExternalPool>>("/api/admin/external", body)),
+    successMessage: pool ? "弹幕池已覆盖导入" : creationBinding.videoID ? "弹幕池已导入并关联视频" : "弹幕池已导入",
     invalidate: [["external-pools"], ["external-pool-options"], ["external-pool-danmaku"], ["external-keywords"], ["videos"], ["video"], ["video-heatmap"]],
   });
 
@@ -282,7 +287,12 @@ function ImportDialog({
     setParsing(true);
     setParseError("");
     try {
-      const danmaku = await importDanmakuFile(file, format);
+      // Parsing may supply current timestamps. Reuse it on binding retries so
+      // the same file still identifies the pool that was already created.
+      if (parsedFile.current?.file !== file || parsedFile.current.format !== format) {
+        parsedFile.current = { file, format, danmaku: await importDanmakuFile(file, format) };
+      }
+      const danmaku = parsedFile.current.danmaku;
       mutation.mutate(
         { name: name.trim() || pool?.name || file.name, sourceFormat: format, danmaku },
         {
@@ -301,8 +311,8 @@ function ImportDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(value) => { if (!parsing && !mutation.isPending) onOpenChange(value); }}>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
         <form className="flex flex-col gap-5" onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>{pool ? "重新导入弹幕池" : "导入外部弹幕池"}</DialogTitle>
@@ -343,8 +353,9 @@ function ImportDialog({
               {parseError ? <p className="text-sm text-destructive">{parseError}</p> : null}
             </Field>
           </FieldGroup>
+          {!pool ? <PoolVideoBindingFields binding={creationBinding} disabled={parsing || mutation.isPending} /> : null}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" disabled={parsing || mutation.isPending} onClick={() => onOpenChange(false)}>
               取消
             </Button>
             <Button type="submit" disabled={!file || parsing || mutation.isPending}>

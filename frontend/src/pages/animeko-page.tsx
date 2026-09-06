@@ -1,3 +1,5 @@
+import { PoolVideoBindingFields } from "@/components/pool-video-binding-fields";
+import { usePoolVideoBinding } from "@/hooks/use-pool-video-binding";
 import { useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -101,6 +103,7 @@ function PoolPanel() {
   const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const creationBinding = usePoolVideoBinding<ApiResponse<PoolMutationResult>>("animeko", createOpen, (result) => result.data.pool.id);
   const [episodeId, setEpisodeID] = useState("");
   const [selectedPool, setSelectedPool] = useState<AnimekoPool | null>(null);
   const [bindingPool, setBindingPool] = useState<AnimekoPool | null>(null);
@@ -119,8 +122,8 @@ function PoolPanel() {
     { episodeId: string },
     ApiResponse<PoolMutationResult>
   >({
-    mutationFn: (body) => apiPost("/api/admin/animeko/pools", body),
-    successMessage: "弹幕池已创建并同步",
+    mutationFn: (body) => creationBinding.create(body, () => apiPost<ApiResponse<PoolMutationResult>>("/api/admin/animeko/pools", body)),
+    successMessage: creationBinding.videoID ? "弹幕池已创建、同步并关联视频" : "弹幕池已创建并同步",
     invalidate: [["videos"], ["video"], ["video-heatmap"], ["animeko-pools"], ["animeko-pool-options"]],
   });
   const sync = useApiMutation<number, ApiResponse<PoolMutationResult>>({
@@ -270,7 +273,7 @@ function PoolPanel() {
           />
         ) : null}
       </Card>
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!create.isPending) setCreateOpen(open); }}>
         <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl">
           <form
             className="flex flex-col gap-5"
@@ -309,8 +312,9 @@ function PoolPanel() {
               />
             </Field>
             </FieldGroup>
+            <PoolVideoBindingFields binding={creationBinding} disabled={create.isPending} />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button type="button" variant="outline" disabled={create.isPending} onClick={() => setCreateOpen(false)}>
                 取消
               </Button>
               <Button type="submit" disabled={create.isPending || !episodeId.trim()}>

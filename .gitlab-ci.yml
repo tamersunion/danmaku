@@ -1,5 +1,5 @@
 variables:
-  DANMAKU_VERSION: 2.12.1
+  DANMAKU_VERSION: 2.13.0
   HARBOR_IMAGE: registry.hanada.info/tamersunion/danmaku
   DOCKER_BUILDKIT: "1"
 
