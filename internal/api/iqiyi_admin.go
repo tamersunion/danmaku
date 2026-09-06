@@ -11,6 +11,10 @@ import (
 
 func (s *Server) serveIqiyiAdmin(w http.ResponseWriter, r *http.Request, path string) {
 	switch {
+	case path == "/api/admin/iqiyi/search" && r.Method == http.MethodGet:
+		s.searchIqiyi(w, r)
+	case strings.HasPrefix(path, "/api/admin/iqiyi/anime/") && strings.HasSuffix(path, "/episodes") && r.Method == http.MethodGet:
+		s.iqiyiEpisodes(w, r, path)
 	case path == "/api/admin/iqiyi/pools" && r.Method == http.MethodGet:
 		s.listIqiyiPools(w, r)
 	case path == "/api/admin/iqiyi/pools" && r.Method == http.MethodPost:

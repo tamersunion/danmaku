@@ -12,10 +12,10 @@ import {
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/api/client";
 import type {
   ApiResponse,
-  IqiyiBinding,
-  IqiyiKeyword,
-  IqiyiPool,
-  IqiyiPoolDanmaku,
+  AnimekoBinding,
+  AnimekoKeyword,
+  AnimekoPool,
+  AnimekoPoolDanmaku,
   ManagedVideo,
 } from "@/api/types";
 import { ConfirmAction } from "@/components/confirm-action";
@@ -52,20 +52,21 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { animekoPoolLabel } from "@/lib/animeko";
+import { Switch } from "@/components/ui/switch";
 import { formatDateTime } from "@/lib/format";
 
 type Paged<T> = { total: number; list: T[] };
-type PoolMutationResult = { pool: IqiyiPool; inserted: number };
+type PoolMutationResult = { pool: AnimekoPool; inserted: number };
 
-export function IqiyiPage() {
+export function AnimekoPage() {
   const poolOptions = useQuery({
-    queryKey: ["iqiyi-pool-options"],
+    queryKey: ["animeko-pool-options"],
     queryFn: async () =>
       (
-        await apiGet<ApiResponse<Paged<IqiyiPool>>>("/api/admin/iqiyi/pools", {
+        await apiGet<ApiResponse<Paged<AnimekoPool>>>("/api/admin/animeko/pools", {
           page: 1,
           size: 500,
         })
@@ -76,8 +77,8 @@ export function IqiyiPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="第三方弹幕库"
-        title="爱奇艺"
-        description="持久化管理爱奇艺弹幕池、视频关联和过滤规则"
+        title="Animeko"
+        description="持久化管理 Animeko弹幕池、视频关联和过滤规则"
       />
       <Tabs defaultValue="pools">
         <TabsList>
@@ -100,14 +101,14 @@ function PoolPanel() {
   const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [vid, setVid] = useState("");
-  const [selectedPool, setSelectedPool] = useState<IqiyiPool | null>(null);
-  const [bindingPool, setBindingPool] = useState<IqiyiPool | null>(null);
+  const [episodeId, setEpisodeID] = useState("");
+  const [selectedPool, setSelectedPool] = useState<AnimekoPool | null>(null);
+  const [bindingPool, setBindingPool] = useState<AnimekoPool | null>(null);
   const pools = useQuery({
-    queryKey: ["iqiyi-pools", page, query],
+    queryKey: ["animeko-pools", page, query],
     queryFn: async () =>
       (
-        await apiGet<ApiResponse<Paged<IqiyiPool>>>("/api/admin/iqiyi/pools", {
+        await apiGet<ApiResponse<Paged<AnimekoPool>>>("/api/admin/animeko/pools", {
           page,
           size: 20,
           query,
@@ -115,28 +116,29 @@ function PoolPanel() {
       ).data,
   });
   const create = useApiMutation<
-    { vid: string },
+    { episodeId: string },
     ApiResponse<PoolMutationResult>
   >({
-    mutationFn: (body) => apiPost("/api/admin/iqiyi/pools", body),
+    mutationFn: (body) => apiPost("/api/admin/animeko/pools", body),
     successMessage: "弹幕池已创建并同步",
-    invalidate: [["iqiyi-pools"], ["iqiyi-pool-options"]],
+    invalidate: [["videos"], ["video"], ["video-heatmap"], ["animeko-pools"], ["animeko-pool-options"]],
   });
   const sync = useApiMutation<number, ApiResponse<PoolMutationResult>>({
-    mutationFn: (id) => apiPost(`/api/admin/iqiyi/pools/${id}/sync`),
+    mutationFn: (id) => apiPost(`/api/admin/animeko/pools/${id}/sync`),
     successMessage: "弹幕池已增量同步",
     invalidate: [
-      ["iqiyi-pools"],
-      ["iqiyi-pool-options"],
-      ["iqiyi-pool-danmaku"],
+      ["videos"], ["video"], ["video-heatmap"],
+      ["animeko-pools"],
+      ["animeko-pool-options"],
+      ["animeko-pool-danmaku"],
     ],
   });
-  const columns = useMemo<DataColumn<IqiyiPool>[]>(
+  const columns = useMemo<DataColumn<AnimekoPool>[]>(
     () => [
       {
         key: "pool",
         label: "弹幕池",
-        render: (pool) => <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}><span className="truncate font-mono">{pool.vid}</span></Button>,
+        render: (pool) => <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}><span className="truncate font-mono">{animekoPoolLabel(pool)}</span></Button>,
       },
       {
         key: "data",
@@ -172,7 +174,7 @@ function PoolPanel() {
               type="button"
               size="icon-sm"
               variant="secondary"
-              aria-label="查看爱奇艺弹幕池"
+              aria-label="查看 Animeko弹幕池"
               title="查看弹幕"
               onClick={() => setSelectedPool(pool)}
             >
@@ -192,7 +194,7 @@ function PoolPanel() {
               type="button"
               size="icon-sm"
               variant="secondary"
-              aria-label="立即同步爱奇艺弹幕池"
+              aria-label="立即同步 Animeko弹幕池"
               title="立即同步"
               disabled={sync.isPending}
               onClick={() => sync.mutate(pool.id)}
@@ -232,9 +234,9 @@ function PoolPanel() {
             <FieldGroup>
               <Field orientation="horizontal">
                 <Input
-                  aria-label="搜索爱奇艺 VID"
+                  aria-label="搜索 Animeko 剧集 ID"
                   value={draftQuery}
-                  placeholder="搜索爱奇艺 VID"
+                  placeholder="搜索 Animeko 剧集 ID"
                   onChange={(event) => setDraftQuery(event.target.value)}
                 />
                 <Button type="submit" variant="outline">
@@ -256,8 +258,8 @@ function PoolPanel() {
               rows={pools.data?.list ?? []}
               columns={columns}
               rowKey={(pool) => String(pool.id)}
-              emptyTitle="暂无爱奇艺弹幕池"
-              emptyDescription="输入爱奇艺 VID 后创建并缓存弹幕"
+              emptyTitle="暂无 Animeko弹幕池"
+              emptyDescription="搜索作品并选择剧集，或输入剧集 ID 创建弹幕池"
             />
           )}
         </CardContent>
@@ -269,44 +271,49 @@ function PoolPanel() {
         ) : null}
       </Card>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl">
           <form
             className="flex flex-col gap-5"
             onSubmit={(event) => {
               event.preventDefault();
               create.mutate(
-                { vid: vid.trim() },
+                { episodeId: episodeId.trim() },
                 {
                   onSuccess: () => {
                     setCreateOpen(false);
-                    setVid("");
+                    setEpisodeID("");
                   },
                 },
               );
             }}
           >
             <DialogHeader>
-              <DialogTitle>添加爱奇艺弹幕池</DialogTitle>
+              <DialogTitle>添加 Animeko弹幕池</DialogTitle>
               <DialogDescription>
-                搜索作品选择剧集，或手动输入 VID；创建时立即获取弹幕并建立本地缓存
+                搜索作品选择剧集，或手动输入剧集 ID；创建时立即获取弹幕并建立本地缓存
               </DialogDescription>
             </DialogHeader>
-            {createOpen ? <ThirdPartySearch source="iqiyi" episodeId={vid} onSelect={setVid} disabled={create.isPending} /> : null}
-            <Field>
-              <FieldLabel htmlFor="iqiyi-pool-vid">爱奇艺 VID</FieldLabel>
+            {createOpen ? <ThirdPartySearch source="animeko" episodeId={episodeId} onSelect={setEpisodeID} disabled={create.isPending} /> : null}
+            <FieldGroup>
+            <Field data-disabled={create.isPending}>
+              <FieldLabel htmlFor="animeko-pool-episodeId">Bangumi 剧集 ID</FieldLabel>
               <Input
-                id="iqiyi-pool-vid"
-                value={vid}
-                maxLength={128}
+                id="animeko-pool-episodeId"
+                disabled={create.isPending}
+                value={episodeId}
+                maxLength={19}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
-                onChange={(event) => setVid(event.target.value)}
+                onChange={(event) => setEpisodeID(event.target.value)}
               />
             </Field>
+            </FieldGroup>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
                 取消
               </Button>
-              <Button type="submit" disabled={create.isPending}>
+              <Button type="submit" disabled={create.isPending || !episodeId.trim()}>
                 {create.isPending ? <Spinner data-icon="inline-start" /> : null}
                 创建并同步
               </Button>
@@ -320,11 +327,11 @@ function PoolPanel() {
   );
 }
 
-function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenChange: (open: boolean) => void }) {
+function BindingDialog({ pool, onOpenChange }: { pool: AnimekoPool | null; onOpenChange: (open: boolean) => void }) {
   const [videoID, setVideoID] = useState("");
   const [offset, setOffset] = useState("0");
   const videos = useQuery({
-    queryKey: ["iqiyi-binding-video-options"],
+    queryKey: ["animeko-binding-video-options"],
     queryFn: async () =>
       (
         await apiGet<ApiResponse<Paged<ManagedVideo>>>("/api/admin/videos", {
@@ -337,12 +344,12 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
   });
   const bind = useApiMutation<
     { videoID: number; poolId: number; offset: number },
-    ApiResponse<IqiyiBinding>
+    ApiResponse<AnimekoBinding>
   >({
     mutationFn: ({ videoID: targetVideoID, ...body }) =>
-      apiPost(`/api/admin/videos/${targetVideoID}/iqiyi-bindings`, body),
+      apiPost(`/api/admin/videos/${targetVideoID}/animeko-bindings`, body),
     successMessage: "弹幕池已关联到视频",
-    invalidate: [["videos"], ["video"], ["iqiyi-pools"]],
+    invalidate: [["videos"], ["video"], ["video-heatmap"], ["videos"], ["video"], ["animeko-pools"]],
   });
 
   function submit(event: FormEvent) {
@@ -361,7 +368,7 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
           <DialogHeader>
             <DialogTitle>关联视频</DialogTitle>
             <DialogDescription>
-              将 {pool?.vid ?? "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
+              将 {pool ? animekoPoolLabel(pool) : "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
             </DialogDescription>
           </DialogHeader>
           {videos.isError ? (
@@ -369,9 +376,9 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
           ) : (
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="iqiyi-binding-video">视频</FieldLabel>
+                <FieldLabel htmlFor="animeko-binding-video">视频</FieldLabel>
                 <SearchableSelect
-                  id="iqiyi-binding-video"
+                  id="animeko-binding-video"
                   options={(videos.data ?? []).map((video) => ({
                     value: String(video.id),
                     label: video.name ? `${video.name} (${video.vid})` : video.vid,
@@ -387,8 +394,8 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
                 ) : null}
               </Field>
               <Field>
-                <FieldLabel htmlFor="iqiyi-binding-offset">偏移量（秒）</FieldLabel>
-                <Input id="iqiyi-binding-offset" type="number" step="any" value={offset} required onChange={(event) => setOffset(event.target.value)} />
+                <FieldLabel htmlFor="animeko-binding-offset">偏移量（秒）</FieldLabel>
+                <Input id="animeko-binding-offset" type="number" step="any" value={offset} required onChange={(event) => setOffset(event.target.value)} />
               </Field>
             </FieldGroup>
           )}
@@ -405,17 +412,17 @@ function BindingDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenC
   );
 }
 
-function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onOpenChange: (open: boolean) => void }) {
+function PoolDanmakuDialog({ pool, onOpenChange }: { pool: AnimekoPool | null; onOpenChange: (open: boolean) => void }) {
   const [page, setPage] = useState(1);
   const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
   const [blocked, setBlocked] = useState("all");
   const danmaku = useQuery({
-    queryKey: ["iqiyi-pool-danmaku", pool?.id, page, query, blocked],
+    queryKey: ["animeko-pool-danmaku", pool?.id, page, query, blocked],
     queryFn: async () =>
       (
-        await apiGet<ApiResponse<Paged<IqiyiPoolDanmaku>>>(
-          `/api/admin/iqiyi/pools/${pool?.id}/danmaku`,
+        await apiGet<ApiResponse<Paged<AnimekoPoolDanmaku>>>(
+          `/api/admin/animeko/pools/${pool?.id}/danmaku`,
           { page, size: 20, query, blocked: blocked === "all" ? "" : blocked },
         )
       ).data,
@@ -426,11 +433,11 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
     ApiResponse<null>
   >({
     mutationFn: ({ id, blocked: value }) =>
-      apiPatch(`/api/admin/iqiyi/danmaku/${id}/blocked`, { blocked: value }),
+      apiPatch(`/api/admin/animeko/danmaku/${id}/blocked`, { blocked: value }),
     successMessage: "屏蔽状态已更新",
-    invalidate: [["iqiyi-pool-danmaku"], ["iqiyi-pools"]],
+    invalidate: [["videos"], ["video"], ["video-heatmap"], ["animeko-pool-danmaku"], ["animeko-pools"]],
   });
-  const columns: DataColumn<IqiyiPoolDanmaku>[] = [
+  const columns: DataColumn<AnimekoPoolDanmaku>[] = [
     {
       key: "content",
       label: "弹幕内容",
@@ -469,7 +476,7 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
     <Dialog open={Boolean(pool)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>{pool?.vid ?? "弹幕池详情"}</DialogTitle>
+          <DialogTitle>{pool ? animekoPoolLabel(pool) : "弹幕池详情"}</DialogTitle>
           <DialogDescription>关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整</DialogDescription>
         </DialogHeader>
         <form
@@ -515,29 +522,29 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: IqiyiPool | null; onO
   );
 }
 
-function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
+function KeywordPanel({ pools }: { pools: AnimekoPool[] }) {
   const [scope, setScope] = useState("global");
   const [keyword, setKeyword] = useState("");
   const keywords = useQuery({
-    queryKey: ["iqiyi-keywords"],
-    queryFn: async () => (await apiGet<ApiResponse<IqiyiKeyword[]>>("/api/admin/iqiyi/keywords")).data,
+    queryKey: ["animeko-keywords"],
+    queryFn: async () => (await apiGet<ApiResponse<AnimekoKeyword[]>>("/api/admin/animeko/keywords")).data,
   });
   const create = useApiMutation<
     { poolId: number | null; keyword: string },
-    ApiResponse<IqiyiKeyword>
+    ApiResponse<AnimekoKeyword>
   >({
-    mutationFn: (body) => apiPost("/api/admin/iqiyi/keywords", body),
+    mutationFn: (body) => apiPost("/api/admin/animeko/keywords", body),
     successMessage: "关键词过滤规则已添加",
-    invalidate: [["iqiyi-keywords"], ["iqiyi-pools"], ["iqiyi-pool-danmaku"]],
+    invalidate: [["videos"], ["video"], ["video-heatmap"], ["animeko-keywords"], ["animeko-pools"], ["animeko-pool-danmaku"]],
   });
   const remove = useApiMutation<number, ApiResponse<null>>({
-    mutationFn: (id) => apiDelete(`/api/admin/iqiyi/keywords/${id}`),
+    mutationFn: (id) => apiDelete(`/api/admin/animeko/keywords/${id}`),
     successMessage: "关键词过滤规则已删除",
-    invalidate: [["iqiyi-keywords"], ["iqiyi-pools"], ["iqiyi-pool-danmaku"]],
+    invalidate: [["videos"], ["video"], ["video-heatmap"], ["animeko-keywords"], ["animeko-pools"], ["animeko-pool-danmaku"]],
   });
-  const columns: DataColumn<IqiyiKeyword>[] = [
+  const columns: DataColumn<AnimekoKeyword>[] = [
     { key: "keyword", label: "关键词", render: (item) => <span className="font-medium">{item.keyword}</span> },
-    { key: "scope", label: "作用范围", render: (item) => <Badge variant={item.poolId ? "secondary" : "default"}>{item.poolId ? item.poolVid : "全局"}</Badge> },
+    { key: "scope", label: "作用范围", render: (item) => <Badge variant={item.poolId ? "secondary" : "default"}>{item.poolId ? animekoPoolLabel({episodeId: item.poolEpisodeId}) : "全局"}</Badge> },
     { key: "created", label: "创建时间", className: "whitespace-nowrap", render: (item) => formatDateTime(item.createTime) },
     {
       key: "actions",
@@ -560,7 +567,7 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
     <Card>
       <CardHeader>
         <CardTitle>关键词过滤</CardTitle>
-        <CardDescription>全局规则作用于所有爱奇艺弹幕池；池级规则只作用于指定 VID。弹幕数据仍会完整保留</CardDescription>
+        <CardDescription>全局规则作用于所有 Animeko弹幕池；池级规则只作用于指定剧集 ID；弹幕数据仍会完整保留</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -575,12 +582,12 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
         >
           <FieldGroup className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
             <Field>
-              <FieldLabel htmlFor="iqiyi-keyword-scope">作用范围</FieldLabel>
+              <FieldLabel htmlFor="animeko-keyword-scope">作用范围</FieldLabel>
               <SearchableSelect
-                id="iqiyi-keyword-scope"
+                id="animeko-keyword-scope"
                 options={[
                   { value: "global", label: "全部弹幕池" },
-                  ...pools.map((pool) => ({ value: String(pool.id), label: pool.vid })),
+                  ...pools.map((pool) => ({ value: String(pool.id), label: animekoPoolLabel(pool) })),
                 ]}
                 value={scope}
                 searchPlaceholder="搜索弹幕池"
@@ -588,9 +595,9 @@ function KeywordPanel({ pools }: { pools: IqiyiPool[] }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="iqiyi-keyword-value">关键词</FieldLabel>
+              <FieldLabel htmlFor="animeko-keyword-value">关键词</FieldLabel>
               <div className="flex gap-2">
-                <Input id="iqiyi-keyword-value" value={keyword} maxLength={200} required onChange={(event) => setKeyword(event.target.value)} />
+                <Input id="animeko-keyword-value" value={keyword} maxLength={200} required onChange={(event) => setKeyword(event.target.value)} />
                 <Button type="submit" disabled={create.isPending || !keyword.trim()}>
                   {create.isPending ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}
                   添加

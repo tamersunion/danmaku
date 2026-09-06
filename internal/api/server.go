@@ -24,6 +24,7 @@ type Server struct {
 	repository    store.Repository
 	bilibili      *Bilibili
 	iqiyi         *Iqiyi
+	animeko       *Animeko
 	dandanplay    *Dandanplay
 	cas           *casclient.Client
 	sessionSecret []byte
@@ -44,6 +45,7 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 	}
 	server.bilibili = NewBilibili(repository, cfg.Bilibili)
 	server.iqiyi = NewIqiyi(repository, cfg.Iqiyi)
+	server.animeko = NewAnimeko(repository, cfg.Animeko)
 	server.dandanplay = NewDandanplay(repository, cfg.Dandanplay)
 	if cfg.CAS.Enabled {
 		client, err := casclient.NewClient(cfg.CAS.BaseURL, cfg.CAS.ValidationURL, cfg.CAS.ValidationHost, time.Duration(cfg.CAS.RequestTimeoutSeconds)*time.Second)
@@ -59,6 +61,7 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 	server.bilibili.refresh = server.refresh
 	server.iqiyi.refresh = server.refresh
 	server.dandanplay.refresh = server.refresh
+	server.animeko.refresh = server.refresh
 	server.mux.HandleFunc("/api/", server.serveAPI)
 	server.mux.HandleFunc("/cas/", server.serveCAS)
 	server.mux.HandleFunc("/", server.serveSPA)
@@ -96,6 +99,8 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 		s.queryAID(w, r)
 	case path == "/api/danmaku/export" && r.Method == http.MethodGet:
 		s.exportDanmaku(w, r)
+	case path == "/api/danmaku/dplayer/v3/animeko" || path == "/api/danmaku/artplayer/v1/animeko" || path == "/api/danmaku/v1/animeko" || path == "/api/danmaku/v1/animeko/xml":
+		s.serveAnimekoData(w, r, path)
 	case path == "/api/danmaku/dplayer/v3/dandanplay" || path == "/api/danmaku/artplayer/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay/xml":
 		s.serveDandanplayData(w, r, path)
 	case strings.HasPrefix(path, "/api/danmaku/dplayer/v3"):

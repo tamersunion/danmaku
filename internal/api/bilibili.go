@@ -186,6 +186,25 @@ func (b *Bilibili) ensurePool(ctx context.Context, query bilibiliQuery, force, s
 
 func (b *Bilibili) PreparePool(ctx context.Context, query bilibiliQuery) (*domain.BilibiliPool, int, error) {
 	query.BVID = strings.TrimSpace(query.BVID)
+	if query.BVID != "" && (strings.ContainsAny(query.BVID, "/:") || strings.Contains(query.BVID, "b23.tv") || strings.HasPrefix(strings.ToLower(query.BVID), "av") || strings.HasPrefix(strings.ToLower(query.BVID), "ep") || strings.HasPrefix(strings.ToLower(query.BVID), "ss")) {
+		options, err := b.ResolveInput(ctx, query.BVID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if query.Page == 0 {
+			query.Page = 1
+		}
+		var selected *bilibiliSelection
+		if len(options) == 1 {
+			selected = &options[0]
+		} else if query.Page > 0 && query.Page <= len(options) {
+			selected = &options[query.Page-1]
+		}
+		if selected == nil {
+			return nil, 0, fmt.Errorf("未找到对应分 P 或剧集，请先解析链接选择剧集")
+		}
+		query = bilibiliQuery{BVID: selected.BVID, CID: selected.CID, Page: selected.Page}
+	}
 	return b.ensurePool(ctx, query, true, false)
 }
 

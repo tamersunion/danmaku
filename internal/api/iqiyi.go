@@ -58,6 +58,12 @@ type iqiyiProtoField struct {
 }
 
 func NewIqiyi(repository store.Repository, settings config.IqiyiSettings) *Iqiyi {
+	if settings.SearchAPIBase == "" {
+		settings.SearchAPIBase = config.DefaultIqiyiSearchAPIBase
+	}
+	if settings.EpisodesAPIBase == "" {
+		settings.EpisodesAPIBase = config.DefaultIqiyiEpisodesAPIBase
+	}
 	if settings.DecodeAPIBase == "" {
 		settings.DecodeAPIBase = config.DefaultIqiyiDecodeAPIBase
 	}

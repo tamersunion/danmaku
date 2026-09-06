@@ -227,6 +227,8 @@ export type ManagedVideo = {
   bilibiliPoolCount: number;
   bilibiliBindings?: BilibiliBinding[];
   iqiyiPoolCount: number;
+  animekoPoolCount: number;
+  animekoBindings?: AnimekoBinding[];
   dandanplayPoolCount: number;
   iqiyiBindings?: IqiyiBinding[];
   dandanplayBindings?: DandanplayBinding[];
@@ -258,6 +260,45 @@ export type UserProfile = {
   enabled: boolean;
   phoneNumber?: string | null;
   email?: string | null;
+  createTime: string;
+  updateTime: string;
+};
+export type AnimekoPool = {
+  id: number;
+  episodeId: string;
+  danmakuCount: number;
+  blockedCount: number;
+  bindingCount: number;
+  lastAttemptTime?: string | null;
+  lastSyncTime?: string | null;
+  createTime: string;
+  updateTime: string;
+};
+
+export type AnimekoPoolDanmaku = {
+  id: number;
+  poolId: number;
+  data: DanmakuData;
+  isBlocked: boolean;
+  manuallyBlocked: boolean;
+  createTime: string;
+  updateTime: string;
+};
+
+export type AnimekoKeyword = {
+  id: number;
+  poolId?: number | null;
+  poolEpisodeId: string;
+  keyword: string;
+  createTime: string;
+};
+
+export type AnimekoBinding = {
+  id: number;
+  vid: string;
+  poolId: number;
+  poolEpisodeId: string;
+  offset: number;
   createTime: string;
   updateTime: string;
 };

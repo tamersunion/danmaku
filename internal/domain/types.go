@@ -82,6 +82,8 @@ type Video struct {
 	BilibiliPoolCount      int                 `json:"bilibiliPoolCount"`
 	BilibiliBindings       []BilibiliBinding   `json:"bilibiliBindings,omitempty"`
 	IqiyiPoolCount         int                 `json:"iqiyiPoolCount"`
+	AnimekoPoolCount       int                 `json:"animekoPoolCount"`
+	AnimekoBindings        []AnimekoBinding    `json:"animekoBindings,omitempty"`
 	DandanplayPoolCount    int                 `json:"dandanplayPoolCount"`
 	IqiyiBindings          []IqiyiBinding      `json:"iqiyiBindings,omitempty"`
 	DandanplayBindings     []DandanplayBinding `json:"dandanplayBindings,omitempty"`

@@ -1,0 +1,153 @@
+package store
+
+import (
+	"context"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"git.hanada.info/tamersunion/danmaku/internal/domain"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Explicitly opt in with a disposable database; never use deployment settings.
+func TestAnimekoPostgresIntegration(t *testing.T) {
+	dsn := os.Getenv("DANMAKU_TEST_POSTGRES")
+	if dsn == "" {
+		t.Skip("set DANMAKU_TEST_POSTGRES to an isolated PostgreSQL test database")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	admin, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close(context.Background())
+	id, err := randomUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := "danmaku_animeko_test_" + strings.ReplaceAll(id, "-", "")
+	quoted := pgx.Identifier{schema}.Sanitize()
+	if _, err = admin.Exec(ctx, "CREATE SCHEMA "+quoted); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if _, err := admin.Exec(context.Background(), "DROP SCHEMA "+quoted+" CASCADE"); err != nil {
+			t.Error(err)
+		}
+	}()
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	repo := &Postgres{pool: pool, cacheTTL: time.Hour}
+	for range 2 {
+		if err := repo.Initialize(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	video, err := repo.CreateVideo(ctx, "animeko-video", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := repo.EnsureAnimekoPool(ctx, "00123")
+	if err != nil || source.EpisodeID != "123" {
+		t.Fatalf("pool=%v err=%v", source, err)
+	}
+	same, err := repo.EnsureAnimekoPool(ctx, "123")
+	if err != nil || same.ID != source.ID {
+		t.Fatal("duplicate canonical pool")
+	}
+	claim, err := repo.ClaimAnimekoPoolSync(ctx, source.ID, time.Minute, false)
+	if err != nil || !claim {
+		t.Fatal("initial claim failed")
+	}
+	claim, err = repo.ClaimAnimekoPoolSync(ctx, source.ID, time.Minute, false)
+	if err != nil || claim {
+		t.Fatal("cache window ignored")
+	}
+	data := []domain.DanmakuData{{Time: 1.25, Text: stringForAnimekoTest("spam")}, {Time: 2, Text: stringForAnimekoTest("keep")}}
+	count, err := repo.MergeAnimekoDanmaku(ctx, source.ID, data)
+	if err != nil || count != 2 {
+		t.Fatalf("merge=%d %v", count, err)
+	}
+	count, err = repo.MergeAnimekoDanmaku(ctx, source.ID, data)
+	if err != nil || count != 0 {
+		t.Fatal("incremental duplicate inserted")
+	}
+	if _, err = repo.MergeAnimekoDanmaku(ctx, source.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	binding, err := repo.UpsertVideoAnimekoBinding(ctx, video.ID, source.ID, 1.5)
+	if err != nil || binding.PoolEpisodeID != "123" {
+		t.Fatalf("binding=%v %v", binding, err)
+	}
+	detail, err := repo.Video(ctx, video.ID)
+	if err != nil || detail.AnimekoPoolCount != 1 || detail.ThirdPartyDanmakuCount != 2 || len(detail.AnimekoBindings) != 1 {
+		t.Fatalf("video=%v %v", detail, err)
+	}
+	sizes, err := repo.ThirdPartyPoolSizes(ctx, video.Vid)
+	if err != nil || sizes["animeko:1"] != 2 {
+		t.Fatalf("sizes=%v %v", sizes, err)
+	}
+	keyword, err := repo.CreateAnimekoKeyword(ctx, nil, "SPAM")
+	if err != nil {
+		t.Fatal(err)
+	}
+	visible, err := repo.AnimekoPoolData(ctx, source.ID)
+	if err != nil || len(visible) != 1 || *visible[0].Text != "keep" {
+		t.Fatalf("filter=%v %v", visible, err)
+	}
+	records, err := repo.AnimekoDanmaku(ctx, AnimekoDanmakuFilter{PoolID: source.ID})
+	if err != nil || records.Total != 2 {
+		t.Fatal("filter removed stored data")
+	}
+	if _, err = repo.DeleteAnimekoKeyword(ctx, keyword.ID); err != nil {
+		t.Fatal(err)
+	}
+	poolKeyword, err := repo.CreateAnimekoKeyword(ctx, &source.ID, "keep")
+	if err != nil {
+		t.Fatal(err)
+	}
+	visible, err = repo.AnimekoPoolData(ctx, source.ID)
+	if err != nil || len(visible) != 1 || *visible[0].Text != "spam" {
+		t.Fatalf("pool filter=%v %v", visible, err)
+	}
+	if _, err = repo.DeleteAnimekoKeyword(ctx, poolKeyword.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.SetAnimekoDanmakuBlocked(ctx, records.List[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.MergeAnimekoDanmaku(ctx, source.ID, data); err != nil {
+		t.Fatal(err)
+	}
+	visible, err = repo.AnimekoPoolData(ctx, source.ID)
+	if err != nil || len(visible) != 1 {
+		t.Fatal("refresh cleared manual block")
+	}
+	if _, err = repo.DeleteVideoAnimekoBinding(ctx, video.ID, binding.ID); err != nil {
+		t.Fatal(err)
+	}
+	bindings, err := repo.VideoAnimekoBindings(ctx, video.ID)
+	if err != nil || len(bindings) != 0 {
+		t.Fatal("binding not removed")
+	}
+	if err := repo.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	visible, err = repo.AnimekoPoolData(ctx, source.ID)
+	if err != nil || len(visible) != 1 {
+		t.Fatal("restart migration lost data")
+	}
+}
+func stringForAnimekoTest(value string) *string { return &value }

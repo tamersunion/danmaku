@@ -11,6 +11,10 @@ import (
 
 func (s *Server) serveBilibiliAdmin(w http.ResponseWriter, r *http.Request, path string) {
 	switch {
+	case path == "/api/admin/bilibili/search" && r.Method == http.MethodGet:
+		s.searchBilibili(w, r)
+	case path == "/api/admin/bilibili/resolve" && r.Method == http.MethodGet:
+		s.resolveBilibili(w, r)
 	case path == "/api/admin/bilibili/pools" && r.Method == http.MethodGet:
 		s.listBilibiliPools(w, r)
 	case path == "/api/admin/bilibili/pools" && r.Method == http.MethodPost:
@@ -46,6 +50,7 @@ func (s *Server) listBilibiliPools(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createBilibiliPool(w http.ResponseWriter, r *http.Request) {
 	var request struct {
+		URL  string `json:"url"`
 		BVID string `json:"bvid"`
 		AID  int64  `json:"aid"`
 		CID  int64  `json:"cid"`
@@ -55,6 +60,13 @@ func (s *Server) createBilibiliPool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.BVID = strings.TrimSpace(request.BVID)
+	if request.URL != "" {
+		if request.BVID != "" || request.AID != 0 || request.CID != 0 {
+			s.writeBilibiliAdminFailure(w, "链接不能与其他标识同时填写")
+			return
+		}
+		request.BVID = strings.TrimSpace(request.URL)
+	}
 	if request.Page == 0 {
 		request.Page = 1
 	}
@@ -68,7 +80,7 @@ func (s *Server) createBilibiliPool(w http.ResponseWriter, r *http.Request) {
 	if request.CID != 0 {
 		identifierCount++
 	}
-	if identifierCount != 1 || len(request.BVID) > 32 || request.AID < 0 || request.CID < 0 || request.Page < 1 {
+	if identifierCount != 1 || len(request.BVID) > 4096 || request.AID < 0 || request.CID < 0 || request.Page < 1 {
 		s.writeBilibiliAdminFailure(w, "请仅输入一个有效的 BVID、AID 或 CID，并检查分 P")
 		return
 	}

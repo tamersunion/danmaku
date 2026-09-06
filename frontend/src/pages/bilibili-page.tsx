@@ -61,6 +61,8 @@ import {
 } from "@/components/ui/tabs";
 import { useApiMutation } from "@/hooks/use-api-mutation";
 import { formatDateTime } from "@/lib/format";
+import { ThirdPartySearch } from "@/components/third-party-search";
+import { BilibiliLookup } from "@/components/bilibili-lookup";
 
 type Paged<T> = { total: number; list: T[] };
 type PoolMutationResult = { pool: BilibiliPool; inserted: number };
@@ -329,21 +331,22 @@ function PoolPanel() {
         ) : null}
       </Card>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
           <form className="flex flex-col gap-5" onSubmit={submitPool}>
             <DialogHeader>
               <DialogTitle>添加 bilibili 弹幕池</DialogTitle>
               <DialogDescription>
-                输入任一视频标识，系统会创建弹幕池并立即从上游执行第一次增量同步
+                搜索选择视频或粘贴 B 站链接，也可手动填写 BVID、AID 或 CID；创建时立即同步弹幕
               </DialogDescription>
             </DialogHeader>
+            {createOpen ? <ThirdPartySearch source="bilibili" episodeId={identifier} disabled={create.isPending} onSelect={(value) => { setIdentifierType("bvid"); setIdentifier(value); setPart("1"); }} /> : null}
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="pool-identifier-type">标识类型</FieldLabel>
                 <SearchableSelect
                   id="pool-identifier-type"
                   options={[
-                    { value: "bvid", label: "BVID" },
+                    { value: "bvid", label: "BVID / AV / EP / SS / B 站链接" },
                     { value: "aid", label: "AID" },
                     { value: "cid", label: "CID" },
                   ]}
@@ -356,7 +359,7 @@ function PoolPanel() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="pool-identifier">
-                  {identifierType.toUpperCase()}
+                  {identifierType === "bvid" ? "B 站链接或视频标识" : identifierType.toUpperCase()}
                 </FieldLabel>
                 <Input
                   id="pool-identifier"
@@ -366,13 +369,14 @@ function PoolPanel() {
                   value={identifier}
                   placeholder={
                     identifierType === "bvid"
-                      ? "例如 BV1xx411c7mD"
+                      ? "粘贴 B 站链接，或输入 BV、av、ep、ss 标识"
                       : `请输入 ${identifierType.toUpperCase()}`
                   }
                   required
                   onChange={(event) => setIdentifier(event.target.value)}
                 />
               </Field>
+              {createOpen && identifierType === "bvid" ? <BilibiliLookup input={identifier} disabled={create.isPending} onSelect={(value) => { setIdentifier(value); setPart("1"); }} /> : null}
               <Field>
                 <FieldLabel htmlFor="pool-part">分 P</FieldLabel>
                 <Input

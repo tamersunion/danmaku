@@ -75,6 +75,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			return nil, err
 		}
 	}
+	animeko := []domain.AnimekoBinding{}
+	if s.animeko != nil && s.animeko.repository != nil {
+		animeko, err = s.animeko.repository.AnimekoBindingsByVID(ctx, vid)
+		if err != nil {
+			return nil, err
+		}
+	}
 	external := []domain.ExternalBinding{}
 	ext, hasExternal := s.repository.(store.ExternalRepository)
 	if hasExternal {
@@ -85,6 +92,9 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 	}
 	// Snapshot local/Redis data before scheduling refreshes, even on cache hits.
 	defer func() {
+		for _, binding := range animeko {
+			s.animeko.refreshPool(binding.PoolEpisodeID)
+		}
 		for _, binding := range bili {
 			s.bilibili.refreshPool(bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID})
 		}
@@ -95,7 +105,7 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			s.dandanplay.refreshPool(binding.PoolEpisodeID, binding.WithRelated)
 		}
 	}()
-	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, external})
+	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, animeko, external})
 	load := func(ctx context.Context) ([]domain.DanmakuData, error) {
 		sizes := map[string]int{}
 		if source, ok := s.repository.(interface {
@@ -131,6 +141,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 				return nil, err
 			}
 			pools = append(pools, mergePool{size: sizes["dandanplay:"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
+		}
+		for _, binding := range animeko {
+			data, err := s.animeko.repository.AnimekoPoolData(ctx, binding.PoolID)
+			if err != nil {
+				return nil, err
+			}
+			pools = append(pools, mergePool{size: sizes["animeko:"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
 		}
 		for _, binding := range external {
 			data, err := ext.ExternalPoolData(ctx, binding.PoolID)

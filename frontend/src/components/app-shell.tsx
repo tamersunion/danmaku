@@ -50,6 +50,7 @@ const titles: Array<[RegExp, string]> = [
   [/^\/danmaku/, "弹幕管理"],
   [/^\/bilibili/, "bilibili"],
   [/^\/iqiyi/, "爱奇艺"],
+  [/^\/animeko/, "Animeko"],
   [/^\/dandanplay/, "弹弹play"],
   [/^\/external/, "外部导入"],
   [/^\/users/, "用户管理"],
@@ -159,6 +160,16 @@ function AppShellContent() {
                     >
                       <DatabaseIcon />
                       <span>弹弹play</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+<SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="Animeko"
+                      isActive={location.pathname.startsWith("/animeko")}
+                      render={<NavLink to="/animeko" />}
+                    >
+                      <DatabaseIcon />
+                      <span>Animeko</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>

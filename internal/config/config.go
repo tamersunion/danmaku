@@ -13,6 +13,16 @@ import (
 	"strings"
 )
 
+type AnimekoSettings struct {
+	APIBase             string `json:"api_base"`
+	BangumiAPIBase      string `json:"bangumi_api_base"`
+	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
+}
+
+const DefaultAnimekoAPIBase = "https://api.animeko.org"
+const DefaultAnimekoBangumiAPIBase = "https://api.bgm.tv"
+const DefaultAnimekoSyncIntervalSeconds = 600
+
 type DandanplaySettings struct {
 	APIBase             string `json:"api_base"`
 	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
@@ -22,6 +32,7 @@ const DefaultDandanplayAPIBase = "https://api.danmaku.weeblify.app/ddp/v1"
 const DefaultDandanplaySyncIntervalSeconds = 600
 
 type Config struct {
+	Animeko          AnimekoSettings    `json:"animeko_setting"`
 	Dandanplay       DandanplaySettings `json:"dandanplay_setting"`
 	KestrelSettings  ListenerSettings   `json:"kestrel_settings"`
 	WithOrigins      []string           `json:"with_origins"`
@@ -64,6 +75,8 @@ type BilibiliSettings struct {
 }
 
 type IqiyiSettings struct {
+	SearchAPIBase       string `json:"search_api_base"`
+	EpisodesAPIBase     string `json:"episodes_api_base"`
 	DecodeAPIBase       string `json:"decode_api_base"`
 	VideoInfoAPIBase    string `json:"video_info_api_base"`
 	DanmakuAPIBase      string `json:"danmaku_api_base"`
@@ -85,6 +98,8 @@ const (
 	DefaultBilibiliCIDCacheSeconds     = 72 * 60
 	DefaultBilibiliSyncIntervalSeconds = 10 * 60
 	DefaultIqiyiDecodeAPIBase          = "https://pcw-api.iq.com/api/decode"
+	DefaultIqiyiSearchAPIBase          = "https://mesh.if.iqiyi.com/portal/lw/search/homePageV3"
+	DefaultIqiyiEpisodesAPIBase        = "https://www.iqiyi.com/prelw/tvg/v2/lw/base_info"
 	DefaultIqiyiVideoInfoAPIBase       = "https://pcw-api.iqiyi.com/video/video/baseinfo"
 	DefaultIqiyiDanmakuAPIBase         = "https://cmts.iqiyi.com/bullet"
 	DefaultIqiyiSyncIntervalSeconds    = 10 * 60
@@ -117,8 +132,10 @@ func defaults() Config {
 			APIBase: DefaultBilibiliAPIBase, CIDCacheSeconds: DefaultBilibiliCIDCacheSeconds,
 			SyncIntervalSeconds: DefaultBilibiliSyncIntervalSeconds,
 		},
+		Animeko:    AnimekoSettings{APIBase: DefaultAnimekoAPIBase, BangumiAPIBase: DefaultAnimekoBangumiAPIBase, SyncIntervalSeconds: DefaultAnimekoSyncIntervalSeconds},
 		Dandanplay: DandanplaySettings{APIBase: DefaultDandanplayAPIBase, SyncIntervalSeconds: DefaultDandanplaySyncIntervalSeconds},
 		Iqiyi: IqiyiSettings{
+			SearchAPIBase: DefaultIqiyiSearchAPIBase, EpisodesAPIBase: DefaultIqiyiEpisodesAPIBase,
 			DecodeAPIBase: DefaultIqiyiDecodeAPIBase, VideoInfoAPIBase: DefaultIqiyiVideoInfoAPIBase,
 			DanmakuAPIBase: DefaultIqiyiDanmakuAPIBase, SyncIntervalSeconds: DefaultIqiyiSyncIntervalSeconds,
 		},
@@ -201,6 +218,37 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Iqiyi.SyncIntervalSeconds <= 0 {
 		return Config{}, errors.New("iqiyi_setting.sync_interval_seconds must be greater than zero")
+	}
+	cfg.Iqiyi.SearchAPIBase = strings.TrimSpace(cfg.Iqiyi.SearchAPIBase)
+	if cfg.Iqiyi.SearchAPIBase == "" {
+		cfg.Iqiyi.SearchAPIBase = DefaultIqiyiSearchAPIBase
+	}
+	cfg.Iqiyi.EpisodesAPIBase = strings.TrimSpace(cfg.Iqiyi.EpisodesAPIBase)
+	if cfg.Iqiyi.EpisodesAPIBase == "" {
+		cfg.Iqiyi.EpisodesAPIBase = DefaultIqiyiEpisodesAPIBase
+	}
+	if err := validateAbsoluteURL(cfg.Iqiyi.SearchAPIBase, "iqiyi_setting.search_api_base"); err != nil {
+		return Config{}, err
+	}
+	if err := validateAbsoluteURL(cfg.Iqiyi.EpisodesAPIBase, "iqiyi_setting.episodes_api_base"); err != nil {
+		return Config{}, err
+	}
+	cfg.Animeko.APIBase = strings.TrimSpace(cfg.Animeko.APIBase)
+	if cfg.Animeko.APIBase == "" {
+		cfg.Animeko.APIBase = DefaultAnimekoAPIBase
+	}
+	cfg.Animeko.BangumiAPIBase = strings.TrimSpace(cfg.Animeko.BangumiAPIBase)
+	if cfg.Animeko.BangumiAPIBase == "" {
+		cfg.Animeko.BangumiAPIBase = DefaultAnimekoBangumiAPIBase
+	}
+	if err := validateAbsoluteURL(cfg.Animeko.APIBase, "animeko_setting.api_base"); err != nil {
+		return Config{}, err
+	}
+	if err := validateAbsoluteURL(cfg.Animeko.BangumiAPIBase, "animeko_setting.bangumi_api_base"); err != nil {
+		return Config{}, err
+	}
+	if cfg.Animeko.SyncIntervalSeconds <= 0 {
+		return Config{}, errors.New("animeko_setting.sync_interval_seconds must be greater than zero")
 	}
 	cfg.Dandanplay.APIBase = strings.TrimSpace(cfg.Dandanplay.APIBase)
 	if cfg.Dandanplay.APIBase == "" {

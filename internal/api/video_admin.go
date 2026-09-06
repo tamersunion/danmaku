@@ -55,6 +55,11 @@ func (s *Server) serveVideoAdmin(w http.ResponseWriter, r *http.Request, path st
 	case len(parts) == 3 && parts[1] == "dandanplay-bindings" && r.Method == http.MethodDelete:
 		bindingID, _ := strconv.Atoi(parts[2])
 		s.deleteVideoDandanplayBinding(w, r, videoID, bindingID)
+	case len(parts) == 2 && parts[1] == "animeko-bindings" && r.Method == http.MethodPost:
+		s.upsertVideoAnimekoBinding(w, r, videoID)
+	case len(parts) == 3 && parts[1] == "animeko-bindings" && r.Method == http.MethodDelete:
+		bindingID, _ := strconv.Atoi(parts[2])
+		s.deleteVideoAnimekoBinding(w, r, videoID, bindingID)
 	case len(parts) == 2 && parts[1] == "external-bindings" && r.Method == http.MethodPost:
 		s.upsertVideoExternalBinding(w, r, videoID)
 	case len(parts) == 3 && parts[1] == "external-bindings" && r.Method == http.MethodDelete:
@@ -429,6 +434,59 @@ func (s *Server) deleteVideoDandanplayBinding(w http.ResponseWriter, r *http.Req
 		return
 	}
 	ok, err := s.dandanplay.repository.DeleteVideoDandanplayBinding(r.Context(), videoID, bindingID)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	if !ok {
+		s.writeVideoAdminFailure(w, "弹幕池关联不存在")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, success(nil))
+}
+
+func (s *Server) upsertVideoAnimekoBinding(w http.ResponseWriter, r *http.Request, videoID int) {
+	if s.animeko.repository == nil {
+		http.NotFound(w, r)
+		return
+	}
+	var request struct {
+		PoolID int     `json:"poolId"`
+		Offset float64 `json:"offset"`
+	}
+	if !s.decodeJSON(w, r, &request) {
+		return
+	}
+	if request.PoolID < 1 || math.IsNaN(request.Offset) || math.IsInf(request.Offset, 0) || math.Abs(request.Offset) > math.MaxFloat32 {
+		s.writeVideoAdminFailure(w, "请输入有效的弹幕池和偏移量")
+		return
+	}
+	data, err := s.animeko.repository.UpsertVideoAnimekoBinding(r.Context(), videoID, request.PoolID, request.Offset)
+	if errors.Is(err, store.ErrVideoDeleted) {
+		s.writeVideoAdminFailure(w, "已删除的视频不能修改弹幕池关联")
+		return
+	}
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	if data == nil {
+		s.writeVideoAdminFailure(w, "视频不存在")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, success(data))
+}
+
+func (s *Server) deleteVideoAnimekoBinding(w http.ResponseWriter, r *http.Request, videoID, bindingID int) {
+	if s.animeko.repository == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if bindingID < 1 {
+		s.writeVideoAdminFailure(w, "弹幕池关联 ID 无效")
+		return
+	}
+	ok, err := s.animeko.repository.DeleteVideoAnimekoBinding(r.Context(), videoID, bindingID)
 	if err != nil {
 		s.writeError(w, err)
 		return
