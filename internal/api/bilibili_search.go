@@ -39,6 +39,7 @@ type bilibiliSelection struct {
 }
 
 func normalizeBilibiliReference(value string) (string, error) {
+	value = domain.CanonicalBVID(value)
 	if !biliReference.MatchString(value) {
 		return "", errors.New("unsupported bilibili identifier")
 	}

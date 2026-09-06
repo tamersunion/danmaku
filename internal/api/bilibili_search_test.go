@@ -18,6 +18,12 @@ func TestBilibiliInputFormats(t *testing.T) {
 		input, ref string
 		p          int
 	}{
+		{"1xhbn6CEA4", "BV1xhbn6CEA4", 1},
+		{" 1xhbn6CEA4 ", "BV1xhbn6CEA4", 1},
+		{"BV1xhbn6CEA4", "BV1xhbn6CEA4", 1},
+		{"https://www.bilibili.com/video/BV1xhbn6CEA4/", "BV1xhbn6CEA4", 1},
+		{"https://www.bilibili.com/video/1xhbn6CEA4/?p=2", "BV1xhbn6CEA4", 2},
+		{"https://player.bilibili.com/player.html?bvid=1xhbn6CEA4", "BV1xhbn6CEA4", 1},
 		{"av79671692", "av79671692", 1}, {"BV1EJ411r7kH", "BV1EJ411r7kH", 1}, {"EP00123", "ep123", 1}, {"ss456", "ss456", 1},
 		{"https://www.bilibili.com/video/BV1EJ411r7kH/?p=2&share_source=copy", "BV1EJ411r7kH", 2},
 		{"m.bilibili.com/video/av79671692", "av79671692", 1},
@@ -67,6 +73,18 @@ func TestBilibiliShortLinksOnlyFollowAllowedHosts(t *testing.T) {
 	}
 }
 
+func TestBilibiliPrefixlessInputValidation(t *testing.T) {
+	for _, input := range []string{
+		"1xhbn6CEA", "1xhbn6CEA44", "1xhbn6CEA0",
+		"https://evil.test/video/1xhbn6CEA4",
+		"https://1xhbn6CEA4", "1xhbn6CEA4.example.com",
+	} {
+		if _, err := parseBilibiliInput(input); err == nil {
+			t.Errorf("accepted invalid input %q", input)
+		}
+	}
+}
+
 func TestBilibiliResolvePartsSeasonsAndCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -92,6 +110,7 @@ func TestBilibiliResolvePartsSeasonsAndCreate(t *testing.T) {
 		count int
 		cid   int64
 	}{
+		{"1EJ411r7kH", 2, 11},
 		{"av79671692", 2, 11}, {"https://www.bilibili.com/video/BV1EJ411r7kH?p=2", 1, 22}, {"ss456", 2, 11}, {"ep124", 1, 22},
 	} {
 		data, err := b.ResolveInput(context.Background(), item.input)
