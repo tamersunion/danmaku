@@ -15,9 +15,11 @@ const managedVideoSelect = `SELECT v."Id",v."Vid",COALESCE(v."Name",''),v."IsDel
 	(SELECT COUNT(*)::integer FROM "Danmaku" d WHERE d."VideoId"=v."Id" AND NOT d."IsDelete"),
 	(SELECT COUNT(*)::integer FROM "BilibiliDanmakuBinding" b WHERE b."Vid"=v."Vid"),
 	(SELECT COUNT(*)::integer FROM "IqiyiDanmakuBinding" i WHERE i."Vid"=v."Vid"),
+	(SELECT COUNT(*)::integer FROM "DandanplayDanmakuBinding" i WHERE i."Vid"=v."Vid"),
 	(SELECT COUNT(*)::integer FROM "ExternalDanmakuBinding" e WHERE e."Vid"=v."Vid"),
 	((SELECT COUNT(*) FROM "BilibiliDanmaku" d JOIN "BilibiliDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "IqiyiDanmaku" d JOIN "IqiyiDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
+	 (SELECT COUNT(*) FROM "DandanplayDanmaku" d JOIN "DandanplayDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "ExternalDanmaku" d JOIN "ExternalDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid"))::integer,
 	v."CreateTime",v."UpdateTime" FROM "Video" v`
 
@@ -91,6 +93,10 @@ func (p *Postgres) Video(ctx context.Context, id int) (*domain.Video, error) {
 	if err != nil {
 		return nil, err
 	}
+	item.DandanplayBindings, err = p.VideoDandanplayBindings(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	item.ExternalBindings, err = p.VideoExternalBindings(ctx, id)
 	return item, err
 }
@@ -143,7 +149,7 @@ func (p *Postgres) findOrInsertVideo(ctx context.Context, tx pgx.Tx, vid string)
 
 func scanManagedVideo(row pgx.Row) (*domain.Video, error) {
 	var item domain.Video
-	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.ExternalPoolCount, &item.ThirdPartyDanmakuCount, &item.CreateTime, &item.UpdateTime)
+	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.DandanplayPoolCount, &item.ExternalPoolCount, &item.ThirdPartyDanmakuCount, &item.CreateTime, &item.UpdateTime)
 	return &item, err
 }
 
@@ -152,6 +158,8 @@ func (p *Postgres) ThirdPartyPoolSizes(ctx context.Context, vid string) (map[str
  SELECT 'bilibili:' || b."PoolId"::text,COUNT(d."Id") FROM "BilibiliDanmakuBinding" b LEFT JOIN "BilibiliDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"
  UNION ALL
  SELECT 'iqiyi:' || b."PoolId"::text,COUNT(d."Id") FROM "IqiyiDanmakuBinding" b LEFT JOIN "IqiyiDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"
+ UNION ALL
+ SELECT 'dandanplay:' || b."PoolId"::text,COUNT(d."Id") FROM "DandanplayDanmakuBinding" b LEFT JOIN "DandanplayDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"
  UNION ALL
  SELECT 'external:' || b."PoolId"::text,COUNT(d."Id") FROM "ExternalDanmakuBinding" b LEFT JOIN "ExternalDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"`, vid)
 	if err != nil {

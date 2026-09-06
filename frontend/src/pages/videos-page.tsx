@@ -22,6 +22,8 @@ import type {
   ExternalPool,
   HeatmapPoint,
   IqiyiBinding,
+  DandanplayBinding,
+  DandanplayPool,
   IqiyiPool,
   ManagedVideo,
 } from "@/api/types";
@@ -143,6 +145,16 @@ export function VideosPage() {
         })
       ).data.list,
   });
+  const dandanplayPools = useQuery({
+    queryKey: ["dandanplay-pool-options"],
+    queryFn: async () =>
+      (
+        await apiGet<ApiResponse<Paged<DandanplayPool>>>("/api/admin/dandanplay/pools", {
+          page: 1,
+          size: 500,
+        })
+      ).data.list,
+  });
   const externalPools = useQuery({
     queryKey: ["external-pool-options"],
     queryFn: async () =>
@@ -202,7 +214,7 @@ export function VideosPage() {
         render: (video) => (
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">系统弹幕池 {video.danmakuCount} 条</Badge>
-            <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
+            <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.dandanplayPoolCount + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
           </div>
         ),
       },
@@ -426,6 +438,7 @@ export function VideosPage() {
         video={selected}
         bilibiliPools={bilibiliPools.data ?? []}
         iqiyiPools={iqiyiPools.data ?? []}
+        dandanplayPools={dandanplayPools.data ?? []}
         externalPools={externalPools.data ?? []}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
@@ -439,18 +452,20 @@ function VideoDialog({
   video,
   bilibiliPools,
   iqiyiPools,
+  dandanplayPools,
   externalPools,
   onOpenChange,
 }: {
   video: ManagedVideo | null;
   bilibiliPools: BilibiliPool[];
   iqiyiPools: IqiyiPool[];
+  dandanplayPools: DandanplayPool[];
   externalPools: ExternalPool[];
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [source, setSource] = useState<"bilibili" | "iqiyi" | "external">("bilibili");
+  const [source, setSource] = useState<"bilibili" | "iqiyi" | "dandanplay" | "external">("bilibili");
   const [poolID, setPoolID] = useState("");
   const [offset, setOffset] = useState("0");
   const [exportFormat, setExportFormat] = useState("danuni.json");
@@ -483,8 +498,8 @@ function VideoDialog({
     invalidate: [["videos"], ["video"]],
   });
   const bind = useApiMutation<
-    { source: "bilibili" | "iqiyi" | "external"; poolId: number | string; offset: number },
-    ApiResponse<BilibiliBinding | IqiyiBinding | ExternalBinding>
+    { source: "bilibili" | "iqiyi" | "dandanplay" | "external"; poolId: number | string; offset: number },
+    ApiResponse<BilibiliBinding | IqiyiBinding | DandanplayBinding | ExternalBinding>
   >({
     mutationFn: ({ source: targetSource, ...body }) =>
       apiPost(`/api/admin/videos/${video?.id}/${targetSource}-bindings`, body),
@@ -495,11 +510,12 @@ function VideoDialog({
       ["video-heatmap"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
+      ["dandanplay-pools"],
       ["external-pools"],
     ],
   });
   const remove = useApiMutation<
-    { source: "bilibili" | "iqiyi" | "external"; id: number },
+    { source: "bilibili" | "iqiyi" | "dandanplay" | "external"; id: number },
     ApiResponse<null>
   >({
     mutationFn: ({ source: targetSource, id }) =>
@@ -513,12 +529,14 @@ function VideoDialog({
       ["video-heatmap"],
       ["bilibili-pools"],
       ["iqiyi-pools"],
+      ["dandanplay-pools"],
       ["external-pools"],
     ],
   });
   type ThirdPartyBinding =
     | { source: "bilibili"; binding: BilibiliBinding }
     | { source: "iqiyi"; binding: IqiyiBinding }
+    | { source: "dandanplay"; binding: DandanplayBinding }
     | { source: "external"; binding: ExternalBinding };
   const bindings: ThirdPartyBinding[] = [
     ...(detail.data?.bilibiliBindings ?? []).map((binding) => ({
@@ -527,6 +545,10 @@ function VideoDialog({
     })),
     ...(detail.data?.iqiyiBindings ?? []).map((binding) => ({
       source: "iqiyi" as const,
+      binding,
+    })),
+    ...(detail.data?.dandanplayBindings ?? []).map((binding) => ({
+      source: "dandanplay" as const,
       binding,
     })),
     ...(detail.data?.externalBindings ?? []).map((binding) => ({
@@ -544,7 +566,7 @@ function VideoDialog({
             ? "bilibili"
             : item.source === "iqiyi"
               ? "爱奇艺"
-              : "外部导入"}
+              : item.source === "dandanplay" ? "弹弹play" : "外部导入"}
         </Badge>
       ),
     },
@@ -558,7 +580,7 @@ function VideoDialog({
               ? poolLabel(item.binding)
               : item.source === "iqiyi"
                 ? item.binding.poolVid
-                : item.binding.poolName}
+                : item.source === "dandanplay" ? item.binding.poolEpisodeId : item.binding.poolName}
           </p>
           {item.source === "bilibili" ? (
             <p className="font-mono text-xs text-muted-foreground">
@@ -774,13 +796,14 @@ function VideoDialog({
                         options={[
                           { value: "bilibili", label: "bilibili" },
                           { value: "iqiyi", label: "爱奇艺" },
+                          { value: "dandanplay", label: "弹弹play" },
                           { value: "external", label: "外部导入" },
                         ]}
                         value={source}
                         disabled={detail.data?.isDelete}
                         searchPlaceholder="搜索弹幕来源"
                         onValueChange={(value) => {
-                          setSource(value as "bilibili" | "iqiyi" | "external");
+                          setSource(value as "bilibili" | "iqiyi" | "dandanplay" | "external");
                           setPoolID("");
                         }}
                       />
@@ -802,6 +825,7 @@ function VideoDialog({
                                   value: String(pool.id),
                                   label: pool.vid,
                                 }))
+                              : source === "dandanplay" ? dandanplayPools.map((pool) => ({value: String(pool.id),label: pool.episodeId}))
                               : externalPools.map((pool) => ({
                                   value: pool.id,
                                   label: `${pool.name} · ${pool.id}`,
@@ -809,7 +833,7 @@ function VideoDialog({
                         }
                         value={poolID}
                         disabled={detail.data?.isDelete}
-                        placeholder={`选择${source === "bilibili" ? " bilibili" : source === "iqiyi" ? "爱奇艺" : "外部导入"}弹幕池`}
+                        placeholder={`选择${source === "bilibili" ? " bilibili" : source === "iqiyi" ? "爱奇艺" : source === "dandanplay" ? "弹弹play" : "外部导入"}弹幕池`}
                         searchPlaceholder="搜索弹幕池"
                         onValueChange={setPoolID}
                       />

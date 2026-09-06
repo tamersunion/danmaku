@@ -64,7 +64,7 @@ func TestMergedCacheInvalidation(t *testing.T) {
 			}
 			read(1)
 			read(1)
-			for i, namespace := range []string{"native", "bilibili", "iqiyi", "external"} {
+			for i, namespace := range []string{"native", "bilibili", "iqiyi", "external", "dandanplay"} {
 				repository.invalidateDanmakuCache(context.Background(), namespace)
 				read(i + 2)
 				read(i + 2)
@@ -78,7 +78,7 @@ func TestMergedCacheInvalidation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			read(6)
+			read(7)
 		})
 	}
 }

@@ -31,6 +31,11 @@ const IqiyiPage = lazy(() =>
     default: module.IqiyiPage,
   })),
 );
+const DandanplayPage = lazy(() =>
+  import("@/pages/dandanplay-page").then((module) => ({
+    default: module.DandanplayPage,
+  })),
+);
 const ExternalPage = lazy(() =>
   import("@/pages/external-page").then((module) => ({
     default: module.ExternalPage,
@@ -110,6 +115,7 @@ export default function App() {
                       <Route path="danmaku" element={<DanmakuPage />} />
                       <Route path="bilibili" element={<BilibiliPage />} />
                       <Route path="iqiyi" element={<IqiyiPage />} />
+                      <Route path="dandanplay" element={<DandanplayPage />} />
                       <Route path="external" element={<ExternalPage />} />
                     </Route>
                     <Route element={<UserManagerRoute />}>

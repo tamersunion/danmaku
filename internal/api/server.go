@@ -23,6 +23,7 @@ type Server struct {
 	repository    store.Repository
 	bilibili      *Bilibili
 	iqiyi         *Iqiyi
+	dandanplay    *Dandanplay
 	cas           *casclient.Client
 	sessionSecret []byte
 	logger        *slog.Logger
@@ -42,6 +43,7 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 	}
 	server.bilibili = NewBilibili(repository, cfg.Bilibili)
 	server.iqiyi = NewIqiyi(repository, cfg.Iqiyi)
+	server.dandanplay = NewDandanplay(repository, cfg.Dandanplay)
 	if cfg.CAS.Enabled {
 		client, err := casclient.NewClient(cfg.CAS.BaseURL, cfg.CAS.ValidationURL, cfg.CAS.ValidationHost, time.Duration(cfg.CAS.RequestTimeoutSeconds)*time.Second)
 		if err != nil {
@@ -86,6 +88,8 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 		s.queryAID(w, r)
 	case path == "/api/danmaku/export" && r.Method == http.MethodGet:
 		s.exportDanmaku(w, r)
+	case path == "/api/danmaku/dplayer/v3/dandanplay" || path == "/api/danmaku/artplayer/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay/xml":
+		s.serveDandanplayData(w, r, path)
 	case strings.HasPrefix(path, "/api/danmaku/dplayer/v3"):
 		s.serveDPlayer(w, r, path)
 	case strings.HasPrefix(path, "/api/danmaku/artplayer/v1"):

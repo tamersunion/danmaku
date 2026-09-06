@@ -68,6 +68,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 	if err != nil {
 		return nil, err
 	}
+	dandanplay := []domain.DandanplayBinding{}
+	if s.dandanplay != nil && s.dandanplay.repository != nil {
+		dandanplay, err = s.dandanplay.repository.DandanplayBindingsByVID(ctx, vid)
+		if err != nil {
+			return nil, err
+		}
+	}
 	external := []domain.ExternalBinding{}
 	ext, hasExternal := s.repository.(store.ExternalRepository)
 	if hasExternal {
@@ -89,7 +96,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			return nil, err
 		}
 	}
-	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, external})
+	for _, binding := range dandanplay {
+		_, _, err = s.dandanplay.ensurePool(ctx, binding.PoolEpisodeID, false, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, external})
 	load := func(ctx context.Context) ([]domain.DanmakuData, error) {
 		sizes := map[string]int{}
 		if source, ok := s.repository.(interface {
@@ -118,6 +131,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 				return nil, err
 			}
 			pools = append(pools, mergePool{size: sizes["iqiyi:"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
+		}
+		for _, binding := range dandanplay {
+			data, err := s.dandanplay.repository.DandanplayPoolData(ctx, binding.PoolID)
+			if err != nil {
+				return nil, err
+			}
+			pools = append(pools, mergePool{size: sizes["dandanplay:"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
 		}
 		for _, binding := range external {
 			data, err := ext.ExternalPoolData(ctx, binding.PoolID)

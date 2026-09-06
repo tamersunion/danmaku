@@ -13,17 +13,26 @@ import (
 	"strings"
 )
 
+type DandanplaySettings struct {
+	APIBase             string `json:"api_base"`
+	SyncIntervalSeconds int    `json:"sync_interval_seconds"`
+}
+
+const DefaultDandanplayAPIBase = "https://api.danmaku.weeblify.app/ddp/v1"
+const DefaultDandanplaySyncIntervalSeconds = 600
+
 type Config struct {
-	KestrelSettings  ListenerSettings `json:"kestrel_settings"`
-	WithOrigins      []string         `json:"with_origins"`
-	LiveWithOrigins  []string         `json:"live_with_origins"`
-	AdminWithOrigins []string         `json:"admin_with_origins"`
-	DanmakuSQL       DatabaseSettings `json:"danmaku_sql"`
-	Admin            AdminSettings    `json:"admin"`
-	Bilibili         BilibiliSettings `json:"bilibili_setting"`
-	Iqiyi            IqiyiSettings    `json:"iqiyi_setting"`
-	Redis            RedisSettings    `json:"redis"`
-	CAS              CASSettings      `json:"cas"`
+	Dandanplay       DandanplaySettings `json:"dandanplay_setting"`
+	KestrelSettings  ListenerSettings   `json:"kestrel_settings"`
+	WithOrigins      []string           `json:"with_origins"`
+	LiveWithOrigins  []string           `json:"live_with_origins"`
+	AdminWithOrigins []string           `json:"admin_with_origins"`
+	DanmakuSQL       DatabaseSettings   `json:"danmaku_sql"`
+	Admin            AdminSettings      `json:"admin"`
+	Bilibili         BilibiliSettings   `json:"bilibili_setting"`
+	Iqiyi            IqiyiSettings      `json:"iqiyi_setting"`
+	Redis            RedisSettings      `json:"redis"`
+	CAS              CASSettings        `json:"cas"`
 }
 
 type ListenerSettings struct {
@@ -108,6 +117,7 @@ func defaults() Config {
 			APIBase: DefaultBilibiliAPIBase, CIDCacheSeconds: DefaultBilibiliCIDCacheSeconds,
 			SyncIntervalSeconds: DefaultBilibiliSyncIntervalSeconds,
 		},
+		Dandanplay: DandanplaySettings{APIBase: DefaultDandanplayAPIBase, SyncIntervalSeconds: DefaultDandanplaySyncIntervalSeconds},
 		Iqiyi: IqiyiSettings{
 			DecodeAPIBase: DefaultIqiyiDecodeAPIBase, VideoInfoAPIBase: DefaultIqiyiVideoInfoAPIBase,
 			DanmakuAPIBase: DefaultIqiyiDanmakuAPIBase, SyncIntervalSeconds: DefaultIqiyiSyncIntervalSeconds,
@@ -191,6 +201,16 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.Iqiyi.SyncIntervalSeconds <= 0 {
 		return Config{}, errors.New("iqiyi_setting.sync_interval_seconds must be greater than zero")
+	}
+	cfg.Dandanplay.APIBase = strings.TrimSpace(cfg.Dandanplay.APIBase)
+	if cfg.Dandanplay.APIBase == "" {
+		cfg.Dandanplay.APIBase = DefaultDandanplayAPIBase
+	}
+	if err := validateAbsoluteURL(cfg.Dandanplay.APIBase, "dandanplay_setting.api_base"); err != nil {
+		return Config{}, err
+	}
+	if cfg.Dandanplay.SyncIntervalSeconds <= 0 {
+		return Config{}, errors.New("dandanplay_setting.sync_interval_seconds must be greater than zero")
 	}
 	if cfg.Redis.Host == "" {
 		cfg.Redis.Host = "127.0.0.1"
