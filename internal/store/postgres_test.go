@@ -19,6 +19,19 @@ func TestParseReferer(t *testing.T) {
 	}
 }
 
+func TestDandanplayCompositePoolIdentity(t *testing.T) {
+	if dandanplayPoolAdvisoryKey("123", true) == dandanplayPoolAdvisoryKey("123", false) {
+		t.Fatal("related modes must have separate creation locks")
+	}
+	sql := strings.Join(schemaStatements(), "\n")
+	column := strings.Index(sql, `ALTER TABLE "DandanplayDanmakuPool" ADD COLUMN IF NOT EXISTS "WithRelated" boolean NOT NULL DEFAULT TRUE`)
+	drop := strings.Index(sql, `DROP INDEX IF EXISTS "UX_DandanplayDanmakuPool_EpisodeId"`)
+	index := strings.Index(sql, `CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuPool_EpisodeId_WithRelated" ON "DandanplayDanmakuPool" ("EpisodeId","WithRelated")`)
+	if column < 0 || drop < column || index < drop {
+		t.Fatal("migration must preserve old rows as related=true before changing uniqueness")
+	}
+}
+
 func TestParseRefererRootPath(t *testing.T) {
 	referer, err := ParseReferer("https://example.com")
 	if err != nil {
@@ -83,7 +96,9 @@ func TestSchemaMigrationRenamesDanmakuDatabaseObjects(t *testing.T) {
 		`CREATE TABLE IF NOT EXISTS "DandanplayDanmakuKeyword"`,
 		`CREATE TABLE IF NOT EXISTS "DandanplayDanmakuBinding"`,
 		`"EpisodeId" character varying(128) NOT NULL`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuPool_EpisodeId"`,
+		`ALTER TABLE "DandanplayDanmakuPool" ADD COLUMN IF NOT EXISTS "WithRelated" boolean NOT NULL DEFAULT TRUE`,
+		`DROP INDEX IF EXISTS "UX_DandanplayDanmakuPool_EpisodeId"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuPool_EpisodeId_WithRelated"`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmaku_Pool_TimeMillis_ContentHash"`,
 		`CONSTRAINT "FK_DandanplayDanmakuBinding_Video_Vid"`,
 		`CREATE TABLE IF NOT EXISTS "ExternalDanmakuPool"`,

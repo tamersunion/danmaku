@@ -138,6 +138,7 @@ export type IqiyiBinding = {
 };
 
 export type DandanplayPool = {
+  withRelated: boolean;
   id: number;
   episodeId: string;
   danmakuCount: number;
@@ -160,6 +161,7 @@ export type DandanplayPoolDanmaku = {
 };
 
 export type DandanplayKeyword = {
+  withRelated: boolean;
   id: number;
   poolId?: number | null;
   poolEpisodeId: string;
@@ -168,6 +170,7 @@ export type DandanplayKeyword = {
 };
 
 export type DandanplayBinding = {
+  withRelated: boolean;
   id: number;
   vid: string;
   poolId: number;

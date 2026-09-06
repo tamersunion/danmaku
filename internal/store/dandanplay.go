@@ -22,7 +22,7 @@ type DandanplayDanmakuFilter = BilibiliDanmakuFilter
 
 type DandanplayRepository interface {
 	DandanplayPool(context.Context, int) (*domain.DandanplayPool, error)
-	EnsureDandanplayPool(context.Context, string) (*domain.DandanplayPool, error)
+	EnsureDandanplayPool(context.Context, string, bool) (*domain.DandanplayPool, error)
 	ClaimDandanplayPoolSync(context.Context, int, time.Duration, bool) (bool, error)
 	MergeDandanplayDanmaku(context.Context, int, []domain.DanmakuData) (int, error)
 	DandanplayPoolData(context.Context, int) ([]domain.DanmakuData, error)
@@ -45,7 +45,7 @@ const dandanplayKeywordBlockedSQL = `EXISTS (
 		AND strpos(lower(d."Content"), lower(k."Keyword"))>0
 )`
 
-const dandanplayPoolSelect = `SELECT "Id","EpisodeId","LastAttemptTime","LastSyncTime","CreateTime","UpdateTime" FROM "DandanplayDanmakuPool"`
+const dandanplayPoolSelect = `SELECT "Id","EpisodeId","WithRelated","LastAttemptTime","LastSyncTime","CreateTime","UpdateTime" FROM "DandanplayDanmakuPool"`
 
 func (p *Postgres) DandanplayPool(ctx context.Context, id int) (*domain.DandanplayPool, error) {
 	pool, err := scanDandanplayPool(p.pool.QueryRow(ctx, dandanplayPoolSelect+` WHERE "Id"=$1`, id))
@@ -55,7 +55,7 @@ func (p *Postgres) DandanplayPool(ctx context.Context, id int) (*domain.Dandanpl
 	return pool, err
 }
 
-func (p *Postgres) EnsureDandanplayPool(ctx context.Context, vid string) (*domain.DandanplayPool, error) {
+func (p *Postgres) EnsureDandanplayPool(ctx context.Context, vid string, withRelated bool) (*domain.DandanplayPool, error) {
 	vid = strings.TrimSpace(vid)
 	id, parseErr := strconv.ParseInt(vid, 10, 64)
 	if parseErr != nil || id <= 0 || strings.HasPrefix(vid, "+") {
@@ -67,14 +67,14 @@ func (p *Postgres) EnsureDandanplayPool(ctx context.Context, vid string) (*domai
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, dandanplayPoolAdvisoryKey(vid)); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, dandanplayPoolAdvisoryKey(vid, withRelated)); err != nil {
 		return nil, err
 	}
-	pool, err := scanDandanplayPool(tx.QueryRow(ctx, dandanplayPoolSelect+` WHERE "EpisodeId"=$1`, vid))
+	pool, err := scanDandanplayPool(tx.QueryRow(ctx, dandanplayPoolSelect+` WHERE "EpisodeId"=$1 AND "WithRelated"=$2`, vid, withRelated))
 	if errors.Is(err, pgx.ErrNoRows) {
 		now := time.Now().UTC().Truncate(time.Millisecond)
-		pool = &domain.DandanplayPool{EpisodeID: vid, CreateTime: now, UpdateTime: now}
-		if err := tx.QueryRow(ctx, `INSERT INTO "DandanplayDanmakuPool" ("EpisodeId","CreateTime","UpdateTime") VALUES ($1,$2,$2) RETURNING "Id"`, vid, now).Scan(&pool.ID); err != nil {
+		pool = &domain.DandanplayPool{EpisodeID: vid, WithRelated: withRelated, CreateTime: now, UpdateTime: now}
+		if err := tx.QueryRow(ctx, `INSERT INTO "DandanplayDanmakuPool" ("EpisodeId","WithRelated","CreateTime","UpdateTime") VALUES ($1,$2,$3,$3) RETURNING "Id"`, vid, withRelated, now).Scan(&pool.ID); err != nil {
 			return nil, err
 		}
 	} else if err != nil {
@@ -178,11 +178,11 @@ func (p *Postgres) DandanplayPools(ctx context.Context, filter DandanplayPoolFil
 		return domain.Page[domain.DandanplayPool]{}, err
 	}
 	args = append(args, filter.Size, filter.Size*(filter.Page-1))
-	query := `SELECT p."Id",p."EpisodeId",p."LastAttemptTime",p."LastSyncTime",p."CreateTime",p."UpdateTime",
+	query := `SELECT p."Id",p."EpisodeId",p."WithRelated",p."LastAttemptTime",p."LastSyncTime",p."CreateTime",p."UpdateTime",
 		(SELECT COUNT(*)::integer FROM "DandanplayDanmaku" d WHERE d."PoolId"=p."Id"),
 		(SELECT COUNT(*)::integer FROM "DandanplayDanmaku" d WHERE d."PoolId"=p."Id" AND (d."IsBlocked" OR ` + dandanplayKeywordBlockedSQL + `)),
 		(SELECT COUNT(*)::integer FROM "DandanplayDanmakuBinding" b WHERE b."PoolId"=p."Id")
-		FROM "DandanplayDanmakuPool" p` + where + ` ORDER BY p."EpisodeId" LIMIT $` + fmt.Sprint(len(args)-1) + ` OFFSET $` + fmt.Sprint(len(args))
+		FROM "DandanplayDanmakuPool" p` + where + ` ORDER BY p."EpisodeId",p."WithRelated" DESC,p."Id" LIMIT $` + fmt.Sprint(len(args)-1) + ` OFFSET $` + fmt.Sprint(len(args))
 	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
 		return domain.Page[domain.DandanplayPool]{}, err
@@ -191,7 +191,7 @@ func (p *Postgres) DandanplayPools(ctx context.Context, filter DandanplayPoolFil
 	list := make([]domain.DandanplayPool, 0)
 	for rows.Next() {
 		var item domain.DandanplayPool
-		if err := rows.Scan(&item.ID, &item.EpisodeID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BlockedCount, &item.BindingCount); err != nil {
+		if err := rows.Scan(&item.ID, &item.EpisodeID, &item.WithRelated, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime, &item.DanmakuCount, &item.BlockedCount, &item.BindingCount); err != nil {
 			return domain.Page[domain.DandanplayPool]{}, err
 		}
 		list = append(list, item)
@@ -250,7 +250,7 @@ func (p *Postgres) SetDandanplayDanmakuBlocked(ctx context.Context, id int64, bl
 }
 
 func (p *Postgres) DandanplayKeywords(ctx context.Context) ([]domain.DandanplayKeyword, error) {
-	rows, err := p.pool.Query(ctx, `SELECT k."Id",k."PoolId",COALESCE(p."EpisodeId",''),k."Keyword",k."CreateTime" FROM "DandanplayDanmakuKeyword" k LEFT JOIN "DandanplayDanmakuPool" p ON p."Id"=k."PoolId" ORDER BY k."PoolId" NULLS FIRST,k."Keyword"`)
+	rows, err := p.pool.Query(ctx, `SELECT k."Id",k."PoolId",COALESCE(p."EpisodeId",''),COALESCE(p."WithRelated",TRUE),k."Keyword",k."CreateTime" FROM "DandanplayDanmakuKeyword" k LEFT JOIN "DandanplayDanmakuPool" p ON p."Id"=k."PoolId" ORDER BY k."PoolId" NULLS FIRST,k."Keyword"`)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func (p *Postgres) DandanplayKeywords(ctx context.Context) ([]domain.DandanplayK
 	result := make([]domain.DandanplayKeyword, 0)
 	for rows.Next() {
 		var item domain.DandanplayKeyword
-		if err := rows.Scan(&item.ID, &item.PoolID, &item.PoolEpisodeID, &item.Keyword, &item.CreateTime); err != nil {
+		if err := rows.Scan(&item.ID, &item.PoolID, &item.PoolEpisodeID, &item.WithRelated, &item.Keyword, &item.CreateTime); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
@@ -294,6 +294,7 @@ func (p *Postgres) CreateDandanplayKeyword(ctx context.Context, poolID *int, key
 			return nil, err
 		}
 		item.PoolEpisodeID = pool.EpisodeID
+		item.WithRelated = pool.WithRelated
 	}
 	p.invalidateDanmakuCache(ctx, "dandanplay")
 	return &item, nil
@@ -308,7 +309,7 @@ func (p *Postgres) DeleteDandanplayKeyword(ctx context.Context, id int) (bool, e
 	return ok, err
 }
 
-const dandanplayBindingSelect = `SELECT b."Id",b."Vid",b."PoolId",p."EpisodeId",b."Offset",b."CreateTime",b."UpdateTime" FROM "DandanplayDanmakuBinding" b JOIN "DandanplayDanmakuPool" p ON p."Id"=b."PoolId"`
+const dandanplayBindingSelect = `SELECT b."Id",b."Vid",b."PoolId",p."EpisodeId",p."WithRelated",b."Offset",b."CreateTime",b."UpdateTime" FROM "DandanplayDanmakuBinding" b JOIN "DandanplayDanmakuPool" p ON p."Id"=b."PoolId"`
 
 func (p *Postgres) DandanplayBindingsByVID(ctx context.Context, vid string) ([]domain.DandanplayBinding, error) {
 	rows, err := p.pool.Query(ctx, dandanplayBindingSelect+` WHERE b."Vid"=$1 ORDER BY b."Id"`, vid)
@@ -355,13 +356,13 @@ func (p *Postgres) DeleteVideoDandanplayBinding(ctx context.Context, videoID, bi
 
 func scanDandanplayPool(row pgx.Row) (*domain.DandanplayPool, error) {
 	var item domain.DandanplayPool
-	err := row.Scan(&item.ID, &item.EpisodeID, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime)
+	err := row.Scan(&item.ID, &item.EpisodeID, &item.WithRelated, &item.LastAttemptTime, &item.LastSyncTime, &item.CreateTime, &item.UpdateTime)
 	return &item, err
 }
 
 func scanDandanplayBinding(row pgx.Row) (*domain.DandanplayBinding, error) {
 	var item domain.DandanplayBinding
-	err := row.Scan(&item.ID, &item.Vid, &item.PoolID, &item.PoolEpisodeID, &item.Offset, &item.CreateTime, &item.UpdateTime)
+	err := row.Scan(&item.ID, &item.Vid, &item.PoolID, &item.PoolEpisodeID, &item.WithRelated, &item.Offset, &item.CreateTime, &item.UpdateTime)
 	return &item, err
 }
 
@@ -377,10 +378,10 @@ func scanDandanplayBindings(rows pgx.Rows) ([]domain.DandanplayBinding, error) {
 	return result, rows.Err()
 }
 
-func dandanplayPoolAdvisoryKey(vid string) int64 {
+func dandanplayPoolAdvisoryKey(vid string, withRelated bool) int64 {
 	hash := sha256.New()
 	var size [8]byte
-	for _, value := range []string{"danmaku:dandanplay-pool:v1", vid} {
+	for _, value := range []string{"danmaku:dandanplay-pool:v2", vid, strconv.FormatBool(withRelated)} {
 		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
 		_, _ = hash.Write(size[:])
 		_, _ = hash.Write([]byte(value))

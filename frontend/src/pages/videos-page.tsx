@@ -67,6 +67,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { dandanplayPoolLabel } from "@/lib/dandanplay";
 import { formatDateTime } from "@/lib/format";
 
 type Paged<T> = { total: number; list: T[] };
@@ -580,7 +581,7 @@ function VideoDialog({
               ? poolLabel(item.binding)
               : item.source === "iqiyi"
                 ? item.binding.poolVid
-                : item.source === "dandanplay" ? item.binding.poolEpisodeId : item.binding.poolName}
+                : item.source === "dandanplay" ? dandanplayPoolLabel({episodeId: item.binding.poolEpisodeId, withRelated: item.binding.withRelated}) : item.binding.poolName}
           </p>
           {item.source === "bilibili" ? (
             <p className="font-mono text-xs text-muted-foreground">
@@ -825,7 +826,7 @@ function VideoDialog({
                                   value: String(pool.id),
                                   label: pool.vid,
                                 }))
-                              : source === "dandanplay" ? dandanplayPools.map((pool) => ({value: String(pool.id),label: pool.episodeId}))
+                              : source === "dandanplay" ? dandanplayPools.map((pool) => ({value: String(pool.id),label: dandanplayPoolLabel(pool)}))
                               : externalPools.map((pool) => ({
                                   value: pool.id,
                                   label: `${pool.name} · ${pool.id}`,

@@ -3,6 +3,7 @@ package domain
 import "time"
 
 type DandanplayPool struct {
+	WithRelated     bool       `json:"withRelated"`
 	ID              int        `json:"id"`
 	EpisodeID       string     `json:"episodeId"`
 	DanmakuCount    int        `json:"danmakuCount"`
@@ -25,6 +26,7 @@ type DandanplayDanmaku struct {
 }
 
 type DandanplayKeyword struct {
+	WithRelated   bool      `json:"withRelated"`
 	ID            int       `json:"id"`
 	PoolID        *int      `json:"poolId"`
 	PoolEpisodeID string    `json:"poolEpisodeId"`
@@ -33,6 +35,7 @@ type DandanplayKeyword struct {
 }
 
 type DandanplayBinding struct {
+	WithRelated   bool      `json:"withRelated"`
 	ID            int       `json:"id"`
 	Vid           string    `json:"vid"`
 	PoolID        int       `json:"poolId"`

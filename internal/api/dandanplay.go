@@ -27,7 +27,15 @@ func (s *Server) serveDandanplayData(w http.ResponseWriter, r *http.Request, pat
 		s.writeJSON(w, http.StatusBadRequest, failure())
 		return
 	}
-	data, err := s.dandanplay.DataWithOffset(r.Context(), id, queryFloat(foldQuery(r, "offset"), 0))
+	withRelated := true
+	if raw := foldQuery(r, "withRelated"); raw != "" {
+		withRelated, err = strconv.ParseBool(raw)
+		if err != nil {
+			s.writeJSON(w, http.StatusBadRequest, failure())
+			return
+		}
+	}
+	data, err := s.dandanplay.DataWithOffset(r.Context(), id, queryFloat(foldQuery(r, "offset"), 0), withRelated)
 	if err != nil {
 		s.writeError(w, err)
 		return
@@ -79,8 +87,8 @@ func normalizeDandanplayEpisodeID(value string) (string, error) {
 	return strconv.FormatInt(id, 10), nil
 }
 
-func (i *Dandanplay) DataWithOffset(ctx context.Context, episodeID string, offset float64) ([]domain.DanmakuData, error) {
-	pool, _, err := i.ensurePool(ctx, episodeID, false, true)
+func (i *Dandanplay) DataWithOffset(ctx context.Context, episodeID string, offset float64, withRelated bool) ([]domain.DanmakuData, error) {
+	pool, _, err := i.ensurePool(ctx, episodeID, false, true, withRelated)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +96,8 @@ func (i *Dandanplay) DataWithOffset(ctx context.Context, episodeID string, offse
 	return offsetDanmaku(data, offset), err
 }
 
-func (i *Dandanplay) fetchData(ctx context.Context, episodeID string) ([]domain.DanmakuData, error) {
-	raw, err := i.fetchGateway(ctx, "/v2/comment/"+episodeID+"?from=0&withRelated=true&chConvert=0", 32<<20)
+func (i *Dandanplay) fetchData(ctx context.Context, episodeID string, withRelated bool) ([]domain.DanmakuData, error) {
+	raw, err := i.fetchGateway(ctx, "/v2/comment/"+episodeID+"?from=0&withRelated="+strconv.FormatBool(withRelated)+"&chConvert=0", 32<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +183,7 @@ func parseDandanplayComments(raw []byte) ([]domain.DanmakuData, error) {
 	return result, nil
 }
 
-func (i *Dandanplay) ensurePool(ctx context.Context, vid string, force, staleOnError bool) (*domain.DandanplayPool, int, error) {
+func (i *Dandanplay) ensurePool(ctx context.Context, vid string, force, staleOnError, withRelated bool) (*domain.DandanplayPool, int, error) {
 	var err error
 	vid, err = normalizeDandanplayEpisodeID(vid)
 	if err != nil {
@@ -184,7 +192,7 @@ func (i *Dandanplay) ensurePool(ctx context.Context, vid string, force, staleOnE
 	if i.repository == nil {
 		return nil, 0, errors.New("dandanplay storage unavailable")
 	}
-	pool, err := i.repository.EnsureDandanplayPool(ctx, vid)
+	pool, err := i.repository.EnsureDandanplayPool(ctx, vid, withRelated)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -192,7 +200,7 @@ func (i *Dandanplay) ensurePool(ctx context.Context, vid string, force, staleOnE
 	if err != nil || !claimed {
 		return pool, 0, err
 	}
-	data, err := i.fetchData(ctx, vid)
+	data, err := i.fetchData(ctx, vid, withRelated)
 	if err != nil {
 		if staleOnError {
 			return pool, 0, nil
@@ -207,8 +215,8 @@ func (i *Dandanplay) ensurePool(ctx context.Context, vid string, force, staleOnE
 	return refreshed, inserted, err
 }
 
-func (i *Dandanplay) PreparePool(ctx context.Context, vid string) (*domain.DandanplayPool, int, error) {
-	return i.ensurePool(ctx, vid, true, false)
+func (i *Dandanplay) PreparePool(ctx context.Context, vid string, withRelated bool) (*domain.DandanplayPool, int, error) {
+	return i.ensurePool(ctx, vid, true, false, withRelated)
 }
 
 func (i *Dandanplay) SyncPool(ctx context.Context, id int) (*domain.DandanplayPool, int, error) {
@@ -216,5 +224,5 @@ func (i *Dandanplay) SyncPool(ctx context.Context, id int) (*domain.DandanplayPo
 	if err != nil || pool == nil {
 		return pool, 0, err
 	}
-	return i.ensurePool(ctx, pool.EpisodeID, true, false)
+	return i.ensurePool(ctx, pool.EpisodeID, true, false, pool.WithRelated)
 }

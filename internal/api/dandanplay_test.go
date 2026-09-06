@@ -58,17 +58,17 @@ func TestDandanplayPassiveIncrementalCacheAndFailure(t *testing.T) {
 	repo := &fakeDandanplayRepository{}
 	client := NewDandanplay(repo, config.DandanplaySettings{APIBase: upstream.URL + "?custom=yes", SyncIntervalSeconds: 600})
 	ctx := context.Background()
-	data, err := client.DataWithOffset(ctx, "00123", 2)
+	data, err := client.DataWithOffset(ctx, "00123", 2, true)
 	if err != nil || len(data) != 1 || data[0].Time != 3.25 || calls != 1 {
 		t.Fatalf("initial=%v %v calls=%d", data, err, calls)
 	}
-	data, err = client.DataWithOffset(ctx, "123", 0)
+	data, err = client.DataWithOffset(ctx, "123", 0, true)
 	if err != nil || data[0].Time != 1.25 || calls != 1 {
 		t.Fatal("cache not reused or offset mutated cached data")
 	}
 	payload = `{"comments":[{"p":"1.25,1,16777215,u","m":"original"},{"p":"2,5,255,u","m":"new"}]}`
 	repo.dandanplayClaims[1] = time.Now().Add(-601 * time.Second)
-	data, err = client.DataWithOffset(ctx, "123", 0)
+	data, err = client.DataWithOffset(ctx, "123", 0, true)
 	if err != nil || len(data) != 2 || calls != 2 {
 		t.Fatalf("incremental=%v %v calls=%d", data, err, calls)
 	}
@@ -82,11 +82,11 @@ func TestDandanplayPassiveIncrementalCacheAndFailure(t *testing.T) {
 		t.Fatal("manual refresh must report upstream failure")
 	}
 	repo.dandanplayClaims[1] = time.Now().Add(-601 * time.Second)
-	data, err = client.DataWithOffset(ctx, "123", 0)
+	data, err = client.DataWithOffset(ctx, "123", 0, true)
 	if err != nil || len(data) != 2 {
 		t.Fatal("passive error discarded stale data")
 	}
-	if _, _, err = client.PreparePool(ctx, "bad"); err == nil || len(repo.dandanplayPools) != 1 {
+	if _, _, err = client.PreparePool(ctx, "bad", true); err == nil || len(repo.dandanplayPools) != 1 {
 		t.Fatal("invalid identity reached storage")
 	}
 }

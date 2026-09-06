@@ -4,7 +4,11 @@
 
 ## 弹幕池
 
-新增弹幕池时可通过 **关键词搜索 → 选择作品 → 选择剧集** 自动填入剧集 ID，也可手动输入弹弹play **剧集 ID（episodeId，正整数）** 创建并立即拉取，不使用番剧 ID 或本地视频 ID。相同剧集 ID 只建立一个弹幕池，前导零会归一化
+新增弹幕池时可通过 **关键词搜索 → 选择作品 → 选择剧集** 自动填入剧集 ID，也可手动输入弹弹play **剧集 ID（episodeId，正整数）** 创建并立即拉取，不使用番剧 ID 或本地视频 ID。剧集 ID 前导零会归一化
+
+2.10.1 起支持「包含关联弹幕」开关，默认开启。弹幕池唯一键为 `episodeId + withRelated`，同一剧集可以同时建立包含、不包含关联弹幕的两个池；创建后模式固定，不会将另一种模式的数据增量混入已有池
+
+两种模式拥有独立池 ID、同步窗口、Redis 数据缓存和池级关键词规则，视频可分别关联两种模式并设置各自偏移。列表、关键词作用范围和视频关联选项均展示对应模式。视频同时关联两个池时仍应用现有跨池去重规则
 
 搜索先请求 `/v2/search/anime?keyword=...`，无结果时会去掉季度信息再尝试一次；选定作品后请求 `/v2/bangumi/{animeId}` 加载剧集。搜索和查看剧集不会创建弹幕池或拉取弹幕，只有「创建并同步」才会执行写入
 
@@ -33,12 +37,14 @@
 
 ## 公开 API
 
-均为 GET，支持有符号的 `offset` 秒数
+均为 GET，支持有符号的 `offset` 秒数和 `withRelated=true/false`，省略 `withRelated` 时保持默认 `true`。该参数控制上游关联弹幕开关，并不用于逐条判定原始平台
 
 - DPlayer：`/api/danmaku/dplayer/v3/dandanplay/?episodeId=123&offset=-1.5`
 - 通用 JSON：`/api/danmaku/v1/dandanplay?episodeId=123&offset=2`
 - bilibili XML：`/api/danmaku/v1/dandanplay/xml?episodeId=123`
 - ArtPlayer：`/api/danmaku/artplayer/v1/dandanplay?episodeId=123`
+
+不含关联弹幕示例：`/api/danmaku/dplayer/v3/dandanplay/?episodeId=123&withRelated=false`
 
 关联视频后，原有视频读取与导出接口自动包含该池。软删除视频仍返回空弹幕，不能由外部调用恢复
 
@@ -49,7 +55,7 @@
 - GET `/api/admin/dandanplay/search?keyword={作品名称}`
 - GET `/api/admin/dandanplay/anime/{animeId}/episodes`
 
-- GET/POST `/api/admin/dandanplay/pools`，新增请求体 `{"episodeId":"123"}`
+- GET/POST `/api/admin/dandanplay/pools`，新增请求体 `{"episodeId":"123","withRelated":false}`，省略 `withRelated` 时默认开启
 - POST `/api/admin/dandanplay/pools/{id}/sync`
 - GET `/api/admin/dandanplay/pools/{id}/danmaku`
 - PATCH `/api/admin/dandanplay/danmaku/{id}/blocked`，请求体 `{"blocked":true}`
@@ -59,3 +65,5 @@
 - DELETE `/api/admin/videos/{videoId}/dandanplay-bindings/{bindingId}`
 
 服务启动时在现有迁移事务内自动创建 `DandanplayDanmakuPool`、`DandanplayDanmaku`、`DandanplayDanmakuKeyword`、`DandanplayDanmakuBinding` 及索引、外键，无需手动执行 SQL
+
+2.10.1 启动时自动补齐 `WithRelated` 字段并将剧集 ID 单列唯一索引替换为组合唯一索引。已有池保持 `withRelated=true`，池 ID、历史弹幕、屏蔽状态、关键词和视频关联均保留；不会自动复制或清理历史数据

@@ -55,6 +55,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiMutation } from "@/hooks/use-api-mutation";
+import { dandanplayPoolLabel } from "@/lib/dandanplay";
 import { formatDateTime } from "@/lib/format";
 
 type Paged<T> = { total: number; list: T[] };
@@ -101,6 +102,7 @@ function PoolPanel() {
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [episodeId, setEpisodeID] = useState("");
+  const [withRelated, setWithRelated] = useState(true);
   const [selectedPool, setSelectedPool] = useState<DandanplayPool | null>(null);
   const [bindingPool, setBindingPool] = useState<DandanplayPool | null>(null);
   const pools = useQuery({
@@ -115,7 +117,7 @@ function PoolPanel() {
       ).data,
   });
   const create = useApiMutation<
-    { episodeId: string },
+    { episodeId: string; withRelated: boolean },
     ApiResponse<PoolMutationResult>
   >({
     mutationFn: (body) => apiPost("/api/admin/dandanplay/pools", body),
@@ -137,7 +139,7 @@ function PoolPanel() {
       {
         key: "pool",
         label: "弹幕池",
-        render: (pool) => <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}><span className="truncate font-mono">{pool.episodeId}</span></Button>,
+        render: (pool) => <Button type="button" variant="link" className="h-auto max-w-full justify-start p-0 text-left" onClick={() => setSelectedPool(pool)}><span className="truncate font-mono">{dandanplayPoolLabel(pool)}</span></Button>,
       },
       {
         key: "data",
@@ -276,11 +278,12 @@ function PoolPanel() {
             onSubmit={(event) => {
               event.preventDefault();
               create.mutate(
-                { episodeId: episodeId.trim() },
+                { episodeId: episodeId.trim(), withRelated },
                 {
                   onSuccess: () => {
                     setCreateOpen(false);
                     setEpisodeID("");
+                    setWithRelated(true);
                   },
                 },
               );
@@ -307,6 +310,11 @@ function PoolPanel() {
                 onChange={(event) => setEpisodeID(event.target.value)}
               />
             </Field>
+            <Field orientation="horizontal" data-disabled={create.isPending}>
+              <FieldLabel htmlFor="dandanplay-with-related">包含关联弹幕</FieldLabel>
+              <Switch id="dandanplay-with-related" checked={withRelated} onCheckedChange={setWithRelated} disabled={create.isPending} />
+            </Field>
+            <FieldDescription>同一剧集可分别创建包含、不包含关联弹幕的独立弹幕池，创建后不可切换</FieldDescription>
             </FieldGroup>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -367,7 +375,7 @@ function BindingDialog({ pool, onOpenChange }: { pool: DandanplayPool | null; on
           <DialogHeader>
             <DialogTitle>关联视频</DialogTitle>
             <DialogDescription>
-              将 {pool?.episodeId ?? "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
+              将 {pool ? dandanplayPoolLabel(pool) : "当前弹幕池"} 关联到现有视频；重复关联会更新偏移量
             </DialogDescription>
           </DialogHeader>
           {videos.isError ? (
@@ -475,7 +483,7 @@ function PoolDanmakuDialog({ pool, onOpenChange }: { pool: DandanplayPool | null
     <Dialog open={Boolean(pool)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>{pool?.episodeId ?? "弹幕池详情"}</DialogTitle>
+          <DialogTitle>{pool ? dandanplayPoolLabel(pool) : "弹幕池详情"}</DialogTitle>
           <DialogDescription>关键词命中的弹幕会自动隐藏；手动屏蔽状态可在这里单独调整</DialogDescription>
         </DialogHeader>
         <form
@@ -543,7 +551,7 @@ function KeywordPanel({ pools }: { pools: DandanplayPool[] }) {
   });
   const columns: DataColumn<DandanplayKeyword>[] = [
     { key: "keyword", label: "关键词", render: (item) => <span className="font-medium">{item.keyword}</span> },
-    { key: "scope", label: "作用范围", render: (item) => <Badge variant={item.poolId ? "secondary" : "default"}>{item.poolId ? item.poolEpisodeId : "全局"}</Badge> },
+    { key: "scope", label: "作用范围", render: (item) => <Badge variant={item.poolId ? "secondary" : "default"}>{item.poolId ? dandanplayPoolLabel({episodeId: item.poolEpisodeId, withRelated: item.withRelated}) : "全局"}</Badge> },
     { key: "created", label: "创建时间", className: "whitespace-nowrap", render: (item) => formatDateTime(item.createTime) },
     {
       key: "actions",
@@ -586,7 +594,7 @@ function KeywordPanel({ pools }: { pools: DandanplayPool[] }) {
                 id="dandanplay-keyword-scope"
                 options={[
                   { value: "global", label: "全部弹幕池" },
-                  ...pools.map((pool) => ({ value: String(pool.id), label: pool.episodeId })),
+                  ...pools.map((pool) => ({ value: String(pool.id), label: dandanplayPoolLabel(pool) })),
                 ]}
                 value={scope}
                 searchPlaceholder="搜索弹幕池"

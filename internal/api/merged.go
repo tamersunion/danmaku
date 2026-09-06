@@ -97,7 +97,7 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 		}
 	}
 	for _, binding := range dandanplay {
-		_, _, err = s.dandanplay.ensurePool(ctx, binding.PoolEpisodeID, false, true)
+		_, _, err = s.dandanplay.ensurePool(ctx, binding.PoolEpisodeID, false, true, binding.WithRelated)
 		if err != nil {
 			return nil, err
 		}

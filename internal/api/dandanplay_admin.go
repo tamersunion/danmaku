@@ -54,7 +54,8 @@ func (s *Server) listDandanplayPools(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createDandanplayPool(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		EpisodeID string `json:"episodeId"`
+		EpisodeID   string `json:"episodeId"`
+		WithRelated *bool  `json:"withRelated"`
 	}
 	if !s.decodeJSON(w, r, &request) {
 		return
@@ -64,7 +65,11 @@ func (s *Server) createDandanplayPool(w http.ResponseWriter, r *http.Request) {
 		s.writeDandanplayAdminFailure(w, "请输入有效的弹弹play 剧集 ID（正整数）")
 		return
 	}
-	pool, inserted, err := s.dandanplay.PreparePool(r.Context(), request.EpisodeID)
+	withRelated := true
+	if request.WithRelated != nil {
+		withRelated = *request.WithRelated
+	}
+	pool, inserted, err := s.dandanplay.PreparePool(r.Context(), request.EpisodeID, withRelated)
 	if err != nil {
 		s.writeError(w, err)
 		return

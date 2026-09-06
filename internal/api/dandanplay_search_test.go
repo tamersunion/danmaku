@@ -29,11 +29,13 @@ func TestDandanplayLive(t *testing.T) {
 	if err != nil || len(episodes) == 0 {
 		t.Fatalf("live episodes count=%d err=%v", len(episodes), err)
 	}
-	data, err := client.DataWithOffset(ctx, episodes[0].EpisodeID, 0)
-	if err != nil || len(data) == 0 {
-		t.Fatalf("live comments count=%d err=%v", len(data), err)
+	for _, withRelated := range []bool{true, false} {
+		data, err := client.DataWithOffset(ctx, episodes[0].EpisodeID, 0, withRelated)
+		if err != nil || len(data) == 0 {
+			t.Fatalf("live comments mode=%t count=%d err=%v", withRelated, len(data), err)
+		}
+		t.Logf("search=%d anime=%s episodes=%d episode=%s withRelated=%t comments=%d", len(animes), animes[0].AnimeID, len(episodes), episodes[0].EpisodeID, withRelated, len(data))
 	}
-	t.Logf("search=%d anime=%s episodes=%d episode=%s comments=%d", len(animes), animes[0].AnimeID, len(episodes), episodes[0].EpisodeID, len(data))
 }
 
 func TestDandanplaySearchAndEpisodes(t *testing.T) {

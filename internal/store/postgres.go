@@ -438,7 +438,9 @@ func schemaStatements() []string {
 				FOREIGN KEY ("Vid") REFERENCES "Video" ("Vid") ON UPDATE CASCADE ON DELETE RESTRICT;
 			END IF;
 		END $$`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuPool_EpisodeId" ON "DandanplayDanmakuPool" ("EpisodeId")`,
+		`ALTER TABLE "DandanplayDanmakuPool" ADD COLUMN IF NOT EXISTS "WithRelated" boolean NOT NULL DEFAULT TRUE`,
+		`DROP INDEX IF EXISTS "UX_DandanplayDanmakuPool_EpisodeId"`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuPool_EpisodeId_WithRelated" ON "DandanplayDanmakuPool" ("EpisodeId","WithRelated")`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmaku_Pool_TimeMillis_ContentHash" ON "DandanplayDanmaku" ("PoolId", "TimeMillis", "ContentHash")`,
 		`CREATE INDEX IF NOT EXISTS "IX_DandanplayDanmaku_Pool_IsBlocked" ON "DandanplayDanmaku" ("PoolId", "IsBlocked")`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS "UX_DandanplayDanmakuKeyword_Global" ON "DandanplayDanmakuKeyword" ("KeywordHash") WHERE "PoolId" IS NULL`,

@@ -25,14 +25,14 @@ func (f *fakeDandanplayRepository) DandanplayPool(_ context.Context, id int) (*d
 	}
 	return nil, nil
 }
-func (f *fakeDandanplayRepository) EnsureDandanplayPool(_ context.Context, vid string) (*domain.DandanplayPool, error) {
+func (f *fakeDandanplayRepository) EnsureDandanplayPool(_ context.Context, vid string, withRelated bool) (*domain.DandanplayPool, error) {
 	for index := range f.dandanplayPools {
-		if f.dandanplayPools[index].EpisodeID == vid {
+		if f.dandanplayPools[index].EpisodeID == vid && f.dandanplayPools[index].WithRelated == withRelated {
 			value := f.dandanplayPools[index]
 			return &value, nil
 		}
 	}
-	value := domain.DandanplayPool{ID: len(f.dandanplayPools) + 1, EpisodeID: vid}
+	value := domain.DandanplayPool{ID: len(f.dandanplayPools) + 1, EpisodeID: vid, WithRelated: withRelated}
 	f.dandanplayPools = append(f.dandanplayPools, value)
 	return &value, nil
 }
@@ -138,7 +138,7 @@ func (f *fakeDandanplayRepository) UpsertVideoDandanplayBinding(_ context.Contex
 			return &f.dandanplayBindings[index], nil
 		}
 	}
-	value := domain.DandanplayBinding{ID: len(f.dandanplayBindings) + 1, Vid: video.Vid, PoolID: poolID, PoolEpisodeID: pool.EpisodeID, Offset: offset}
+	value := domain.DandanplayBinding{ID: len(f.dandanplayBindings) + 1, Vid: video.Vid, PoolID: poolID, PoolEpisodeID: pool.EpisodeID, WithRelated: pool.WithRelated, Offset: offset}
 	f.dandanplayBindings = append(f.dandanplayBindings, value)
 	return &f.dandanplayBindings[len(f.dandanplayBindings)-1], nil
 }

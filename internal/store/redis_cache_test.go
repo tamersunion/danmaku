@@ -40,6 +40,25 @@ func TestCachedDanmakuUsesRedisAndInvalidatesByRevision(t *testing.T) {
 	}
 }
 
+func TestDandanplaySeparatePoolIDsDoNotShareRedisData(t *testing.T) {
+	server := miniredis.RunT(t)
+	repo := &Postgres{redis: redis.NewClient(&redis.Options{Addr: server.Addr()}), cachePrefix: "ddp-modes", cacheTTL: time.Hour}
+	t.Cleanup(func() { _ = repo.redis.Close() })
+	loads := map[string]int{}
+	// The composite database key allocates a different ID to each related mode.
+	for pass := 0; pass < 2; pass++ {
+		for _, poolID := range []string{"1", "2"} {
+			data, err := repo.cachedDanmaku(context.Background(), "dandanplay", poolID, func(context.Context) ([]domain.DanmakuData, error) {
+				loads[poolID]++
+				return []domain.DanmakuData{{Text: &poolID}}, nil
+			})
+			if err != nil || len(data) != 1 || *data[0].Text != poolID || loads[poolID] != 1 {
+				t.Fatalf("cache mixed pool IDs: %v %v", data, err)
+			}
+		}
+	}
+}
+
 func TestMergedCacheInvalidation(t *testing.T) {
 	for _, useRedis := range []bool{false, true} {
 		t.Run(fmt.Sprint("redis=", useRedis), func(t *testing.T) {

@@ -50,13 +50,27 @@ func TestDandanplayPostgresIntegration(t *testing.T) {
 	}
 	defer pool.Close()
 	repo := &Postgres{pool: pool, cacheTTL: time.Hour}
-	// Simulate an existing installation without this provider, then restart twice.
+	// Simulate 2.10.0 with an existing pool and the episode-only unique index.
 	for _, sql := range schemaStatements() {
 		if !strings.Contains(sql, "Dandanplay") {
 			if _, err := pool.Exec(ctx, sql); err != nil {
 				t.Fatal(err)
 			}
 		}
+	}
+	for _, sql := range schemaStatements() {
+		if strings.HasPrefix(sql, `CREATE TABLE IF NOT EXISTS "DandanplayDanmakuPool"`) {
+			if _, err := pool.Exec(ctx, sql); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := pool.Exec(ctx, `CREATE UNIQUE INDEX "UX_DandanplayDanmakuPool_EpisodeId" ON "DandanplayDanmakuPool" ("EpisodeId")`); err != nil {
+		t.Fatal(err)
+	}
+	var oldPoolID int
+	if err := pool.QueryRow(ctx, `INSERT INTO "DandanplayDanmakuPool" ("EpisodeId","CreateTime","UpdateTime") VALUES ('123',NOW(),NOW()) RETURNING "Id"`).Scan(&oldPoolID); err != nil {
+		t.Fatal(err)
 	}
 	for range 2 {
 		if err := repo.Initialize(ctx); err != nil {
@@ -67,13 +81,17 @@ func TestDandanplayPostgresIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, err := repo.EnsureDandanplayPool(ctx, "00123")
-	if err != nil || source.EpisodeID != "123" {
+	source, err := repo.EnsureDandanplayPool(ctx, "00123", true)
+	if err != nil || source.EpisodeID != "123" || !source.WithRelated || source.ID != oldPoolID {
 		t.Fatalf("pool=%v err=%v", source, err)
 	}
-	same, err := repo.EnsureDandanplayPool(ctx, "123")
+	same, err := repo.EnsureDandanplayPool(ctx, "123", true)
 	if err != nil || same.ID != source.ID {
 		t.Fatal("duplicate pool")
+	}
+	withoutRelated, err := repo.EnsureDandanplayPool(ctx, "123", false)
+	if err != nil || withoutRelated.WithRelated || withoutRelated.ID == source.ID {
+		t.Fatalf("second mode=%v err=%v", withoutRelated, err)
 	}
 	claim, err := repo.ClaimDandanplayPoolSync(ctx, source.ID, time.Minute, false)
 	if err != nil || !claim {
@@ -149,6 +167,25 @@ func TestDandanplayPostgresIntegration(t *testing.T) {
 	bindings, err := repo.VideoDandanplayBindings(ctx, video.ID)
 	if err != nil || len(bindings) != 0 {
 		t.Fatal("binding not removed")
+	}
+	if _, err := repo.MergeDandanplayDanmaku(ctx, withoutRelated.ID, []domain.DanmakuData{{Time: 3, Text: stringForDandanplayTest("independent")}}); err != nil {
+		t.Fatal(err)
+	}
+	visible, err = repo.DandanplayPoolData(ctx, withoutRelated.ID)
+	if err != nil || len(visible) != 1 || *visible[0].Text != "independent" {
+		t.Fatal("pool data mixed across related modes")
+	}
+	for _, id := range []int{source.ID, withoutRelated.ID} {
+		if _, err := repo.UpsertVideoDandanplayBinding(ctx, video.ID, id, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	detail, err = repo.Video(ctx, video.ID)
+	if err != nil || detail.DandanplayPoolCount != 2 || len(detail.DandanplayBindings) != 2 {
+		t.Fatalf("two-mode bindings=%v err=%v", detail, err)
+	}
+	if detail.DandanplayBindings[0].WithRelated == detail.DandanplayBindings[1].WithRelated {
+		t.Fatal("binding mode metadata was lost")
 	}
 }
 
