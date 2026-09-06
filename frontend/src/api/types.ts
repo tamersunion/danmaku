@@ -228,6 +228,8 @@ export type ManagedVideo = {
   bilibiliBindings?: BilibiliBinding[];
   iqiyiPoolCount: number;
   animekoPoolCount: number;
+  catalogPoolCount: number;
+  catalogBindings?: (CatalogBinding & { source: "bahamut" | "tencent" | "youku" })[];
   animekoBindings?: AnimekoBinding[];
   dandanplayPoolCount: number;
   iqiyiBindings?: IqiyiBinding[];
@@ -263,6 +265,9 @@ export type UserProfile = {
   createTime: string;
   updateTime: string;
 };
+export type { CatalogPool, CatalogBinding, CatalogPoolDanmaku, CatalogKeyword } from "./catalog-types";
+import type { CatalogBinding } from "./catalog-types";
+
 export type AnimekoPool = {
   id: number;
   episodeId: string;

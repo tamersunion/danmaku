@@ -19,6 +19,7 @@ import (
 )
 
 type Server struct {
+	catalogs      map[string]*Catalog
 	refresh       *backgroundRefresh
 	config        config.Config
 	repository    store.Repository
@@ -58,6 +59,11 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 		return nil, err
 	}
 	server.refresh = newBackgroundRefresh(ctx, logger)
+	server.catalogs = map[string]*Catalog{
+		"bahamut": NewCatalog(repository, "bahamut", cfg.Bahamut, server.refresh),
+		"tencent": NewCatalog(repository, "tencent", cfg.Tencent, server.refresh),
+		"youku":   NewCatalog(repository, "youku", cfg.Youku, server.refresh),
+	}
 	server.bilibili.refresh = server.refresh
 	server.iqiyi.refresh = server.refresh
 	server.dandanplay.refresh = server.refresh
@@ -99,6 +105,8 @@ func (s *Server) serveAPI(w http.ResponseWriter, r *http.Request) {
 		s.queryAID(w, r)
 	case path == "/api/danmaku/export" && r.Method == http.MethodGet:
 		s.exportDanmaku(w, r)
+	case catalogRoute(path) != "":
+		s.serveCatalogData(w, r, path, s.catalogs[catalogRoute(path)])
 	case path == "/api/danmaku/dplayer/v3/animeko" || path == "/api/danmaku/artplayer/v1/animeko" || path == "/api/danmaku/v1/animeko" || path == "/api/danmaku/v1/animeko/xml":
 		s.serveAnimekoData(w, r, path)
 	case path == "/api/danmaku/dplayer/v3/dandanplay" || path == "/api/danmaku/artplayer/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay" || path == "/api/danmaku/v1/dandanplay/xml":

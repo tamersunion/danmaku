@@ -51,6 +51,9 @@ const titles: Array<[RegExp, string]> = [
   [/^\/bilibili/, "bilibili"],
   [/^\/iqiyi/, "爱奇艺"],
   [/^\/animeko/, "Animeko"],
+  [/^\/bahamut/, "巴哈姆特"],
+  [/^\/tencent/, "腾讯视频"],
+  [/^\/youku/, "优酷"],
   [/^\/dandanplay/, "弹弹play"],
   [/^\/external/, "外部导入"],
   [/^\/users/, "用户管理"],
@@ -170,6 +173,36 @@ function AppShellContent() {
                     >
                       <DatabaseIcon />
                       <span>Animeko</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+<SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="巴哈姆特"
+                      isActive={location.pathname.startsWith("/bahamut")}
+                      render={<NavLink to="/bahamut" />}
+                    >
+                      <DatabaseIcon />
+                      <span>巴哈姆特</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+<SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="腾讯视频"
+                      isActive={location.pathname.startsWith("/tencent")}
+                      render={<NavLink to="/tencent" />}
+                    >
+                      <DatabaseIcon />
+                      <span>腾讯视频</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+<SidebarMenuItem>
+                    <SidebarMenuButton
+                      tooltip="优酷"
+                      isActive={location.pathname.startsWith("/youku")}
+                      render={<NavLink to="/youku" />}
+                    >
+                      <DatabaseIcon />
+                      <span>优酷</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>

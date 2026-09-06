@@ -6,6 +6,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/andybalholm/brotli v1.2.3
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/longbridgeapp/opencc v0.3.13
 	github.com/philippseith/signalr v0.11.0
 	github.com/redis/go-redis/v9 v9.17.3
 	google.golang.org/protobuf v1.36.11
@@ -22,6 +23,8 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/liuzl/cedar-go v0.0.0-20170805034717-80a9c64b256d // indirect
+	github.com/liuzl/da v0.0.0-20180704015230-14771aad5b1d // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.61.0 // indirect
 	github.com/quic-go/webtransport-go v0.12.0 // indirect

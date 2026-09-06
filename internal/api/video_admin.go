@@ -31,6 +31,19 @@ func (s *Server) serveVideoAdmin(w http.ResponseWriter, r *http.Request, path st
 		s.writeVideoAdminFailure(w, "视频 ID 无效")
 		return
 	}
+	if len(parts) >= 2 {
+		if i := s.catalogs[strings.TrimSuffix(parts[1], "-bindings")]; i != nil && strings.HasSuffix(parts[1], "-bindings") {
+			if len(parts) == 2 && r.Method == http.MethodPost {
+				s.upsertVideoCatalogBinding(w, r, videoID, i)
+				return
+			}
+			if len(parts) == 3 && r.Method == http.MethodDelete {
+				bindingID, _ := strconv.Atoi(parts[2])
+				s.deleteVideoCatalogBinding(w, r, videoID, bindingID, i)
+				return
+			}
+		}
+	}
 	switch {
 	case len(parts) == 1 && r.Method == http.MethodGet:
 		s.getVideo(w, r, videoID)

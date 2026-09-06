@@ -91,7 +91,7 @@ func (p *Postgres) Initialize(ctx context.Context) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	for _, statement := range schemaStatements() {
+	for _, statement := range append(schemaStatements(), catalogSchemaStatements()...) {
 		if _, err := tx.Exec(ctx, statement); err != nil {
 			return fmt.Errorf("initialize PostgreSQL schema: %w", err)
 		}

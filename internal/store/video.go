@@ -17,11 +17,17 @@ const managedVideoSelect = `SELECT v."Id",v."Vid",COALESCE(v."Name",''),v."IsDel
 	(SELECT COUNT(*)::integer FROM "IqiyiDanmakuBinding" i WHERE i."Vid"=v."Vid"),
 	(SELECT COUNT(*)::integer FROM "DandanplayDanmakuBinding" i WHERE i."Vid"=v."Vid"),
 	(SELECT COUNT(*)::integer FROM "AnimekoDanmakuBinding" i WHERE i."Vid"=v."Vid"),
+ ( (SELECT COUNT(*) FROM "BahamutDanmakuBinding" b WHERE b."Vid"=v."Vid")+
+   (SELECT COUNT(*) FROM "TencentDanmakuBinding" b WHERE b."Vid"=v."Vid")+
+   (SELECT COUNT(*) FROM "YoukuDanmakuBinding" b WHERE b."Vid"=v."Vid"))::integer,
 	(SELECT COUNT(*)::integer FROM "ExternalDanmakuBinding" e WHERE e."Vid"=v."Vid"),
 	((SELECT COUNT(*) FROM "BilibiliDanmaku" d JOIN "BilibiliDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "IqiyiDanmaku" d JOIN "IqiyiDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "DandanplayDanmaku" d JOIN "DandanplayDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "AnimekoDanmaku" d JOIN "AnimekoDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
+ (SELECT COUNT(*) FROM "BahamutDanmaku" d JOIN "BahamutDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
+ (SELECT COUNT(*) FROM "TencentDanmaku" d JOIN "TencentDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
+ (SELECT COUNT(*) FROM "YoukuDanmaku" d JOIN "YoukuDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid")+
 	 (SELECT COUNT(*) FROM "ExternalDanmaku" d JOIN "ExternalDanmakuBinding" b ON b."PoolId"=d."PoolId" WHERE b."Vid"=v."Vid"))::integer,
 	v."CreateTime",v."UpdateTime" FROM "Video" v`
 
@@ -95,6 +101,15 @@ func (p *Postgres) Video(ctx context.Context, id int) (*domain.Video, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, source := range []string{"bahamut", "tencent", "youku"} {
+		bindings, err := p.Catalog(source).VideoCatalogBindings(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, binding := range bindings {
+			item.CatalogBindings = append(item.CatalogBindings, domain.SourcedCatalogBinding{CatalogBinding: binding, Source: source})
+		}
+	}
 	item.AnimekoBindings, err = p.VideoAnimekoBindings(ctx, id)
 	if err != nil {
 		return nil, err
@@ -155,7 +170,7 @@ func (p *Postgres) findOrInsertVideo(ctx context.Context, tx pgx.Tx, vid string)
 
 func scanManagedVideo(row pgx.Row) (*domain.Video, error) {
 	var item domain.Video
-	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.DandanplayPoolCount, &item.AnimekoPoolCount, &item.ExternalPoolCount, &item.ThirdPartyDanmakuCount, &item.CreateTime, &item.UpdateTime)
+	err := row.Scan(&item.ID, &item.Vid, &item.Name, &item.IsDeleted, &item.DefaultPool, &item.DanmakuCount, &item.BilibiliPoolCount, &item.IqiyiPoolCount, &item.DandanplayPoolCount, &item.AnimekoPoolCount, &item.CatalogPoolCount, &item.ExternalPoolCount, &item.ThirdPartyDanmakuCount, &item.CreateTime, &item.UpdateTime)
 	return &item, err
 }
 
@@ -169,7 +184,7 @@ func (p *Postgres) ThirdPartyPoolSizes(ctx context.Context, vid string) (map[str
  UNION ALL
  SELECT 'animeko:' || b."PoolId"::text,COUNT(d."Id") FROM "AnimekoDanmakuBinding" b LEFT JOIN "AnimekoDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"
  UNION ALL
- SELECT 'external:' || b."PoolId"::text,COUNT(d."Id") FROM "ExternalDanmakuBinding" b LEFT JOIN "ExternalDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId"`, vid)
+ SELECT 'external:' || b."PoolId"::text,COUNT(d."Id") FROM "ExternalDanmakuBinding" b LEFT JOIN "ExternalDanmaku" d ON d."PoolId"=b."PoolId" WHERE b."Vid"=$1 GROUP BY b."PoolId" UNION ALL `+catalogSizeSQL(), vid)
 	if err != nil {
 		return nil, err
 	}

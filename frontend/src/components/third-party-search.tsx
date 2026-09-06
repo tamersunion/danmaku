@@ -15,7 +15,7 @@ type Anime = { animeId: string; title: string; typeDescription: string; startDat
 type Episode = { episodeId: string; title: string; number: string };
 
 export function ThirdPartySearch({ source, episodeId, onSelect, disabled = false }: {
-  source: "animeko" | "iqiyi" | "bilibili";
+  source: "animeko" | "iqiyi" | "bilibili" | "bahamut" | "tencent" | "youku";
   episodeId: string;
   onSelect: (episodeId: string) => void;
   disabled?: boolean;

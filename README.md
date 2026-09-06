@@ -1,6 +1,6 @@
 # Danmaku Server
 
-通用弹幕服务器的 Go 重构版，支持 DPlayer、ArtPlayer、通用弹幕格式、bilibili/爱奇艺/弹弹play/Animeko 弹幕获取和管理后台。
+通用弹幕服务器的 Go 重构版，支持 DPlayer、ArtPlayer、通用弹幕格式，以及 bilibili、爱奇艺、弹弹play、Animeko、巴哈姆特、腾讯视频、优酷弹幕获取和管理后台。
 
 本次重构统一使用 `danmaku` 命名。HTTP、SignalR、管理接口和 PostgreSQL 对象中原先带 `danmu` 的名称均迁移为 `danmaku`。
 
@@ -43,6 +43,8 @@ CAS 默认接管登录流程，入口为 `/cas/login`，回调为 `/cas/callback
 
 ## 构建与测试
 
+2.12.0 新增 [巴哈姆特、腾讯视频、优酷](docs/catalog-providers.md) 的弹幕获取、关键词搜索与选集、池管理、过滤和视频关联；配置见三个对应的 `*_setting` 段。新容器启动时自动完成数据库建表和索引迁移，三家均沿用先返回缓存、再异步被动更新的读取规则。
+
 ```bash
 go test ./...
 go vet ./...
@@ -52,7 +54,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`，使用与 dnsmgr-frontend 一致的 React 19、Vite、Tailwind CSS v4、shadcn/ui Base UI Nova 预设和 Geist 字体。容器构建会先生成前端静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.11.0 -t danmaku:2.11.0 .
+docker build --build-arg DANMAKU_VERSION=2.12.0 -t danmaku:2.12.0 .
 docker compose up -d
 ```
 

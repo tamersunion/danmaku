@@ -358,7 +358,7 @@ func (b *Bilibili) Search(ctx context.Context, keyword, kind string) ([]sourceAn
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	raw, err := b.repository.Cache(ctx, "bilibili-wbi:"+b.baseURL, 3600, func(ctx context.Context) ([]byte, error) { return b.metadata(ctx, "/x/web-interface/nav") })
+	raw, err := b.repository.Cache(ctx, "bilibili-wbi:"+b.baseURL, time.Hour, func(ctx context.Context) ([]byte, error) { return b.metadata(ctx, "/x/web-interface/nav") })
 	if err != nil {
 		return nil, err
 	}

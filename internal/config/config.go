@@ -32,6 +32,9 @@ const DefaultDandanplayAPIBase = "https://api.danmaku.weeblify.app/ddp/v1"
 const DefaultDandanplaySyncIntervalSeconds = 600
 
 type Config struct {
+	Bahamut          CatalogSettings    `json:"bahamut_setting"`
+	Tencent          CatalogSettings    `json:"tencent_setting"`
+	Youku            CatalogSettings    `json:"youku_setting"`
 	Animeko          AnimekoSettings    `json:"animeko_setting"`
 	Dandanplay       DandanplaySettings `json:"dandanplay_setting"`
 	KestrelSettings  ListenerSettings   `json:"kestrel_settings"`
@@ -125,6 +128,7 @@ type CASSettings struct {
 
 func defaults() Config {
 	return Config{
+		Bahamut: DefaultCatalogSettings("bahamut"), Tencent: DefaultCatalogSettings("tencent"), Youku: DefaultCatalogSettings("youku"),
 		KestrelSettings: ListenerSettings{Host: "127.0.0.1", Port: 80},
 		DanmakuSQL:      DatabaseSettings{Host: "127.0.0.1", Port: 5432, PoolSize: 8},
 		Admin:           AdminSettings{MaxAgeSeconds: DefaultAdminSessionMaxAgeSeconds},
@@ -299,6 +303,11 @@ func Load(path string) (Config, error) {
 			if err := validateAbsoluteURL(cfg.CAS.ValidationURL, "cas.validation_url"); err != nil {
 				return Config{}, err
 			}
+		}
+	}
+	for source, settings := range map[string]*CatalogSettings{"bahamut": &cfg.Bahamut, "tencent": &cfg.Tencent, "youku": &cfg.Youku} {
+		if err := settings.validate(source); err != nil {
+			return Config{}, err
 		}
 	}
 	return cfg, nil

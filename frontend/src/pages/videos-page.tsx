@@ -1,3 +1,5 @@
+import type { CatalogPool, CatalogBinding } from "@/api/types";
+import { catalogSources, catalogLabels, catalogPoolLabel } from "@/lib/catalog";
 import { AddDanmakuForm } from "@/components/add-danmaku-form";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -169,6 +171,13 @@ export function VideosPage() {
         })
       ).data.list,
   });
+  const catalogPools = useQuery({
+    queryKey: ["catalog-pool-options"],
+    queryFn: async () => (await Promise.all(catalogSources.map(async (source) => {
+      const response = await apiGet<ApiResponse<Paged<CatalogPool>>>(`/api/admin/${source}/pools`, {page: 1, size: 500});
+      return response.data.list.map((pool) => ({...pool, source}));
+    }))).flat(),
+  });
   const externalPools = useQuery({
     queryKey: ["external-pool-options"],
     queryFn: async () =>
@@ -228,7 +237,7 @@ export function VideosPage() {
         render: (video) => (
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">系统弹幕池 {video.danmakuCount} 条</Badge>
-            <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.dandanplayPoolCount + video.animekoPoolCount + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
+            <Badge variant="outline">第三方弹幕池 {video.bilibiliPoolCount + video.iqiyiPoolCount + video.dandanplayPoolCount + video.animekoPoolCount + (video.catalogPoolCount ?? 0) + video.externalPoolCount} 个 {video.thirdPartyDanmakuCount} 条</Badge>
           </div>
         ),
       },
@@ -453,6 +462,7 @@ export function VideosPage() {
         bilibiliPools={bilibiliPools.data ?? []}
         iqiyiPools={iqiyiPools.data ?? []}
         animekoPools={animekoPools.data ?? []}
+        catalogPools={catalogPools.data ?? []}
         dandanplayPools={dandanplayPools.data ?? []}
         externalPools={externalPools.data ?? []}
         onOpenChange={(open) => {
@@ -468,6 +478,7 @@ function VideoDialog({
   bilibiliPools,
   iqiyiPools,
   animekoPools,
+  catalogPools,
   dandanplayPools,
   externalPools,
   onOpenChange,
@@ -476,13 +487,14 @@ function VideoDialog({
   bilibiliPools: BilibiliPool[];
   iqiyiPools: IqiyiPool[];
   animekoPools: AnimekoPool[];
+  catalogPools: (CatalogPool & {source: "bahamut" | "tencent" | "youku"})[];
   dandanplayPools: DandanplayPool[];
   externalPools: ExternalPool[];
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [source, setSource] = useState<"bilibili" | "iqiyi" | "dandanplay" | "animeko" | "external">("bilibili");
+  const [source, setSource] = useState<"bilibili" | "iqiyi" | "dandanplay" | "animeko" | "bahamut" | "tencent" | "youku" | "external">("bilibili");
   const [poolID, setPoolID] = useState("");
   const [offset, setOffset] = useState("0");
   const [exportFormat, setExportFormat] = useState("danuni.json");
@@ -515,7 +527,7 @@ function VideoDialog({
     invalidate: [["videos"], ["video"]],
   });
   const bind = useApiMutation<
-    { source: "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "external"; poolId: number | string; offset: number },
+    { source: "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "bahamut" | "tencent" | "youku" | "external"; poolId: number | string; offset: number },
     ApiResponse<BilibiliBinding | IqiyiBinding | DandanplayBinding | AnimekoBinding | ExternalBinding>
   >({
     mutationFn: ({ source: targetSource, ...body }) =>
@@ -528,12 +540,12 @@ function VideoDialog({
       ["bilibili-pools"],
       ["iqiyi-pools"],
       ["dandanplay-pools"],
-      ["animeko-pools"],
+      ["animeko-pools"], ["bahamut-pools"], ["tencent-pools"], ["youku-pools"], ["catalog-pool-options"],
       ["external-pools"],
     ],
   });
   const remove = useApiMutation<
-    { source: "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "external"; id: number },
+    { source: "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "bahamut" | "tencent" | "youku" | "external"; id: number },
     ApiResponse<null>
   >({
     mutationFn: ({ source: targetSource, id }) =>
@@ -548,7 +560,7 @@ function VideoDialog({
       ["bilibili-pools"],
       ["iqiyi-pools"],
       ["dandanplay-pools"],
-      ["animeko-pools"],
+      ["animeko-pools"], ["bahamut-pools"], ["tencent-pools"], ["youku-pools"], ["catalog-pool-options"],
       ["external-pools"],
     ],
   });
@@ -556,6 +568,7 @@ function VideoDialog({
     | { source: "bilibili"; binding: BilibiliBinding }
     | { source: "iqiyi"; binding: IqiyiBinding }
     | { source: "animeko"; binding: AnimekoBinding }
+    | { source: "bahamut" | "tencent" | "youku"; binding: CatalogBinding }
     | { source: "dandanplay"; binding: DandanplayBinding }
     | { source: "external"; binding: ExternalBinding };
   const bindings: ThirdPartyBinding[] = [
@@ -571,6 +584,7 @@ function VideoDialog({
       source: "dandanplay" as const,
       binding,
     })),
+    ...(detail.data?.catalogBindings ?? []).map((binding) => ({source: binding.source, binding})),
     ...(detail.data?.animekoBindings ?? []).map((binding) => ({
       source: "animeko" as const,
       binding,
@@ -590,7 +604,7 @@ function VideoDialog({
             ? "bilibili"
             : item.source === "iqiyi"
               ? "爱奇艺"
-              : item.source === "animeko" ? "Animeko" : item.source === "dandanplay" ? "弹弹play" : "外部导入"}
+              : item.source === "bahamut" || item.source === "tencent" || item.source === "youku" ? catalogLabels[item.source] : item.source === "animeko" ? "Animeko" : item.source === "dandanplay" ? "弹弹play" : "外部导入"}
         </Badge>
       ),
     },
@@ -604,7 +618,7 @@ function VideoDialog({
               ? poolLabel(item.binding)
               : item.source === "iqiyi"
                 ? item.binding.poolVid
-                : item.source === "animeko" ? animekoPoolLabel({episodeId: item.binding.poolEpisodeId}) : item.source === "dandanplay" ? dandanplayPoolLabel({episodeId: item.binding.poolEpisodeId, withRelated: item.binding.withRelated}) : item.binding.poolName}
+                : item.source === "bahamut" || item.source === "tencent" || item.source === "youku" ? catalogPoolLabel({episodeId: item.binding.poolEpisodeId}) : item.source === "animeko" ? animekoPoolLabel({episodeId: item.binding.poolEpisodeId}) : item.source === "dandanplay" ? dandanplayPoolLabel({episodeId: item.binding.poolEpisodeId, withRelated: item.binding.withRelated}) : item.source === "external" ? item.binding.poolName : ""}
           </p>
           {item.source === "bilibili" ? (
             <p className="font-mono text-xs text-muted-foreground">
@@ -822,13 +836,14 @@ function VideoDialog({
                           { value: "iqiyi", label: "爱奇艺" },
                           { value: "dandanplay", label: "弹弹play" },
                           { value: "animeko", label: "Animeko" },
+                          ...catalogSources.map((source) => ({ value: source, label: catalogLabels[source] })),
                           { value: "external", label: "外部导入" },
                         ]}
                         value={source}
                         disabled={detail.data?.isDelete}
                         searchPlaceholder="搜索弹幕来源"
                         onValueChange={(value) => {
-                          setSource(value as "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "external");
+                          setSource(value as "bilibili" | "iqiyi" | "dandanplay" | "animeko" | "bahamut" | "tencent" | "youku" | "external");
                           setPoolID("");
                         }}
                       />
@@ -850,7 +865,7 @@ function VideoDialog({
                                   value: String(pool.id),
                                   label: pool.vid,
                                 }))
-                              : source === "animeko" ? animekoPools.map((pool) => ({value: String(pool.id),label: animekoPoolLabel(pool)})) : source === "dandanplay" ? dandanplayPools.map((pool) => ({value: String(pool.id),label: dandanplayPoolLabel(pool)}))
+                              : source === "bahamut" || source === "tencent" || source === "youku" ? catalogPools.filter((pool) => pool.source === source).map((pool) => ({value: String(pool.id), label: catalogPoolLabel(pool)})) : source === "animeko" ? animekoPools.map((pool) => ({value: String(pool.id),label: animekoPoolLabel(pool)})) : source === "dandanplay" ? dandanplayPools.map((pool) => ({value: String(pool.id),label: dandanplayPoolLabel(pool)}))
                               : externalPools.map((pool) => ({
                                   value: pool.id,
                                   label: `${pool.name} · ${pool.id}`,
@@ -858,7 +873,7 @@ function VideoDialog({
                         }
                         value={poolID}
                         disabled={detail.data?.isDelete}
-                        placeholder={`选择${source === "bilibili" ? " bilibili" : source === "iqiyi" ? "爱奇艺" : source === "animeko" ? " Animeko " : source === "dandanplay" ? "弹弹play" : "外部导入"}弹幕池`}
+                        placeholder={`选择${source === "bilibili" ? " bilibili" : source === "iqiyi" ? "爱奇艺" : source === "bahamut" || source === "tencent" || source === "youku" ? catalogLabels[source] : source === "animeko" ? " Animeko " : source === "dandanplay" ? "弹弹play" : "外部导入"}弹幕池`}
                         searchPlaceholder="搜索弹幕池"
                         onValueChange={setPoolID}
                       />

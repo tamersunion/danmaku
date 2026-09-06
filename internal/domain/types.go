@@ -72,26 +72,28 @@ type Referer struct {
 }
 
 type Video struct {
-	ThirdPartyDanmakuCount int                 `json:"thirdPartyDanmakuCount"`
-	ID                     int                 `json:"id"`
-	Vid                    string              `json:"vid"`
-	Name                   string              `json:"name"`
-	IsDeleted              bool                `json:"isDelete"`
-	DefaultPool            bool                `json:"defaultPool"`
-	DanmakuCount           int                 `json:"danmakuCount"`
-	BilibiliPoolCount      int                 `json:"bilibiliPoolCount"`
-	BilibiliBindings       []BilibiliBinding   `json:"bilibiliBindings,omitempty"`
-	IqiyiPoolCount         int                 `json:"iqiyiPoolCount"`
-	AnimekoPoolCount       int                 `json:"animekoPoolCount"`
-	AnimekoBindings        []AnimekoBinding    `json:"animekoBindings,omitempty"`
-	DandanplayPoolCount    int                 `json:"dandanplayPoolCount"`
-	IqiyiBindings          []IqiyiBinding      `json:"iqiyiBindings,omitempty"`
-	DandanplayBindings     []DandanplayBinding `json:"dandanplayBindings,omitempty"`
-	ExternalPoolCount      int                 `json:"externalPoolCount"`
-	ExternalBindings       []ExternalBinding   `json:"externalBindings,omitempty"`
-	Referer                *Referer            `json:"referer,omitempty"`
-	CreateTime             time.Time           `json:"createTime"`
-	UpdateTime             time.Time           `json:"updateTime"`
+	ThirdPartyDanmakuCount int                     `json:"thirdPartyDanmakuCount"`
+	ID                     int                     `json:"id"`
+	Vid                    string                  `json:"vid"`
+	Name                   string                  `json:"name"`
+	IsDeleted              bool                    `json:"isDelete"`
+	DefaultPool            bool                    `json:"defaultPool"`
+	DanmakuCount           int                     `json:"danmakuCount"`
+	BilibiliPoolCount      int                     `json:"bilibiliPoolCount"`
+	BilibiliBindings       []BilibiliBinding       `json:"bilibiliBindings,omitempty"`
+	IqiyiPoolCount         int                     `json:"iqiyiPoolCount"`
+	AnimekoPoolCount       int                     `json:"animekoPoolCount"`
+	AnimekoBindings        []AnimekoBinding        `json:"animekoBindings,omitempty"`
+	CatalogPoolCount       int                     `json:"catalogPoolCount"`
+	CatalogBindings        []SourcedCatalogBinding `json:"catalogBindings,omitempty"`
+	DandanplayPoolCount    int                     `json:"dandanplayPoolCount"`
+	IqiyiBindings          []IqiyiBinding          `json:"iqiyiBindings,omitempty"`
+	DandanplayBindings     []DandanplayBinding     `json:"dandanplayBindings,omitempty"`
+	ExternalPoolCount      int                     `json:"externalPoolCount"`
+	ExternalBindings       []ExternalBinding       `json:"externalBindings,omitempty"`
+	Referer                *Referer                `json:"referer,omitempty"`
+	CreateTime             time.Time               `json:"createTime"`
+	UpdateTime             time.Time               `json:"updateTime"`
 }
 
 // DanmakuVideo preserves the video object embedded in the existing danmaku

@@ -82,6 +82,20 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			return nil, err
 		}
 	}
+	catalog := []domain.SourcedCatalogBinding{}
+	for _, name := range []string{"bahamut", "tencent", "youku"} {
+		i := s.catalogs[name]
+		if i == nil || i.repository == nil {
+			continue
+		}
+		bindings, err := i.repository.CatalogBindingsByVID(ctx, vid)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range bindings {
+			catalog = append(catalog, domain.SourcedCatalogBinding{CatalogBinding: b, Source: name})
+		}
+	}
 	external := []domain.ExternalBinding{}
 	ext, hasExternal := s.repository.(store.ExternalRepository)
 	if hasExternal {
@@ -92,6 +106,9 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 	}
 	// Snapshot local/Redis data before scheduling refreshes, even on cache hits.
 	defer func() {
+		for _, b := range catalog {
+			s.catalogs[b.Source].refreshPool(b.PoolEpisodeID)
+		}
 		for _, binding := range animeko {
 			s.animeko.refreshPool(binding.PoolEpisodeID)
 		}
@@ -105,7 +122,7 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			s.dandanplay.refreshPool(binding.PoolEpisodeID, binding.WithRelated)
 		}
 	}()
-	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, animeko, external})
+	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, animeko, external, catalog})
 	load := func(ctx context.Context) ([]domain.DanmakuData, error) {
 		sizes := map[string]int{}
 		if source, ok := s.repository.(interface {
@@ -148,6 +165,13 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 				return nil, err
 			}
 			pools = append(pools, mergePool{size: sizes["animeko:"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
+		}
+		for _, binding := range catalog {
+			data, err := s.catalogs[binding.Source].repository.CatalogPoolData(ctx, binding.PoolID)
+			if err != nil {
+				return nil, err
+			}
+			pools = append(pools, mergePool{size: sizes[binding.Source+":"+strconv.Itoa(binding.PoolID)], data: offsetDanmaku(data, binding.Offset)})
 		}
 		for _, binding := range external {
 			data, err := ext.ExternalPoolData(ctx, binding.PoolID)
