@@ -1,24 +1,66 @@
 variables:
   DANMAKU_VERSION: 2.12.0
+  HARBOR_IMAGE: registry.hanada.info/tamersunion/danmaku
+  DOCKER_BUILDKIT: "1"
 
 stages:
   - build
+  - manifest
 
-docker-build:
-  stage: build
-  tags:
-    - debian-x86_64
+.docker-job:
   only:
     refs:
       - master
+  before_script:
+    - |
+      set -eu
+      printf '%s' "$NEXUS_PASSWORD" | docker login registry.hanada.info --username "$NEXUS_USERNAME" --password-stdin
+
+build-amd64:
+  extends: .docker-job
+  stage: build
+  tags:
+    - debian-x86_64
   script:
-    - >
-      docker login -u ${NEXUS_USERNAME} -p ${NEXUS_PASSWORD} registry.hanada.info
-    - >
-      docker buildx build \
-        --platform linux/amd64 \
-        -t registry.hanada.info/tamersunion/danmaku:latest \
-        -t registry.hanada.info/tamersunion/danmaku:${DANMAKU_VERSION} \
-        --build-arg DANMAKU_VERSION=${DANMAKU_VERSION} \
-        --push \
+    - |
+      docker build --pull --platform linux/amd64 \
+        --build-arg DANMAKU_VERSION="${DANMAKU_VERSION}" \
+        --tag "${HARBOR_IMAGE}:${DANMAKU_VERSION}-amd64" \
         .
+      docker push "${HARBOR_IMAGE}:${DANMAKU_VERSION}-amd64"
+
+build-arm64:
+  extends: .docker-job
+  stage: build
+  tags:
+    - debian-aarch64
+  script:
+    - |
+      docker build --pull --platform linux/arm64 \
+        --build-arg DANMAKU_VERSION="${DANMAKU_VERSION}" \
+        --tag "${HARBOR_IMAGE}:${DANMAKU_VERSION}-arm64" \
+        .
+      docker push "${HARBOR_IMAGE}:${DANMAKU_VERSION}-arm64"
+
+create-manifest:
+  extends: .docker-job
+  stage: manifest
+  tags:
+    - debian-x86_64
+  needs:
+    - build-amd64
+    - build-arm64
+  script:
+    - |
+      docker manifest inspect "${HARBOR_IMAGE}:${DANMAKU_VERSION}-amd64"
+      docker manifest inspect "${HARBOR_IMAGE}:${DANMAKU_VERSION}-arm64"
+
+      docker manifest create --amend "${HARBOR_IMAGE}:${DANMAKU_VERSION}" \
+        "${HARBOR_IMAGE}:${DANMAKU_VERSION}-amd64" \
+        "${HARBOR_IMAGE}:${DANMAKU_VERSION}-arm64"
+      docker manifest push --purge "${HARBOR_IMAGE}:${DANMAKU_VERSION}"
+
+      docker manifest create --amend "${HARBOR_IMAGE}:latest" \
+        "${HARBOR_IMAGE}:${DANMAKU_VERSION}-amd64" \
+        "${HARBOR_IMAGE}:${DANMAKU_VERSION}-arm64"
+      docker manifest push --purge "${HARBOR_IMAGE}:latest"
