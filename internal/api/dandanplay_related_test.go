@@ -44,7 +44,7 @@ func TestDandanplayRelatedPoolsAreIndependent(t *testing.T) {
 	}
 	for pass := 0; pass < 2; pass++ {
 		for _, mode := range []bool{true, false} {
-			data, err := server.dandanplay.DataWithOffset(ctx, "00123", 0, mode)
+			data, err := readDandanplayAfterRefresh(server.dandanplay, ctx, "00123", 0, mode)
 			if err != nil || len(data) != 1 || *data[0].Text != fmt.Sprint("mode-", mode) {
 				t.Fatalf("mode=%t data=%v err=%v", mode, data, err)
 			}
@@ -55,7 +55,7 @@ func TestDandanplayRelatedPoolsAreIndependent(t *testing.T) {
 	}
 	// Refreshing the false pool cannot change the mode or expire the true pool.
 	repo.dandanplayClaims[2] = time.Now().Add(-601 * time.Second)
-	if _, err := server.dandanplay.DataWithOffset(ctx, "123", 0, false); err != nil {
+	if _, err := readDandanplayAfterRefresh(server.dandanplay, ctx, "123", 0, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := server.dandanplay.SyncPool(ctx, 2); err != nil {
@@ -70,6 +70,7 @@ func TestDandanplayRelatedPoolsAreIndependent(t *testing.T) {
 		}
 	}
 	merged, err := server.mergedVideoData(httptest.NewRequest("GET", "/", nil), "mixed")
+	server.refresh.wg.Wait()
 	if err != nil || len(merged) != 2 || calls["true"] != 1 || calls["false"] != 3 {
 		t.Fatalf("merge=%v err=%v calls=%v", merged, err, calls)
 	}
@@ -77,6 +78,7 @@ func TestDandanplayRelatedPoolsAreIndependent(t *testing.T) {
 		for _, mode := range []string{"false", "true", ""} {
 			response := httptest.NewRecorder()
 			server.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/api/danmaku/"+format+"/dandanplay?episodeId=123&withRelated="+mode, nil))
+			server.refresh.wg.Wait()
 			want := mode
 			if want == "" {
 				want = "true"
@@ -88,6 +90,7 @@ func TestDandanplayRelatedPoolsAreIndependent(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/api/danmaku/v1/dandanplay?episodeId=123&withRelated=invalid", nil))
+	server.refresh.wg.Wait()
 	if response.Code != 400 || len(repo.dandanplayPools) != 2 {
 		t.Fatal("invalid mode should fail without creating a pool")
 	}

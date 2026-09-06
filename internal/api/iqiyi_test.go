@@ -46,7 +46,7 @@ func TestIqiyiDataFetchesSignedBrotliSegments(t *testing.T) {
 	defer upstream.Close()
 
 	client := testIqiyiClient(upstream.URL)
-	data, err := client.Data(context.Background(), "abc")
+	data, err := readIqiyiAfterRefresh(client, context.Background(), "abc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestIqiyiPoolKeepsCachedDanmakuWhenLaterSyncIsEmpty(t *testing.T) {
 	if err != nil || pool == nil || inserted != 0 {
 		t.Fatalf("empty sync pool=%#v inserted=%d err=%v", pool, inserted, err)
 	}
-	data, err := client.Data(context.Background(), "source-vid")
+	data, err := readIqiyiAfterRefresh(client, context.Background(), "source-vid")
 	if err != nil || len(data) != 1 || data[0].Text == nil || *data[0].Text != "cached" {
 		t.Fatalf("cached data=%#v err=%v", data, err)
 	}
@@ -173,6 +173,10 @@ func TestIqiyiDPlayerRouteKeepsExternalContract(t *testing.T) {
 
 	server := testServer(t, &fakeRepository{})
 	server.iqiyi = testIqiyiClient(upstream.URL)
+	server.iqiyi.refresh = server.refresh
+	if _, _, err := server.iqiyi.PreparePool(context.Background(), "abc"); err != nil {
+		t.Fatal(err)
+	}
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/danmaku/dplayer/v3/iqiyi/?VID=abc", nil))
 	if response.Code != http.StatusOK {
@@ -213,7 +217,7 @@ func TestIqiyiVideoInfoFallbackAndDisabledDanmaku(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	data, err := testIqiyiClient(upstream.URL).Data(context.Background(), "original")
+	data, err := readIqiyiAfterRefresh(testIqiyiClient(upstream.URL), context.Background(), "original")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +263,7 @@ func TestIqiyiLive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	client := NewIqiyi(&fakeRepository{}, config.IqiyiSettings{})
-	data, err := client.Data(ctx, vid)
+	data, err := readIqiyiAfterRefresh(client, ctx, vid)
 	if err != nil {
 		t.Fatal(err)
 	}

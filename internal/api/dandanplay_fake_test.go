@@ -17,6 +17,8 @@ type fakeDandanplayRepository struct {
 }
 
 func (f *fakeDandanplayRepository) DandanplayPool(_ context.Context, id int) (*domain.DandanplayPool, error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	for index := range f.dandanplayPools {
 		if f.dandanplayPools[index].ID == id {
 			value := f.dandanplayPools[index]
@@ -26,6 +28,8 @@ func (f *fakeDandanplayRepository) DandanplayPool(_ context.Context, id int) (*d
 	return nil, nil
 }
 func (f *fakeDandanplayRepository) EnsureDandanplayPool(_ context.Context, vid string, withRelated bool) (*domain.DandanplayPool, error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	for index := range f.dandanplayPools {
 		if f.dandanplayPools[index].EpisodeID == vid && f.dandanplayPools[index].WithRelated == withRelated {
 			value := f.dandanplayPools[index]
@@ -37,6 +41,8 @@ func (f *fakeDandanplayRepository) EnsureDandanplayPool(_ context.Context, vid s
 	return &value, nil
 }
 func (f *fakeDandanplayRepository) ClaimDandanplayPoolSync(_ context.Context, id int, interval time.Duration, force bool) (bool, error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	if f.dandanplayClaims == nil {
 		f.dandanplayClaims = map[int]time.Time{}
 	}
@@ -48,6 +54,8 @@ func (f *fakeDandanplayRepository) ClaimDandanplayPoolSync(_ context.Context, id
 	return true, nil
 }
 func (f *fakeDandanplayRepository) MergeDandanplayDanmaku(_ context.Context, poolID int, data []domain.DanmakuData) (int, error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	if f.dandanplayData == nil {
 		f.dandanplayData = map[int][]domain.DanmakuData{}
 	}
@@ -75,9 +83,13 @@ func (f *fakeDandanplayRepository) MergeDandanplayDanmaku(_ context.Context, poo
 	return inserted, nil
 }
 func (f *fakeDandanplayRepository) DandanplayPoolData(_ context.Context, poolID int) ([]domain.DanmakuData, error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	return append([]domain.DanmakuData(nil), f.dandanplayData[poolID]...), nil
 }
 func (f *fakeDandanplayRepository) DandanplayPools(context.Context, store.DandanplayPoolFilter) (domain.Page[domain.DandanplayPool], error) {
+	f.poolMu.Lock()
+	defer f.poolMu.Unlock()
 	return domain.Page[domain.DandanplayPool]{Total: len(f.dandanplayPools), List: append([]domain.DandanplayPool{}, f.dandanplayPools...)}, nil
 }
 func (f *fakeDandanplayRepository) DandanplayDanmaku(context.Context, store.DandanplayDanmakuFilter) (domain.Page[domain.DandanplayDanmaku], error) {

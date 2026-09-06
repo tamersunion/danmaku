@@ -30,7 +30,7 @@ func TestDandanplayLive(t *testing.T) {
 		t.Fatalf("live episodes count=%d err=%v", len(episodes), err)
 	}
 	for _, withRelated := range []bool{true, false} {
-		data, err := client.DataWithOffset(ctx, episodes[0].EpisodeID, 0, withRelated)
+		data, err := readDandanplayAfterRefresh(client, ctx, episodes[0].EpisodeID, 0, withRelated)
 		if err != nil || len(data) == 0 {
 			t.Fatalf("live comments mode=%t count=%d err=%v", withRelated, len(data), err)
 		}
@@ -90,6 +90,7 @@ func TestDandanplaySearchAndEpisodes(t *testing.T) {
 	for _, path := range []string{searchPath, episodePath} {
 		response = httptest.NewRecorder()
 		server.Handler().ServeHTTP(response, httptest.NewRequest("GET", path, nil))
+		server.refresh.wg.Wait()
 		if !strings.Contains(response.Body.String(), `"code":401`) {
 			t.Errorf("unauthenticated metadata access: %s", response.Body)
 		}

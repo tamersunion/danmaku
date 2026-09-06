@@ -83,25 +83,18 @@ func (s *Server) mergedVideoData(r *http.Request, vid string) ([]domain.DanmakuD
 			return nil, err
 		}
 	}
-	// Keep passive upstream refresh outside the merged-cache lookup.
-	for _, binding := range bili {
-		_, _, err = s.bilibili.ensurePool(ctx, bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID}, false, true)
-		if err != nil {
-			return nil, err
+	// Snapshot local/Redis data before scheduling refreshes, even on cache hits.
+	defer func() {
+		for _, binding := range bili {
+			s.bilibili.refreshPool(bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID})
 		}
-	}
-	for _, binding := range iqiyi {
-		_, _, err = s.iqiyi.ensurePool(ctx, binding.PoolVID, false, true)
-		if err != nil {
-			return nil, err
+		for _, binding := range iqiyi {
+			s.iqiyi.refreshPool(binding.PoolVID)
 		}
-	}
-	for _, binding := range dandanplay {
-		_, _, err = s.dandanplay.ensurePool(ctx, binding.PoolEpisodeID, false, true, binding.WithRelated)
-		if err != nil {
-			return nil, err
+		for _, binding := range dandanplay {
+			s.dandanplay.refreshPool(binding.PoolEpisodeID, binding.WithRelated)
 		}
-	}
+	}()
 	identity, _ := json.Marshal([]any{"cross-pool-v1", vid, bili, iqiyi, dandanplay, external})
 	load := func(ctx context.Context) ([]domain.DanmakuData, error) {
 		sizes := map[string]int{}

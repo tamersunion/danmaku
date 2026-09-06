@@ -37,6 +37,7 @@ const (
 )
 
 type Iqiyi struct {
+	refresh          *backgroundRefresh
 	repository       store.Repository
 	settings         config.IqiyiSettings
 	client           *http.Client
@@ -70,6 +71,7 @@ func NewIqiyi(repository store.Repository, settings config.IqiyiSettings) *Iqiyi
 		settings.SyncIntervalSeconds = config.DefaultIqiyiSyncIntervalSeconds
 	}
 	return &Iqiyi{
+		refresh:          newBackgroundRefresh(context.Background(), nil),
 		repository:       repository,
 		settings:         settings,
 		client:           &http.Client{Timeout: 60 * time.Second},
@@ -84,7 +86,14 @@ func (i *Iqiyi) Data(ctx context.Context, vid string) ([]domain.DanmakuData, err
 }
 
 func (i *Iqiyi) DataWithOffset(ctx context.Context, vid string, offset float64) ([]domain.DanmakuData, error) {
-	pool, _, err := i.ensurePool(ctx, vid, false, true)
+	vid = strings.TrimSpace(vid)
+	if vid == "" {
+		return []domain.DanmakuData{}, nil
+	}
+	pool, err := i.repository.EnsureIqiyiPool(ctx, vid)
+	if err == nil {
+		defer i.refreshPool(vid)
+	}
 	if err != nil || pool == nil {
 		return []domain.DanmakuData{}, err
 	}
@@ -180,14 +189,8 @@ func (i *Iqiyi) BoundData(ctx context.Context, vid string) ([]domain.DanmakuData
 	}
 	result := make([]domain.DanmakuData, 0)
 	for _, binding := range bindings {
-		pool, _, err := i.ensurePool(ctx, binding.PoolVID, false, true)
-		if err != nil {
-			return nil, err
-		}
-		if pool == nil {
-			continue
-		}
-		data, err := i.repository.IqiyiPoolData(ctx, pool.ID)
+		defer i.refreshPool(binding.PoolVID)
+		data, err := i.repository.IqiyiPoolData(ctx, binding.PoolID)
 		if err != nil {
 			return nil, err
 		}

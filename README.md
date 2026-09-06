@@ -16,6 +16,9 @@ go run ./cmd/danmaku -config appsettings.json
 
 2.4.0 起配置仅支持 JSON，全部字段使用 `snake_case`，未知字段会直接导致启动失败。所有配置中的时间值统一使用秒：本地会话 `admin.max_age_seconds`、CAS 会话 `cas.session_max_age_seconds`、CAS 请求超时 `cas.request_timeout_seconds`、bilibili 元数据缓存 `bilibili_setting.cid_cache_seconds`，以及 bilibili/爱奇艺弹幕池同步窗口。两种上游弹幕池的同步窗口默认均为 600 秒；窗口内返回缓存，超过后由下一次请求被动增量更新，后台“立即更新”仍可绕过窗口，服务不会定时主动刷新。2.7.0 增加可选的 `redis` 配置，`ttl_seconds` 同样以秒为单位；开启后缓存系统、bilibili、爱奇艺和外部导入弹幕池，写入、编辑、屏蔽或关键词变化会立即切换缓存版本。完整示例见 [appsettings.json](appsettings.json)，也可通过 `DANMAKU_CONFIG` 指定配置路径；环境覆盖文件使用 `DANMAKU_ENVIRONMENT` 选择，例如 `appsettings.Production.json`。
 
+2.10.2 起，公开弹幕读取（直接请求第三方或通过视频关联读取，包括导出）始终先返回本地/Redis 已有快照，再异步检查同步窗口并增量获取上游数据。首次没有缓存时返回成功的空列表，稍后请求即可读取同步结果；bilibili 的 BVID/AID → CID 元数据解析也在后台进行。bilibili、爱奇艺、弹弹play 各自沿用配置中的同步间隔，包含/不包含关联弹幕的弹弹play 池独立计时；没有请求时不会定时刷新。后台“新增弹幕池”和“立即同步”仍等待上游完成并报告错误。被动同步最多同时运行 8 个任务、合计容纳 256 个运行/等待任务；满载时跳过本次调度，由后续读取重试，不阻塞响应。请求断开不取消同步，服务停止会取消后台任务；同步写入沿用现有弹幕池及合并结果缓存失效机制。
+
+
 CAS 默认接管登录流程，入口为 `/cas/login`，回调为 `/cas/callback`，退出为 `/cas/logout`；旧入口 `/cas/auth` 继续作为原生 CAS 组合入口。紧急情况下可访问 `/login?skipsso=true` 使用本地账号。CAS 用户首次登录会自动建档，默认以普通用户（`cas.default_role: 3`）加入；管理员可在用户管理中提升角色。CAS 开启时，用户名、显示名、邮箱和头像以 CAS 返回内容为准，前端及 API 均禁止修改资料和密码。
 
 权限分为三级：管理员可管理弹幕和用户，弹幕管理员只能管理弹幕，普通用户只能查看自己的资料。数据库角色值仍分别为 `1`、`2`、`3`。
@@ -47,7 +50,7 @@ go build ./cmd/danmaku
 前端位于 `frontend`，使用与 dnsmgr-frontend 一致的 React 19、Vite、Tailwind CSS v4、shadcn/ui Base UI Nova 预设和 Geist 字体。容器构建会先生成前端静态文件，再编译 Go 单文件服务：
 
 ```bash
-docker build --build-arg DANMAKU_VERSION=2.10.1 -t danmaku:2.10.1 .
+docker build --build-arg DANMAKU_VERSION=2.10.2 -t danmaku:2.10.2 .
 docker compose up -d
 ```
 

@@ -54,6 +54,7 @@ func (s *Server) serveDandanplayData(w http.ResponseWriter, r *http.Request, pat
 
 // APIBase is a gateway endpoint accepting the official API route in ?path=.
 type Dandanplay struct {
+	refresh    *backgroundRefresh
 	repository store.DandanplayRepository
 	settings   config.DandanplaySettings
 	client     *http.Client
@@ -67,7 +68,7 @@ func NewDandanplay(repository store.Repository, settings config.DandanplaySettin
 		settings.SyncIntervalSeconds = config.DefaultDandanplaySyncIntervalSeconds
 	}
 	repo, _ := repository.(store.DandanplayRepository)
-	return &Dandanplay{repository: repo, settings: settings, client: &http.Client{Timeout: 60 * time.Second}}
+	return &Dandanplay{refresh: newBackgroundRefresh(context.Background(), nil), repository: repo, settings: settings, client: &http.Client{Timeout: 60 * time.Second}}
 }
 
 func normalizeDandanplayEpisodeID(value string) (string, error) {
@@ -88,7 +89,17 @@ func normalizeDandanplayEpisodeID(value string) (string, error) {
 }
 
 func (i *Dandanplay) DataWithOffset(ctx context.Context, episodeID string, offset float64, withRelated bool) ([]domain.DanmakuData, error) {
-	pool, _, err := i.ensurePool(ctx, episodeID, false, true, withRelated)
+	episodeID, err := normalizeDandanplayEpisodeID(episodeID)
+	if err != nil {
+		return nil, err
+	}
+	if i.repository == nil {
+		return nil, errors.New("dandanplay repository unavailable")
+	}
+	pool, err := i.repository.EnsureDandanplayPool(ctx, episodeID, withRelated)
+	if err == nil {
+		defer i.refreshPool(episodeID, withRelated)
+	}
 	if err != nil {
 		return nil, err
 	}

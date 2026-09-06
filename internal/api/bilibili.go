@@ -26,6 +26,7 @@ import (
 )
 
 type Bilibili struct {
+	refresh    *backgroundRefresh
 	repository store.Repository
 	settings   config.BilibiliSettings
 	client     *http.Client
@@ -80,11 +81,36 @@ func NewBilibili(repository store.Repository, settings config.BilibiliSettings) 
 	if settings.SyncIntervalSeconds <= 0 {
 		settings.SyncIntervalSeconds = config.DefaultBilibiliSyncIntervalSeconds
 	}
-	return &Bilibili{repository: repository, settings: settings, client: &http.Client{Timeout: 60 * time.Second}, baseURL: baseURL}
+	return &Bilibili{refresh: newBackgroundRefresh(context.Background(), nil), repository: repository, settings: settings, client: &http.Client{Timeout: 60 * time.Second}, baseURL: baseURL}
 }
 
 func (b *Bilibili) Data(ctx context.Context, query bilibiliQuery) ([]domain.DanmakuData, error) {
-	pool, _, err := b.ensurePool(ctx, query, false, true)
+	if query.Page == 0 {
+		query.Page = 1
+	}
+	query.BVID = strings.TrimSpace(query.BVID)
+	if query.CID == 0 && query.BVID == "" && query.AID != 0 {
+		archive, err := b.Archive(ctx, "", query.AID)
+		if err != nil {
+			return nil, err
+		}
+		query.BVID = archive.Data.BVID
+	}
+	var pool *domain.BilibiliPool
+	var err error
+	if query.CID != 0 {
+		pool, err = b.repository.EnsureBilibiliPool(ctx, query.BVID, query.Page, query.CID)
+	} else if query.BVID != "" {
+		pool, err = b.repository.BilibiliPoolByKey(ctx, query.BVID, query.Page)
+	} else {
+		return []domain.DanmakuData{}, nil
+	}
+	if err == nil {
+		if pool != nil {
+			query.CID = pool.CID
+		}
+		defer b.refreshPool(query)
+	}
 	if err != nil || pool == nil {
 		return []domain.DanmakuData{}, err
 	}
@@ -178,11 +204,8 @@ func (b *Bilibili) BoundData(ctx context.Context, vid string) ([]domain.DanmakuD
 	}
 	result := make([]domain.DanmakuData, 0)
 	for _, binding := range bindings {
-		pool, _, err := b.ensurePool(ctx, bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID}, false, true)
-		if err != nil {
-			return nil, err
-		}
-		data, err := b.repository.BilibiliPoolData(ctx, pool.ID)
+		defer b.refreshPool(bilibiliQuery{BVID: binding.BVID, Page: binding.Page, CID: binding.CID})
+		data, err := b.repository.BilibiliPoolData(ctx, binding.PoolID)
 		if err != nil {
 			return nil, err
 		}

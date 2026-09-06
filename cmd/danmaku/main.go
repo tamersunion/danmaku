@@ -56,6 +56,7 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	defer handler.Close()
 	httpServer := &http.Server{
 		Handler:           handler.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,

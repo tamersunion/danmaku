@@ -58,17 +58,17 @@ func TestDandanplayPassiveIncrementalCacheAndFailure(t *testing.T) {
 	repo := &fakeDandanplayRepository{}
 	client := NewDandanplay(repo, config.DandanplaySettings{APIBase: upstream.URL + "?custom=yes", SyncIntervalSeconds: 600})
 	ctx := context.Background()
-	data, err := client.DataWithOffset(ctx, "00123", 2, true)
+	data, err := readDandanplayAfterRefresh(client, ctx, "00123", 2, true)
 	if err != nil || len(data) != 1 || data[0].Time != 3.25 || calls != 1 {
 		t.Fatalf("initial=%v %v calls=%d", data, err, calls)
 	}
-	data, err = client.DataWithOffset(ctx, "123", 0, true)
+	data, err = readDandanplayAfterRefresh(client, ctx, "123", 0, true)
 	if err != nil || data[0].Time != 1.25 || calls != 1 {
 		t.Fatal("cache not reused or offset mutated cached data")
 	}
 	payload = `{"comments":[{"p":"1.25,1,16777215,u","m":"original"},{"p":"2,5,255,u","m":"new"}]}`
 	repo.dandanplayClaims[1] = time.Now().Add(-601 * time.Second)
-	data, err = client.DataWithOffset(ctx, "123", 0, true)
+	data, err = readDandanplayAfterRefresh(client, ctx, "123", 0, true)
 	if err != nil || len(data) != 2 || calls != 2 {
 		t.Fatalf("incremental=%v %v calls=%d", data, err, calls)
 	}
@@ -82,7 +82,7 @@ func TestDandanplayPassiveIncrementalCacheAndFailure(t *testing.T) {
 		t.Fatal("manual refresh must report upstream failure")
 	}
 	repo.dandanplayClaims[1] = time.Now().Add(-601 * time.Second)
-	data, err = client.DataWithOffset(ctx, "123", 0, true)
+	data, err = readDandanplayAfterRefresh(client, ctx, "123", 0, true)
 	if err != nil || len(data) != 2 {
 		t.Fatal("passive error discarded stale data")
 	}
@@ -112,12 +112,14 @@ func TestDandanplayAdminRoutesAndVideoMerge(t *testing.T) {
 	for _, path := range []string{"/api/danmaku/dplayer/v3/dandanplay/?episodeId=123&offset=2.5", "/api/danmaku/v1/dandanplay?episodeId=123&offset=2.5", "/api/danmaku/artplayer/v1/dandanplay?episodeId=123&offset=2.5", "/api/danmaku/v1/dandanplay/xml?episodeId=123&offset=2.5", "/api/danmaku/dplayer/v3?id=local-video"} {
 		response := httptest.NewRecorder()
 		server.Handler().ServeHTTP(response, httptest.NewRequest("GET", path, nil))
+		server.refresh.wg.Wait()
 		if response.Code != 200 || !strings.Contains(response.Body.String(), "linked") || !strings.Contains(response.Body.String(), "3.75") {
 			t.Errorf("%s: %d %s", path, response.Code, response.Body)
 		}
 	}
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/api/admin/dandanplay/pools", nil))
+	server.refresh.wg.Wait()
 	if !strings.Contains(response.Body.String(), `"code":401`) {
 		t.Fatal("admin API must require authentication")
 	}
@@ -129,6 +131,7 @@ func TestDandanplayAdminRoutesAndVideoMerge(t *testing.T) {
 	repo.videos[0].IsDeleted = true
 	response = httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/api/danmaku/dplayer/v3?id=local-video", nil))
+	server.refresh.wg.Wait()
 	if strings.Contains(response.Body.String(), "linked") {
 		t.Fatal("deleted video exposed linked comments")
 	}

@@ -19,6 +19,7 @@ import (
 )
 
 type Server struct {
+	refresh       *backgroundRefresh
 	config        config.Config
 	repository    store.Repository
 	bilibili      *Bilibili
@@ -54,11 +55,18 @@ func New(ctx context.Context, cfg config.Config, repository store.Repository, lo
 	if err := server.mapRealtime(ctx); err != nil {
 		return nil, err
 	}
+	server.refresh = newBackgroundRefresh(ctx, logger)
+	server.bilibili.refresh = server.refresh
+	server.iqiyi.refresh = server.refresh
+	server.dandanplay.refresh = server.refresh
 	server.mux.HandleFunc("/api/", server.serveAPI)
 	server.mux.HandleFunc("/cas/", server.serveCAS)
 	server.mux.HandleFunc("/", server.serveSPA)
 	return server, nil
 }
+
+// Close cancels and joins upstream work before the repository is closed.
+func (s *Server) Close() { s.refresh.close() }
 
 func (s *Server) Handler() http.Handler {
 	return s.recoverPanic(s.logRequests(s.cors(s.mux)))
